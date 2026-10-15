@@ -1,0 +1,36 @@
+CELI TOOLS - Changelog v0.3.0
+==============================
+
+Fitur baru: penyimpanan item per user
+-------------------------------------
+Diagram dan spec yang dibuat bisa disimpan ke akun dan dibuka kembali.
+
+Langkah instalasi
+-----------------
+1. Jalankan supabase-saved-items.sql di Supabase SQL Editor.
+2. Tambahkan file baru:
+   lib/saved.ts                        <- lib-saved.ts
+   app/saved/actions.ts                <- app-saved-actions.ts
+   app/saved/page.tsx                  <- app-saved-page.tsx
+   app/saved/[id]/page.tsx             <- app-saved-id-page.tsx
+   components/save-button.tsx          <- components-save-button.tsx
+3. Ganti app/tools/diagram/page.tsx dengan app-tools-diagram-page-v3.tsx.
+4. Tambahkan link "Tersimpan" di components navbar (app/layout.tsx):
+   <Link href="/saved">Tersimpan</Link>
+
+Cara menambah tombol simpan ke tool lain
+----------------------------------------
+Pada halaman tool mana pun, cukup import SaveButton dan berikan konten sebagai string:
+   <SaveButton type="json" content={output} />
+Tipe yang tersedia: "diagram", "api-spec", "json".
+
+Keamanan
+--------
+- RLS memastikan setiap user hanya bisa membaca dan mengubah item miliknya sendiri.
+- Judul dibatasi 120 karakter dan konten maksimal 200 KB.
+
+Rencana berikutnya
+------------------
+- Use case diagram
+- Tombol simpan di tool JSON dan API Docs
+- Edit item tersimpan dari halaman detail

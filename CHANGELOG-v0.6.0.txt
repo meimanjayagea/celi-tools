@@ -1,0 +1,34 @@
+CELI TOOLS - Changelog v0.6.0
+==============================
+
+Perbaikan dari versi sebelumnya
+-------------------------------
+1. components/usecase-diagram.tsx
+   Ganti dengan: components-usecase-diagram-clean.tsx
+   (import UCKind sudah ditambahkan)
+
+2. app/login/page.tsx
+   Ganti dengan: app-login-page-clean.tsx
+   (import yang salah dan useActionState yang tidak dipakai sudah dihapus)
+
+Fitur baru
+----------
+3. API Contract (app/tools/api-docs/page.tsx)
+   Ganti dengan: app-tools-api-docs-page-v3.tsx
+   - Mendukung ?load=<id>, sehingga item api-spec bisa dibuka dari halaman Tersimpan.
+   - Tombol Simpan / Perbarui dengan tipe "api-spec".
+
+Perbaikan opsional (JSON Beautify)
+----------------------------------
+Di app/tools/json-beautify/page.tsx, ganti SaveButton memakai content={input}
+agar yang tersimpan adalah input mentah. Versi v2 masih memakai output.
+
+Langkah push
+------------
+Commit yang disarankan:
+  git commit -m "fix: perbaiki import login dan use case diagram"
+  git commit -m "feat: API Contract dengan buka dan simpan item"
+  git tag v0.6.0
+
+Catatan: penyebab bug v0.4.0 dan v0.1.0 sudah diperbaiki di file clean,
+jadi tidak perlu commit terpisah untuk versi lama.

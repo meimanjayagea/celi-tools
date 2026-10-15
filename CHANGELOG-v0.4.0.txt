@@ -1,0 +1,52 @@
+CELI TOOLS - Changelog v0.4.0
+==============================
+
+Fitur baru
+----------
+1. Use Case Diagram: tool baru yang membaca sintaks sederhana (aktor, use case, asosiasi, include, extend) dan merender SVG. Mermaid tidak mendukung use case diagram secara native, jadi tool ini memakai renderer sendiri.
+2. Tombol simpan di Use Case Diagram (tipe "diagram").
+
+Langkah instalasi
+-----------------
+Tambahkan file baru:
+  lib/usecase.ts                      <- lib-usecase.ts
+  components/usecase-diagram.tsx      <- components-usecase-diagram.tsx
+  app/tools/usecase/page.tsx          <- app-tools-usecase-page.tsx
+
+PERBAIKAN WAJIB pada components/usecase-diagram.tsx
+---------------------------------------------------
+Baris pertama file tersebut harus diubah. Tipe UCKind belum diimpor.
+Dari:
+  import type { UCModel } from "@/lib/usecase";
+Menjadi:
+  import type { UCModel, UCKind } from "@/lib/usecase";
+
+Tambahan navigasi
+-----------------
+Di app/layout.tsx tambahkan:
+  <Link href="/tools/usecase">Use Case</Link>
+Tambahkan juga link ke /tools/usecase di halaman utama dan dashboard.
+
+Tombol simpan di tool lain (opsional, cara manual)
+--------------------------------------------------
+JSON Beautify (app/tools/json-beautify/page.tsx):
+  1. Tambahkan import:  import SaveButton from "@/components/save-button";
+  2. Di bagian header halaman, tambahkan:
+       <SaveButton type="json" content={output} />
+
+API Docs (app/tools/api-docs/page.tsx):
+  1. Tambahkan import:  import SaveButton from "@/components/save-button";
+  2. Di bagian header halaman, tambahkan:
+       <SaveButton type="api-spec" content={spec} />
+
+Catatan
+-------
+- Item bertipe "diagram" disimpan sebagai teks sintaks. Halaman detail /saved/[id] saat ini hanya menampilkan teks itu, belum membukanya kembali di tool. Ini salah satu hal yang bisa dikembangkan berikutnya.
+- Saat tombol simpan dipakai di JSON, output yang kosong tetap bisa tersimpan. Tambahkan disabled={!output} jika ingin mencegah itu.
+
+Rencana berikutnya
+------------------
+- Buka kembali item tersimpan langsung di tool (muat ulang ke editor)
+- Edit item tersimpan
+- Ekspor diagram sebagai SVG/PNG
+- Rapikan layout use case diagram untuk aktor dan use case yang banyak

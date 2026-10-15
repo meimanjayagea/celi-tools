@@ -1,0 +1,42 @@
+CELI TOOLS - Changelog v0.5.0
+==============================
+
+Fitur baru
+----------
+1. Buka kembali item tersimpan di tool. Dari halaman detail /saved/[id], klik "Buka di tool". Tool akan memuat item ke editor (?load=<id>).
+2. Edit dan simpan ulang. Jika item sudah dibuka dari tool, tombol berubah menjadi "Perbarui" dan menimpa item yang sama, tidak membuat duplikat.
+3. Tipe item dipisah: "flowchart" dan "usecase" (sebelumnya semuanya "diagram").
+
+Langkah instalasi (urutan penting)
+----------------------------------
+1. Jalankan supabase-migration-v0.5.0.sql di Supabase SQL Editor.
+   Data lama bertipe "diagram" akan dipindah otomatis ke "usecase" atau "flowchart" berdasarkan isinya.
+
+2. Ganti file lama dengan versi baru:
+   lib/saved.ts                          <- lib-saved-v2.ts (ganti isi file lama)
+   app/saved/load.ts                     <- app-saved-load.ts (baru)
+   components/save-button.tsx            <- components-save-button-v2.tsx
+   app/saved/[id]/page.tsx               <- app-saved-id-page-v2.tsx
+   app/tools/diagram/page.tsx            <- app-tools-diagram-page-v4.tsx
+   app/tools/usecase/page.tsx            <- app-tools-usecase-page-v2.tsx
+   app/tools/json-beautify/page.tsx      <- app-tools-json-beautify-page-v2.tsx
+
+3. PERBAIKAN WAJIB dari v0.4.0 (jika belum dilakukan):
+   components/usecase-diagram.tsx, baris import pertama:
+   import type { UCModel, UCKind } from "@/lib/usecase";
+
+Catatan
+-------
+- JSON Beautify: tombol Simpan memakai output. Jika user menyimpan sebelum menekan Beautify, isi yang tersimpan kosong. Untuk memperbaikinya, ganti di page JSON:
+    <SaveButton type="json" content={output} ... />
+  menjadi
+    <SaveButton type="json" content={input} ... />
+  Dengan begitu yang disimpan adalah input mentah.
+- Halaman API Docs belum mendukung ?load= dan tombol simpan. Akan ditambahkan di versi berikutnya. Item api-spec yang sudah ada tetap bisa dilihat di halaman detail.
+- Halaman tool memakai useSearchParams, jadi dibungkus Suspense. Ini wajib di Next.js App Router.
+
+Rencana berikutnya
+------------------
+- API Docs: dukungan ?load= dan tombol simpan
+- Ekspor diagram sebagai SVG/PNG
+- Hapus atau ganti nama item dari halaman tool
