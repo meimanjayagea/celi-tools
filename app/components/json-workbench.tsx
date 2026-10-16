@@ -5,8 +5,10 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEv
 import { stringify as stringifyYaml } from "yaml";
 import { cleanJson, fixJson, formatJson, toCsv, toXml } from "../lib/json-tools.mjs";
 import { TOOL_MENU_GROUPS } from "../lib/tool-menu.mjs";
+import { THEMES } from "../lib/themes.mjs";
 
 type OutputTab = "tree" | "graph" | "json" | "xml" | "csv" | "yaml";
+type ThemeId = "light" | "dark" | "ocean" | "forest";
 type ParseResult = { value: unknown; error: null } | { value: null; error: { message: string; line: number; column: number } };
 
 const SAMPLE = `{
@@ -45,7 +47,7 @@ function getParseResult(text: string): ParseResult {
   }
 }
 
-function Icon({ name }: { name: "format" | "upload" | "download" | "copy" | "print" | "fix" | "clear" | "chevron" | "check" | "error" | "code" | "spark" }) {
+function Icon({ name }: { name: "format" | "upload" | "download" | "copy" | "print" | "fix" | "clear" | "chevron" | "check" | "error" | "code" | "spark" | "theme" }) {
   const paths: Record<typeof name, ReactNode> = {
     format: <><path d="M4 7h16M7 4v6m10-6v6M5 13h14M8 13v7m8-7v7" /><path d="M4 20h16" /></>,
     upload: <><path d="M12 16V4m0 0L7 9m5-5 5 5" /><path d="M5 14v5h14v-5" /></>,
@@ -59,6 +61,7 @@ function Icon({ name }: { name: "format" | "upload" | "download" | "copy" | "pri
     error: <><circle cx="12" cy="12" r="9" /><path d="M12 8v5m0 3h.01" /></>,
     code: <><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-12-2 14" /></>,
     spark: <><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z" /><path d="m19 14 .9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14Z" /></>,
+    theme: <><path d="M12 3a9 9 0 1 0 0 18h1.2a2 2 0 0 0 1.6-3.2 1.7 1.7 0 0 1 1.3-2.8H18a3 3 0 0 0 3-3A9 9 0 0 0 12 3Z" /><circle cx="7.5" cy="10" r=".8" /><circle cx="11" cy="7" r=".8" /><circle cx="16" cy="8" r=".8" /></>,
   };
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
@@ -137,8 +140,12 @@ export default function JsonWorkbench() {
   const [restored, setRestored] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toolsExpanded, setToolsExpanded] = useState(true);
+  const [theme, setTheme] = useState<ThemeId>("light");
+  const [themeReady, setThemeReady] = useState(false);
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const themePickerRef = useRef<HTMLDivElement>(null);
   const parsed = useMemo(() => getParseResult(committedInput), [committedInput]);
   const inputLines = input.split("\n").length;
   const formatted = useMemo(() => parsed.error ? "" : JSON.stringify(parsed.value, null, indent), [parsed, indent]);
@@ -175,13 +182,42 @@ export default function JsonWorkbench() {
   }, [input, restored]);
 
   useEffect(() => {
-    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") setSidebarOpen(false);
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
+    const timer = window.setTimeout(() => {
+      try {
+        const savedTheme = localStorage.getItem("celi-tools:theme");
+        if (THEMES.some((option) => option.id === savedTheme)) setTheme(savedTheme as ThemeId);
+      } catch { /* Keep the default theme when storage is unavailable. */ }
+      setThemeReady(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  useEffect(() => {
+    if (!themeReady) return;
+    try { localStorage.setItem("celi-tools:theme", theme); } catch { /* Theme remains active for this session. */ }
+  }, [theme, themeReady]);
+
+  useEffect(() => {
+    const closeOnOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !themePickerRef.current?.contains(event.target)) setThemeMenuOpen(false);
+    };
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSidebarOpen(false);
+        setThemeMenuOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
   useEffect(() => {
     const remote = new URLSearchParams(window.location.search).get("url");
     if (!remote) return;
@@ -350,7 +386,19 @@ export default function JsonWorkbench() {
       <header className="topbar">
         <a className="brand" href="#" aria-label="Celi Tools home"><span className="brand-mark"><span>C</span></span><span>Celi Tools</span></a>
         <div className="topbar-center"><button className="mobile-menu-toggle" type="button" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((open) => !open)}><span className="mobile-menu-icon" aria-hidden="true">☰</span><span>JSON Tools</span><Icon name="chevron" /></button></div>
-        <div className="topbar-actions"><span className="local-chip"><span className="local-dot" />Runs locally</span><button className="icon-button" title="Load sample JSON" onClick={loadSample}><Icon name="spark" /></button></div>
+        <div className="topbar-actions">
+          <div className="theme-picker" ref={themePickerRef}>
+            <button className="icon-button theme-trigger" type="button" aria-label="Choose appearance theme" title={`Theme: ${THEMES.find((option) => option.id === theme)?.label ?? "Light"}`} aria-haspopup="true" aria-expanded={themeMenuOpen} onClick={() => setThemeMenuOpen((open) => !open)}><Icon name="theme" /></button>
+            {themeMenuOpen && <div className="theme-popover" role="menu" aria-label="Choose appearance theme">
+              <div className="theme-popover-heading"><strong>Appearance</strong><span>Choose a theme</span></div>
+              {THEMES.map((option) => <button className={`theme-option ${theme === option.id ? "theme-option-active" : ""}`} type="button" role="menuitemradio" aria-checked={theme === option.id} key={option.id} onClick={() => { setTheme(option.id); setThemeMenuOpen(false); }}>
+                <span className={`theme-swatch swatch-${option.id}`}><i /><i /><i /></span><span className="theme-option-copy"><strong>{option.label}</strong><small>{option.description}</small></span><span className="theme-option-check">{theme === option.id ? "✓" : ""}</span>
+              </button>)}
+            </div>}
+          </div>
+          <span className="local-chip"><span className="local-dot" />Runs locally</span>
+          <button className="icon-button" type="button" title="Load sample JSON" onClick={loadSample}><Icon name="spark" /></button>
+        </div>
       </header>
 
       <div className="app-body">
