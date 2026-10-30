@@ -115,6 +115,8 @@ The setup creates a project-local `.file-tools/venv`, installs pinned Python dep
 
 ### Deployment and verification
 
+For Vercel, follow [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md). `vercel.json` explicitly selects Next.js to avoid Python framework selection. This deploys the web app; the current local Python file-processing backend still needs a separate service to work with a Vercel frontend.
+
 Use a long-running Node server/container with Python and native engines installed; static hosting and a stock serverless function cannot run this backend. `Dockerfile` supplies a Linux runtime with LibreOffice, Python dependencies and bundled FFmpeg. The Docker image must be built and verified on the destination host; local verification uses the Windows runtime. Set reverse-proxy upload/time limits to match the application. Native runtime directories are excluded from Next.js output tracing and must be provisioned separately.
 
 ```sh

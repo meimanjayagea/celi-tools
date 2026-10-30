@@ -1,0 +1,15 @@
+# Local dependencies, generated output, and native file-processing engines.
+node_modules/
+.next/
+.file-tools/
+test-output/
+coverage/
+__pycache__/
+**/__pycache__/
+*.tsbuildinfo
+
+# Configure deployed environment variables in Vercel instead.
+.env
+.env.*
+.idea/
+*.log
