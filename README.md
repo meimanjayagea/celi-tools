@@ -86,6 +86,7 @@ Jalankan web di terminal lain melalui `npm run dev:web`. Jangan menjalankan dua 
 | `npm run test:api` | Menguji API nyata port 3001, dengan fixture dan API aktif |
 | `npm run test:auth` | Memeriksa route callback web pada port 3000 tanpa mengirim email |
 | `npm run check:css` | Diagnostik class CSS web |
+| `npm run check:deployment -- --web https://web-anda.example.com --api https://api-anda.example.com` | Memeriksa koneksi deployment, autentikasi, engine, CORS, dan ZIP sintetis |
 
 Tes API nyata menerima `FILE_TOOLS_TEST_URL` dan `FILE_TOOLS_WEB_ORIGIN` untuk origin lain. `AUTH_TEST_URL` mengubah target pemeriksaan callback web. Artefak sintetis tetap di direktori `test-output/` yang diabaikan Git.
 
@@ -99,6 +100,8 @@ Gunakan repository yang sama untuk dua layanan:
 | `apps/api` | Container/server Node + Python | `apps/api/Dockerfile`, context root repository, `WEB_ORIGINS=https://web-anda.vercel.app` |
 
 [Panduan deployment monorepo](./DEPLOY_VERCEL.md) menjelaskan instalasi workspace, Root Directory Vercel, backend Docker, CORS, dan domain OAuth. Backend file memerlukan runtime yang menerima upload 100 MB serta proses native; backend ini tidak dipasang sebagai fungsi Vercel biasa.
+
+[Panduan Railway + Vercel](./docs/DEPLOY_RAILWAY.md) memakai `railway.json` root untuk membangun backend Docker dan memeriksa kesiapan engine sebelum menerima traffic.
 
 ## Perilaku dan batas
 

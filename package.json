@@ -22,6 +22,7 @@
     "test:files": "node scripts/run-file-tests.mjs",
     "test:api": "node scripts/test-file-api.mjs",
     "test:auth": "node scripts/test-auth-api.mjs",
-    "check:css": "npm run check:css --workspace=@celi/web"
+    "check:css": "npm run check:css --workspace=@celi/web",
+    "check:deployment": "node scripts/check-deployment.mjs"
   }
 }

@@ -2,6 +2,8 @@
 
 Satu repository berisi web Next.js (`apps/web`), API pemrosesan file (`apps/api`), dan manifest format bersama (`packages/file-tools`). Web dideploy ke Vercel. API dideploy sebagai container di host yang mendukung Python, FFmpeg, LibreOffice, dan upload besar. Kedua layanan dihubungkan lewat URL publik dan CORS.
 
+Untuk pilihan Railway, gunakan [panduan Railway + Vercel](./docs/DEPLOY_RAILWAY.md). `railway.json` di root sudah memilih Dockerfile backend dan readiness check; panduan tersebut memuat origin web production yang telah ditemukan.
+
 ## 1. Kirim versi monorepo ke repository Git
 
 Sertakan source di `apps/`, `packages/`, `scripts/`, serta `package.json` dan `package-lock.json` root. Jangan membuat lockfile npm terpisah per aplikasi. File `.env*`, `.file-tools/`, `node_modules/`, `.next/`, dan fixture upload tidak diikutkan. File `.env.example` aman sebagai contoh konfigurasi tanpa kredensial asli.
