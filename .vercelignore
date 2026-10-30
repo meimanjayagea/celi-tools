@@ -1,6 +1,7 @@
 # Local dependencies, generated output, and native file-processing engines.
 node_modules/
 .next/
+**/.next/
 .file-tools/
 test-output/
 coverage/
@@ -11,5 +12,7 @@ __pycache__/
 # Configure deployed environment variables in Vercel instead.
 .env
 .env.*
+**/.env
+**/.env.*
 .idea/
 *.log

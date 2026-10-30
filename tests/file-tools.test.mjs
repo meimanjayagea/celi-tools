@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CONVERTER_GROUPS, COMPRESS_METHODS, conversionTargets, validateSelection, FILE_LIMITS } from "../app/lib/file-tools.mjs";
+import { CONVERTER_GROUPS, COMPRESS_METHODS, conversionTargets, validateSelection, FILE_LIMITS } from "../packages/file-tools/index.mjs";
 
 test("batch conversions expose only formats shared by every source", () => {
   assert.deepEqual(conversionTargets(["image.png", "document.docx"]), ["pdf"]);

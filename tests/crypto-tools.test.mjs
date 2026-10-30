@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { hashText, base64Encode, base64Decode, toHex, fromHex, toBinary, fromBinary, aesEncrypt, aesDecrypt } from "../app/lib/crypto-tools.mjs";
+import { hashText, base64Encode, base64Decode, toHex, fromHex, toBinary, fromBinary, aesEncrypt, aesDecrypt } from "../apps/web/app/lib/crypto-tools.mjs";
 
 test("hashes match published abc test vectors", async () => {
   assert.equal(await hashText("MD5", "abc"), "900150983cd24fb0d6963f7d28e17f72");

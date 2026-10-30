@@ -1,0 +1,23 @@
+# Authentication setup
+
+
+The app uses `@supabase/ssr` browser/server clients with cookie sessions and S256 PKCE. `/auth/callback` exchanges the Google authorization code; `/auth/confirm` supports email token hashes (`type=email`) and PKCE codes from standard confirmation links. Callbacks reject external redirect destinations, do not echo provider errors/tokens, and return private, non-cacheable responses. `/api/auth/providers` reads public provider availability so the UI can disable unavailable options. Supabase remains responsible for Google/OIDC validation, email delivery, session revocation and account linking.
+
+1. Ensure the existing Supabase project is active and reachable. The configured project `coli-tools` (`bklokpkgpbijgqidqmnv`) was restored from `INACTIVE` to `ACTIVE_HEALTHY` during implementation. Its public Auth settings returned HTTP 200 with Email enabled, signup enabled and Google disabled; Google provider configuration remains required. No replacement project was created.
+2. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `apps/web/.env.local`. The existing `NEXT_PUBLIC_SUPABASE_ANON_KEY` remains supported. Use only a publishable/anon key in public variables, never a service-role key or Google client secret. Restart/rebuild after changing public variables.
+3. In Google Cloud, create a **Web application** OAuth client and configure the consent screen with only `openid`, `email`, `profile`. Authorized app origins include `http://localhost:3000` and your production origin. Set Google's **Authorized redirect URI** to `https://bklokpkgpbijgqidqmnv.supabase.co/auth/v1/callback` (use the matching Supabase host if changing projects). This is the Supabase provider callback, distinct from the application's callback. Add test users if the Google app is in testing mode.
+4. In Supabase Auth → Sign In / Providers → Google, enable Google and enter the client ID and client secret **there**. No Google secret belongs in this repository or browser bundle.
+5. Keep Email enabled; enable new-user signup if registration is required. Set Site URL to your production origin (or `http://localhost:3000` for local development). Add these Redirect URLs for each approved app origin: `http://localhost:3000/auth/callback**` and `http://localhost:3000/auth/confirm**`. The trailing wildcard allows the flow/query parameters while restricting redirects to these paths. Use the corresponding exact production host; avoid a wildcard domain.
+6. Standard confirmation links must preserve Supabase's generated `{{ .ConfirmationURL }}`. Open these in the same browser that requested them so the PKCE verifier cookie is available. For cross-browser email confirmation, configure both Magic Link and Confirm Signup templates to use the hash-based endpoint below. This requires the correct Site URL and template-editing permission; newer free-tier projects using default SMTP may require custom SMTP before templates can be edited.
+
+```html
+<h2>Masuk ke Celi Tools</h2>
+<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email">Konfirmasi email dan lanjutkan</a></p>
+```
+
+Configure a production SMTP provider for delivery to your users; Supabase's default sender has delivery and rate restrictions. No test email is sent to a real address by automated unit tests. Login and signup share one Google flow: the first successful Google sign-in creates the account when Supabase signup policy allows it. Email submission has a 60-second resend cooldown and neutral responses for unknown login emails. One pending standard PKCE email/OAuth flow per browser is recommended; requesting another link can invalidate an earlier verifier, so use the newest email. Google/SMTP credentials and provider activation must be verified before claiming a real end-to-end login succeeds.
+
+Current portal tools remain available without signing in, matching the existing product behavior. This refactor does not turn the portal into an authorization boundary. Session data in `AuthProvider` controls presentation only; future protected server routes must validate identity with `getUser()`/`getClaims()` and implement the applicable access policy. Browser clients refresh sessions; server-side session reads outside the callback routes would additionally require a Supabase session-refresh proxy.
+
+References: [Google sign-in](https://supabase.com/docs/guides/auth/social-sign-in/auth-google), [SSR clients](https://supabase.com/docs/guides/auth/server-side/creating-a-client), [passwordless email](https://supabase.com/docs/guides/auth/auth-email-passwordless).
+

@@ -8,7 +8,7 @@ Push-Location $workspace
 try {
   & $PythonPath -m venv .file-tools/venv
   if ($LASTEXITCODE -ne 0) { throw 'Tidak dapat membuat virtual environment.' }
-  & '.file-tools/venv/Scripts/python.exe' -m pip install -r server/requirements.lock
+  & '.file-tools/venv/Scripts/python.exe' -m pip install -r apps/api/server/requirements.lock
   if ($LASTEXITCODE -ne 0) { throw 'Dependency file backend belum berhasil dipasang.' }
   if ($WithOffice) {
     $ProgressPreference = 'SilentlyContinue'
@@ -22,7 +22,7 @@ try {
     $process = Start-Process -FilePath msiexec.exe -ArgumentList @('/a', ('"' + $installer + '"'), '/qn', ('TARGETDIR="' + $destination + '"')) -WindowStyle Hidden -Wait -PassThru
     if ($process.ExitCode -ne 0) { throw ('Ekstraksi LibreOffice gagal: ' + $process.ExitCode) }
   }
-  & '.file-tools/venv/Scripts/python.exe' server/file_worker.py --prepare-office
+  & '.file-tools/venv/Scripts/python.exe' apps/api/server/file_worker.py --prepare-office
   if ($LASTEXITCODE -ne 0) { Write-Warning 'Profil Office belum siap; konversi Office pertama mungkin lebih lambat.' }
-  & '.file-tools/venv/Scripts/python.exe' server/file_worker.py --capabilities
+  & '.file-tools/venv/Scripts/python.exe' apps/api/server/file_worker.py --capabilities
 } finally { Pop-Location }

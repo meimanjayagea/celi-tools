@@ -1,0 +1,13 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3001"
+      WEB_ORIGINS: http://localhost:3000
+    init: true

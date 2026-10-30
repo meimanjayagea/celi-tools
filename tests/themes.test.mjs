@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { THEMES } from "../app/lib/themes.mjs";
+import { THEMES } from "../apps/web/app/lib/themes.mjs";
 
 test("theme picker offers light, dark, and distinct color palettes", () => {
   const ids = THEMES.map((theme) => theme.id);

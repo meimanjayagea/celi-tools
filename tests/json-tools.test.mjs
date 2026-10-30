@@ -6,7 +6,7 @@ import {
   toXml,
   toCsv,
   cleanJson,
-} from "../app/lib/json-tools.mjs";
+} from "../apps/web/app/lib/json-tools.mjs";
 
 test("formats valid JSON at the requested indentation", () => {
   assert.equal(formatJson('{"a":[1,2]}', 3), '{\n   "a": [\n      1,\n      2\n   ]\n}');

@@ -2,18 +2,20 @@ import assert from "node:assert/strict";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 
 // Start the application and run the worker fixture generator before this check.
-const base = process.env.FILE_TOOLS_TEST_URL || "http://localhost:3000";
+const base = process.env.FILE_TOOLS_TEST_URL || "http://localhost:3001";
+const webOrigin = process.env.FILE_TOOLS_WEB_ORIGIN || "http://localhost:3000";
 const output = new URL("../test-output/api/", import.meta.url);
 await mkdir(output, { recursive: true });
-const capabilities = await fetch(base + "/api/files/capabilities");
+const capabilities = await fetch(base + "/api/files/capabilities", { headers: { Origin: webOrigin } });
 assert.equal(capabilities.status, 200);
+assert.equal(capabilities.headers.get("access-control-allow-origin"), webOrigin);
 assert.ok(Object.values((await capabilities.json()).engines).every(Boolean));
 async function post(names, mode, target, headers = {}) {
   const body = new FormData();
   for (const name of names) body.append("files", new Blob([await readFile(new URL("../test-output/fixtures/" + name, import.meta.url))]), name);
   body.append("target", target);
   body.append("preset", "balanced");
-  return fetch(base + "/api/files/" + mode, { method: "POST", body, headers, signal: AbortSignal.timeout(245000) });
+  return fetch(base + "/api/files/" + mode, { method: "POST", body, headers: { Origin: webOrigin, ...headers }, signal: AbortSignal.timeout(245000) });
 }
 for (const [name, mode, target, signature] of [
   ["sample.png", "convert", "webp", "RIFF"],

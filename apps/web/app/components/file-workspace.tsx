@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { ArrowRight, Check, CircleAlert, Download, FileArchive, FileInput, Files, LoaderCircle, Search, Server, Trash2, Upload, X } from "lucide-react";
-import { COMPRESS_METHODS, CONVERTER_GROUPS, FILE_LIMITS, conversionTargets, converterGroup, formatBytes, validateSelection } from "../lib/file-tools.mjs";
+import { COMPRESS_METHODS, CONVERTER_GROUPS, FILE_LIMITS, conversionTargets, converterGroup, formatBytes, validateSelection } from "@celi/file-tools";
+import { fileApiEndpoint } from "../lib/file-api";
 
 type Result = { url: string; name: string; size: number; original: number; notes: string[] };
 export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }) {
@@ -22,7 +23,7 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/files/capabilities", { signal: controller.signal, cache: "no-store" })
+    Promise.resolve().then(() => fetch(fileApiEndpoint("capabilities"), { signal: controller.signal, cache: "no-store", credentials: "omit" }))
       .then(async response => { const value = await response.json(); if (!response.ok) throw new Error(value.error); return value; })
       .then(value => { setEngines(value.engines); setCapabilityError(""); })
       .catch(caught => { if (caught.name !== "AbortError") setCapabilityError("Server file belum siap. Coba periksa kembali beberapa saat lagi."); });
@@ -71,7 +72,7 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
       const body = new FormData();
       files.forEach(file => body.append("files", file));
       body.append("target", selected); body.append("preset", preset);
-      const response = await fetch("/api/files/" + mode, { method: "POST", body, signal: controller.signal });
+      const response = await fetch(fileApiEndpoint(mode), { method: "POST", body, signal: controller.signal, credentials: "omit" });
       if (!response.ok) { const payload = await response.json(); throw new Error(payload.error || "File tidak dapat diproses."); }
       const blob = await response.blob();
       let notes: string[] = [];

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { TOOL_MENU_GROUPS } from "../app/lib/tool-menu.mjs";
+import { TOOL_MENU_GROUPS } from "../apps/web/app/lib/tool-menu.mjs";
 
 test("JSON tools navigation includes every editor and visualization tool", () => {
   const ids = TOOL_MENU_GROUPS.flatMap((group) => group.items.map((item) => item.id));

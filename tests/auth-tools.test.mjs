@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createBrowserClient, createServerClient } from "@supabase/ssr";
-import { safeAuthNext, completeAuth, authFeedback, authRequestError, googleAuthOptions, emailAuthOptions, isUnknownEmail } from "../app/lib/auth-tools.mjs";
+import { safeAuthNext, completeAuth, authFeedback, authRequestError, googleAuthOptions, emailAuthOptions, isUnknownEmail } from "../apps/web/app/lib/auth-tools.mjs";
 
 test("auth return paths reject external URLs, protocol-relative URLs and callback loops", () => {
   for (const value of [null, "https://evil.example", "//evil.example", "/\\evil.example", "/auth/callback", "/login", "/json/../auth/confirm", "/%2f%2fevil.example", "/json\n"]) assert.equal(safeAuthNext(value), "/dashboard");

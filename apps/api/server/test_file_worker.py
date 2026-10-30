@@ -14,7 +14,7 @@ from pathlib import Path
 
 from file_worker import execute, office_path, check_zip, FileError
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def fixtures(folder):

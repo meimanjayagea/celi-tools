@@ -20,7 +20,8 @@ import warnings
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
+TOOLS_ROOT = Path(os.environ.get("FILE_TOOLS_RUNTIME_ROOT", ROOT / ".file-tools")).resolve()
 MAX_OUTPUT = 200 * 1024 * 1024
 MAX_EXPANDED = 250 * 1024 * 1024
 PRESETS = {"small": (55, 36, "720"), "balanced": (76, 28, "1080"), "quality": (90, 22, "original")}
@@ -54,8 +55,8 @@ def kill_native_tree(child):
 def office_path():
     configured = os.environ.get("FILE_TOOLS_OFFICE")
     candidates = [configured, shutil.which("libreoffice"), shutil.which("soffice"),
-                  str(ROOT / ".file-tools/libreoffice/program/soffice.exe"),
-                  str(ROOT / ".file-tools/libreoffice/LibreOffice/program/soffice.exe"),
+                  str(TOOLS_ROOT / "libreoffice/program/soffice.exe"),
+                  str(TOOLS_ROOT / "libreoffice/LibreOffice/program/soffice.exe"),
                   r"C:\Program Files\LibreOffice\program\soffice.exe"]
     for candidate in candidates:
         if candidate and Path(candidate).is_file():
@@ -63,7 +64,7 @@ def office_path():
             if os.name == "nt" and resolved.with_suffix(".com").is_file():
                 resolved = resolved.with_suffix(".com")
             return str(resolved)
-    folder = ROOT / ".file-tools/libreoffice"
+    folder = TOOLS_ROOT / "libreoffice"
     if folder.exists():
         found = next(folder.glob("**/soffice.exe"), None)
         if found:
@@ -84,7 +85,7 @@ def prepare_office_profile():
     binary = office_path()
     if not binary:
         raise FileError("Engine Office belum tersedia.")
-    seed = ROOT / ".file-tools/office-seed"
+    seed = TOOLS_ROOT / "office-seed"
     seed.mkdir(parents=True, exist_ok=True)
     child = subprocess.Popen([binary, f"-env:UserInstallation={seed.as_uri()}", "--headless", "--nologo",
                               "--nofirststartwizard", "--terminate_after_init"],
@@ -289,7 +290,7 @@ def office_convert(source, folder, target):
             profiles = json.loads(manifest.read_text(encoding="utf-8")) if manifest.exists() else []
             profiles.append(str(profile))
             manifest.write_text(json.dumps(profiles), encoding="utf-8")
-        seed = ROOT / ".file-tools/office-seed"
+        seed = TOOLS_ROOT / "office-seed"
         if (seed / "celi-ready").is_file():
             # Bootstrap only; per-job extension caches are never shared.
             for name in ("basic", "config", "autotext", "gallery"):

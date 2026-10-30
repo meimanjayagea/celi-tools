@@ -1,136 +1,138 @@
-# Deploy Celi Tools ke Vercel
+# Deploy monorepo Celi Tools
 
-Panduan ini men-deploy aplikasi sebagai **Next.js**, sehingga Vercel tidak mencari entrypoint Python seperti `app.py` atau `main.py`.
+Satu repository berisi web Next.js (`apps/web`), API pemrosesan file (`apps/api`), dan manifest format bersama (`packages/file-tools`). Web dideploy ke Vercel. API dideploy sebagai container di host yang mendukung Python, FFmpeg, LibreOffice, dan upload besar. Kedua layanan dihubungkan lewat URL publik dan CORS.
 
-## Cakupan deployment
+## 1. Kirim versi monorepo ke repository Git
 
-| Bagian aplikasi | Status pada konfigurasi Vercel ini |
-| --- | --- |
-| Landing page, dashboard, tema, navigasi | Dapat di-deploy sebagai Next.js |
-| JSON Workspace dan Crypto Tools | Pemrosesan berjalan di browser |
-| Login/registrasi Google dan tautan email | Memerlukan Supabase aktif, provider terkonfigurasi, dan URL production diizinkan |
-| Halaman File Converter dan File Compress | Halaman dapat ditampilkan |
-| Pemrosesan File Converter dan File Compress, termasuk ZIP | Belum didukung oleh konfigurasi Vercel ini; backend saat ini menjalankan worker Python lokal |
+Sertakan source di `apps/`, `packages/`, `scripts/`, serta `package.json` dan `package-lock.json` root. Jangan membuat lockfile npm terpisah per aplikasi. File `.env*`, `.file-tools/`, `node_modules/`, `.next/`, dan fixture upload tidak diikutkan. File `.env.example` aman sebagai contoh konfigurasi tanpa kredensial asli.
 
-Backend file menggunakan Python, FFmpeg, LibreOffice, dan direktori job yang dapat ditulis. Engine lokal di `.file-tools/` tidak ikut diunggah. Alur upload saat ini melewati Next.js dan mendukung total 100 MB; Vercel Functions memiliki batas payload request/response 4,5 MB. Mengganti framework tidak menghapus batas tersebut. Jangan menganggap pemrosesan file sudah aktif hanya karena build web berhasil.
+## 2. Deploy backend file
 
-Untuk mengaktifkan seluruh pemrosesan file sambil mempertahankan frontend Vercel, perlu refactor terpisah: layanan HTTP pemrosesan file di server/container, upload langsung ke layanan/storage tersebut, serta pengambilan status dan hasil job. Saat ini belum ada environment variable URL backend remote yang menghubungkan worker lokal ke layanan eksternal.
-
-## 1. Siapkan repository
-
-Pastikan versi aplikasi terbaru sudah di-push ke repository Git yang akan dihubungkan ke Vercel. Periksa perubahan terlebih dahulu, termasuk file baru di `app/`, `public/`, `scripts/`, dan konfigurasi proyek. Jangan hanya mengirim file konfigurasi jika perubahan aplikasi belum masuk repository.
-
-Sertakan file berikut:
-
-- `package.json` dan `package-lock.json`.
-- Source aplikasi dan `next.config.ts`.
-- `vercel.json` dari folder utama proyek.
-- `.vercelignore` untuk unggahan CLI; engine lokal dan file `.env*` dikecualikan.
-
-File `.env`, `.env.local`, `.file-tools/`, dan `node_modules/` tidak perlu di-push. `.gitignore` juga sudah mengecualikan file lokal tersebut. Jangan menambahkan entrypoint Python dummy: `server/file_worker.py` adalah worker CLI, bukan aplikasi ASGI/WSGI.
-
-## 2. Import atau perbaiki proyek Vercel
-
-Untuk proyek baru: buka Vercel → **Add New → Project**, lalu import repository.
-
-Untuk proyek yang sudah gagal: buka pengaturan proyek → **Build and Deployment**, lalu periksa konfigurasi berikut. Nama bagian UI dapat berubah; cari pengaturan framework dan root directory.
+Pada layanan Docker seperti Render/Railway atau server container Anda, gunakan repository yang sama dan pengaturan berikut:
 
 | Pengaturan | Nilai |
 | --- | --- |
-| Root Directory | Folder yang berisi `package.json`, `app/`, dan `vercel.json`; biasanya root repository |
-| Framework Preset | **Next.js** |
-| Install Command | `npm ci` |
-| Build Command | `npm run build` |
-| Output Directory | Gunakan default Next.js; jangan isi `out` atau `public` |
-| Start Command | Gunakan pengelolaan runtime Next.js bawaan Vercel |
+| Docker build context | Root repository (`.`) |
+| Dockerfile | `apps/api/Dockerfile` |
+| Start command | Gunakan `CMD` bawaan image |
+| Health check | `GET /health` |
+| Readiness engine | `GET /ready` |
 
-Jika repository berisi beberapa proyek, pilih subfolder `celi-tools` yang benar. Jangan memilih folder `server`, `app`, atau `public` sebagai Root Directory.
+Contoh build manual dari root repository:
 
-`vercel.json` menetapkan framework `nextjs` secara eksplisit. Pastikan file ini berada di Root Directory yang dipakai Vercel. Konfigurasi ini tidak dijalankan oleh `next build` lokal, sehingga pengaturan proyek di Vercel tetap perlu diperiksa.
+```sh
+docker build -f apps/api/Dockerfile -t celi-file-api .
+docker run --rm -p 3001:3001 -e WEB_ORIGINS=https://nama-web.vercel.app celi-file-api
+```
 
-## 3. Tambahkan environment variables
-
-Di pengaturan Environment Variables Vercel, isi:
+Pada platform managed, isi environment backend:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://bklokpkgpbijgqidqmnv.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=public_publishable_key_dari_supabase
+NODE_ENV=production
+HOST=0.0.0.0
+WEB_ORIGINS=https://nama-web.vercel.app
 ```
 
-Jika proyek masih menggunakan legacy anon key, gunakan `NEXT_PUBLIC_SUPABASE_ANON_KEY` sebagai pengganti `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Ambil kunci publik dari proyek Supabase yang sama dengan URL di atas. Aplikasi memprioritaskan publishable key jika keduanya diisi.
+Platform dapat mengisi `PORT`; jika tidak, API menggunakan 3001. Image sudah mengatur path Python, LibreOffice, dan direktori runtime yang dapat ditulis. Environment Supabase tidak diperlukan pada layanan ini. Pastikan proxy host menerima request setidaknya 101 MiB (file 100 MiB ditambah multipart) dan tidak memutus pemrosesan empat menit. Hasil dapat mencapai 200 MiB.
 
-Pilih environment **Production**. Tambahkan juga **Preview** jika deployment preview akan diuji. Gunakan field environment variables Vercel, bukan mengunggah `.env.local`.
+Catat domain HTTPS backend, misalnya `https://api-contoh.example.com`. Periksa `/health`, `/ready`, dan `/api/files/capabilities` melalui domain itu. `/health` hanya memeriksa proses; `/ready` mengembalikan 503 jika ada engine yang belum tersedia.
 
-Google Client ID dan Client Secret diisi pada provider Google di **Supabase**, bukan pada variabel `NEXT_PUBLIC_` Vercel. Database tetap berada di Supabase; tidak ada database lokal yang perlu dipindahkan ke Vercel.
+Untuk Render, pilih runtime Docker dan biarkan Root Directory layanan pada root repository karena image memerlukan manifest npm root serta `packages/file-tools`. Atur Dockerfile Path menjadi `./apps/api/Dockerfile`. Untuk Railway, gunakan context repository root dan konfigurasi Dockerfile Path yang sama (atau variabel `RAILWAY_DOCKERFILE_PATH=apps/api/Dockerfile` sesuai pengaturan Railway). Periksa biaya/kapasitas layanan pada platform sebelum membuat layanan.
 
-Perubahan `NEXT_PUBLIC_` harus diikuti deployment baru karena nilai untuk browser dibundel saat build.
+## 3. Import frontend ke Vercel
 
-## 4. Deploy dan tentukan domain
+Import repository yang sama menjadi proyek Vercel dengan:
 
-Klik **Deploy** untuk import pertama, atau **Redeploy** pada deployment proyek yang sudah ada. Untuk percobaan setelah mengganti framework/root directory, jalankan sekali tanpa memakai build cache lama jika opsi tersebut tersedia.
+| Pengaturan Vercel | Nilai |
+| --- | --- |
+| Root Directory | **`apps/web`** |
+| Framework Preset | **Next.js** |
+| Include source files outside Root Directory | Aktifkan agar paket workspace bersama dapat diakses |
+| Install Command | `npm ci --prefix ../..` |
+| Build Command | `npm run build` |
+| Output Directory | Default Next.js |
 
-Gunakan domain production yang stabil, misalnya `https://nama-aplikasi.vercel.app` atau custom domain Anda. Nama domain contoh berikut harus diganti dengan domain deployment Anda sendiri.
+`apps/web/vercel.json` sudah menetapkan framework dan perintah tersebut. `next.config.ts` mengatur root monorepo untuk Turbopack dan tracing. Tidak ada worker Python dalam web atau route upload file yang menjalankan subprocess. Folder `apps/api` tidak dipilih sebagai aplikasi Vercel.
 
-## 5. Konfigurasi login untuk domain production
+Jika proyek Vercel sebelumnya memakai root repository atau `server`, ubah Root Directory ke `apps/web`. Error `PYTHON_ENTRYPOINT_NOT_FOUND` tidak diselesaikan dengan menambahkan entrypoint Python dummy; pastikan Vercel membaca konfigurasi Next.js dari workspace web dan commit monorepo terbaru.
 
-Di Supabase → Authentication → URL Configuration:
+## 4. Isi environment frontend
 
-**Site URL**:
+Tambahkan ke environment Production Vercel (dan Preview jika diperlukan):
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_public_publishable_key
+NEXT_PUBLIC_FILE_API_URL=https://api-contoh.example.com
+```
+
+Legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` tetap didukung sebagai pengganti publishable key. Semua nilai harus berasal dari proyek yang benar. Client Secret Google dan service-role key tidak ditempatkan di `NEXT_PUBLIC_`.
+
+`NEXT_PUBLIC_FILE_API_URL` adalah origin backend HTTPS tanpa path endpoint. Web menambahkan `/api/files/capabilities`, `/api/files/convert`, atau `/api/files/compress`. Jangan mengisinya dengan localhost pada deployment production. Mengubah variabel publik membutuhkan deployment web baru.
+
+## 5. Hubungkan CORS dan autentikasi
+
+Setelah domain web diketahui, pastikan `WEB_ORIGINS` backend sama dengan origin web, termasuk protokol dan port jika ada. Untuk beberapa domain yang memang dipakai:
+
+```env
+WEB_ORIGINS=https://nama-web.vercel.app,https://tools.example.com
+```
+
+Hostname preview harus ditambahkan secara eksplisit jika ingin menguji fitur file dari preview. `*` dan wildcard domain tidak diterima. Jangan menambahkan path seperti `/converter` ke daftar origin.
+
+Pada Supabase → Authentication → URL Configuration:
 
 ```text
-https://nama-aplikasi.vercel.app
+Site URL:
+https://nama-web.vercel.app
+
+Redirect URLs:
+https://nama-web.vercel.app/auth/callback**
+https://nama-web.vercel.app/auth/confirm**
 ```
 
-**Redirect URLs**:
+Google provider dan Email provider harus aktif sesuai pilihan masuk. Google Cloud Authorized redirect URI tetap milik Supabase:
 
 ```text
-https://nama-aplikasi.vercel.app/auth/callback**
-https://nama-aplikasi.vercel.app/auth/confirm**
+https://YOUR_PROJECT.supabase.co/auth/v1/callback
 ```
 
-Wildcard di akhir path mengizinkan parameter flow/callback; hostname tetap dibatasi ke deployment Anda. Pertahankan URL localhost yang sudah dipakai jika masih mengembangkan aplikasi secara lokal. Untuk preview, tambahkan hanya hostname preview yang akan dipakai menguji login, lalu hapus saat tidak diperlukan.
+Isi Client ID/Client Secret Google langsung di Supabase. Detail template email, SMTP, dan PKCE tersedia di [docs/AUTH.md](./docs/AUTH.md).
 
-Di Supabase → Authentication → Sign In / Providers:
+## 6. Verifikasi kedua layanan
 
-- Email: aktifkan untuk tautan masuk email; izinkan signup jika registrasi dibutuhkan.
-- Google: aktifkan dan isi OAuth Client ID/Client Secret Google Cloud milik aplikasi.
+1. Buka landing, dashboard, login, registrasi, JSON, dan Crypto di domain Vercel.
+2. Periksa `/api/auth/providers` pada domain web; Google/email memerlukan konfigurasi Supabase yang sesuai.
+3. Buka File Converter/Compress. Status engine harus tampil sebagai tersedia.
+4. Di browser DevTools → Network, pastikan request file menuju **domain API**, bukan domain Vercel. Request auth tetap menuju web/Supabase.
+5. Konversikan gambar kecil, lalu coba arsip ZIP dengan file lebih dari 4,5 MB. Unduh hasil dan periksa isinya.
+6. Origin yang tidak ada di `WEB_ORIGINS` harus ditolak. Jika browser menampilkan CORS error, samakan origin aktual browser dengan konfigurasi backend lalu restart layanan backend.
 
-**Authorized redirect URI Google Cloud tetap menuju Supabase**, bukan menuju domain Vercel:
+Batas request/response Vercel Functions 4,5 MB tidak menjadi jalur upload pada arsitektur ini: file dan hasil dikirim langsung antara browser dan API. Batas upload/time limit host API tetap harus dikonfigurasi dengan benar.
 
-```text
-https://bklokpkgpbijgqidqmnv.supabase.co/auth/v1/callback
+## Validasi sebelum deploy
+
+```sh
+npm ci
+npm test
+npm run lint
+npm run typecheck
+npm run build
 ```
 
-Perbarui domain/origin aplikasi di pengaturan Google Cloud jika diperlukan oleh konfigurasi OAuth Anda. Jika aplikasi Google masih dalam mode Testing, akun yang dipakai menguji harus termasuk test users.
+Setelah engine siap dan API lokal berjalan:
 
-Untuk email, template standar harus mempertahankan `{{ .ConfirmationURL }}` dan tautan dibuka di browser yang sama. Panduan template hash-based serta konfigurasi SMTP ada di bagian **Authentication setup** pada README. Jika template memakai `{{ .SiteURL }}`, tautannya akan mengikuti Site URL production yang baru.
+```sh
+npm run test:files -- --fixtures
+npm run test:api
+```
 
-## 6. Verifikasi deployment
+Source dan konfigurasi deployment monorepo disiapkan di repository; deployment publik belum dijalankan oleh perubahan ini. Build Docker harus diuji pada Docker Engine/Linux yang aktif. Tes engine Windows dan build Next.js tidak menggantikan validasi image Docker.
 
-Periksa melalui domain production:
+## Referensi
 
-1. `/`, `/dashboard`, `/login`, dan `/register` terbuka tanpa error.
-2. `/json` dapat memformat contoh JSON; `/crypto` menghasilkan hash.
-3. `/api/auth/providers` merespons JSON. HTTP 200 berarti pengaturan provider dapat dibaca; tetap periksa nilai `google`, `email`, dan `registration`. HTTP 503 berarti koneksi/konfigurasi Supabase belum siap.
-4. Setelah Google diaktifkan, uji Google consent dan kembalinya pengguna ke dashboard. Uji email dengan alamat milik Anda sendiri, lalu buka tautan terbaru.
-5. `/api/files/capabilities` bukan bukti engine tersedia di Vercel. Engine yang gagal/503 menandakan backend file terpisah masih diperlukan pada arsitektur ini.
-
-## Jika error Python muncul lagi
-
-`PYTHON_ENTRYPOINT_NOT_FOUND` berarti proses deployment masih mencoba memuat aplikasi Python.
-
-- Periksa Root Directory terlebih dahulu. Jika mengarah ke `server/`, Vercel tidak memakai konfigurasi Next.js di folder utama.
-- Pastikan framework proyek **Next.js**, bukan Python, FastAPI, Flask, atau konfigurasi service Python terpisah.
-- Pastikan deployment menggunakan commit terbaru yang menyertakan `vercel.json`.
-- Hapus override Build Command yang menjalankan `pip`, `uv`, atau server Python; gunakan `npm run build`.
-- Jalankan Redeploy setelah mengubah pengaturan. Mengubah file lokal tanpa mengirim commit baru tidak mengubah build dari Git.
-
-Jika build web berhasil tetapi fitur file gagal, itu masalah runtime/backend terpisah, bukan error entrypoint yang sama.
-
-## Dokumentasi resmi
-
-- [Next.js pada Vercel](https://vercel.com/docs/frameworks/full-stack/nextjs)
-- [Framework override pada vercel.json](https://vercel.com/docs/project-configuration/vercel-json#framework)
-- [Berkas yang dikecualikan dari deployment](https://vercel.com/docs/deployments/vercel-ignore)
-- [Batas payload Vercel Functions](https://vercel.com/docs/functions/limitations#request-body-size)
-- [Google OAuth Supabase](https://supabase.com/docs/guides/auth/social-sign-in/auth-google)
+- [Vercel monorepos](https://vercel.com/docs/monorepos)
+- [Framework Vercel](https://vercel.com/docs/project-configuration/vercel-json#framework)
+- [Batas Vercel Functions](https://vercel.com/docs/functions/limitations#request-body-size)
+- [Docker pada Render](https://render.com/docs/docker)
+- [Dockerfile pada Railway](https://docs.railway.com/builds/dockerfiles)
