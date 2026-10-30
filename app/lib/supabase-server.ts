@@ -1,36 +1,19 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import "server-only";
+import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { supabaseConfig } from "./supabase-config";
 
 /**
- * Server-side Supabase client (for Server Components / Route Handlers).
- * Reads cookies from Next.js headers() so auth session is shared with the browser.
+ * Route-handler client: request-local session and PKCE verifier, persisted in cookies.
  */
 export async function createServerSupabase() {
   const cookieStore = await cookies();
 
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
+  const { url, key } = supabaseConfig();
+  return createServerClient(url, key, {
     cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
-      },
-      set(name: string, value: string, options: CookieOptions) {
-        try {
-          cookieStore.set({ name, value, ...options });
-        } catch {
-          // The `set` method may fail in some contexts (e.g. middleware).
-          // Silently ignore so we don't crash server rendering.
-        }
-      },
-      remove(name: string, options: CookieOptions) {
-        try {
-          cookieStore.set({ name, value: "", ...options });
-        } catch {
-          // ignore
-        }
-      },
+      getAll() { return cookieStore.getAll(); },
+      setAll(values) { values.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); },
     },
   });
 }

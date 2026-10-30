@@ -20,6 +20,18 @@ test("repair leaves comma-like text inside quoted strings untouched", () => {
   assert.equal(fixJson('{text: "value,}", label: \'x\'}'), '{\n  "text": "value,}",\n  "label": "x"\n}');
 });
 
+test("repair preserves escaped string values in valid and repairable JSON", () => {
+  const value = { text: 'line\nnext', quote: 'say "hello"', path: 'C:\\tmp', unicode: '工具' };
+  const valid = JSON.stringify(value);
+  assert.deepEqual(JSON.parse(fixJson(valid)), value);
+  assert.deepEqual(JSON.parse(fixJson(valid.slice(0, -1) + ',}')), value);
+  assert.equal(JSON.parse(fixJson("{text: 'line\\nnext'}")).text, 'line\nnext');
+});
+
+test("CSV rejects mixed rows instead of silently dropping primitive values", () => {
+  assert.throws(() => toCsv([{ a: 1 }, 42, "hello"]), /CSV memerlukan/);
+});
+
 test("converts object and array values to XML", () => {
   assert.equal(toXml({ "profile-name": "Ada & Bob", tags: ["one", "two"] }), '<root>\n  <profile-name>Ada &amp; Bob</profile-name>\n  <tags>\n    <item>one</item>\n    <item>two</item>\n  </tags>\n</root>');
 });

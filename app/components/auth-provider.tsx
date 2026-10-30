@@ -21,6 +21,7 @@ interface AuthProviderProps {
 
 const AuthContext = createContext<{
   user: User | null;
+  loading: boolean;
 } | undefined>(undefined);
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -28,10 +29,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const supabase = createClientSupabase();
+    let supabase: ReturnType<typeof createClientSupabase>;
+    try { supabase = createClientSupabase(); }
+    catch { const timer = setTimeout(() => setLoading(false), 0); return () => clearTimeout(timer); }
 
-    // Get initial session
+    let active = true;
+    let changed = false;
+    // Session data drives presentation only; server callbacks validate sign-in.
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active || changed) return;
       setUser(
         session?.user
           ? {
@@ -42,11 +48,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           : null
       );
       setLoading(false);
-    });
+    }).catch(() => { if (active) setLoading(false); });
 
     // Listen for auth changes
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        changed = true;
+        if (!active) return;
         setUser(
           session?.user
             ? {
@@ -61,16 +69,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     );
 
     return () => {
+      active = false;
       authListener.subscription.unsubscribe();
     };
   }, []);
 
-  if (loading) {
-    return null;
-  }
-
   return (
-    <AuthContext.Provider value={{ user }}>
+    <AuthContext.Provider value={{ user, loading }}>
       {children}
     </AuthContext.Provider>
   );

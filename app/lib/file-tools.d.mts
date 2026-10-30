@@ -1,0 +1,10 @@
+export type FileGroup = { id: string; label: string; engine: string; inputs: string[]; outputs: string[]; note: string };
+export type CompressionMethod = { id: string; label: string; engine: string; inputs: string[] | null; multiple: boolean; note: string };
+export const FILE_LIMITS: { maxFiles: number; maxBytes: number; maxOutputBytes: number };
+export const CONVERTER_GROUPS: FileGroup[];
+export const COMPRESS_METHODS: CompressionMethod[];
+export function fileExtension(name: string): string;
+export function converterGroup(name: string): FileGroup | null;
+export function conversionTargets(names: string[], engines?: Record<string, boolean>): string[];
+export function validateSelection(files: { name: string; size: number }[], mode: string, target: string, engines?: Record<string, boolean>): string;
+export function formatBytes(bytes: number): string;

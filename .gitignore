@@ -2,6 +2,9 @@
 
 # dependencies
 /node_modules
+/.file-tools/
+/test-output/
+__pycache__/
 /.pnp
 .pnp.*
 .yarn/*
@@ -23,6 +26,11 @@
 # misc
 .DS_Store
 *.pem
+*.log
+
+# editors
+.idea/
+.vscode/
 
 # debug
 npm-debug.log*

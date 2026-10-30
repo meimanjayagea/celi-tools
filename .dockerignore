@@ -1,0 +1,8 @@
+node_modules
+.next
+.git
+.file-tools
+test-output
+.env*
+*.log
+__pycache__

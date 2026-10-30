@@ -1,6 +1,70 @@
+function indentation(spaces) {
+  return [2, 3, 4].includes(spaces) ? spaces : 2;
+}
+
+/**
+ * Parses JSON and, on failure, reports a 1-based line/column.
+ * Handles V8 ("at position N (line L column C)") and Firefox ("at line L column C") messages.
+ */
+export function parseJson(text) {
+  try {
+    return { value: JSON.parse(text), error: null };
+  } catch (caught) {
+    const raw = caught instanceof Error ? caught.message : "Invalid JSON";
+    let line;
+    let column;
+    const lineColumn = raw.match(/line\s+(\d+)\s+column\s+(\d+)/i);
+    if (lineColumn) {
+      line = Number(lineColumn[1]);
+      column = Number(lineColumn[2]);
+    } else {
+      const position = raw.match(/position\s+(\d+)/i);
+      const offset = position ? Number(position[1]) : text.length;
+      const before = text.slice(0, offset).split("\n");
+      line = before.length;
+      column = before.at(-1).length + 1;
+    }
+    const message = raw
+      .replace(/^JSON\.parse:\s*/i, "")
+      .replace(/\s+(in JSON\s+)?at (position|line)\b.*$/i, "")
+      .replace(/\s+of the JSON data$/i, "")
+      .trim();
+    return { value: null, error: { message: message || "Invalid JSON", line, column } };
+  }
+}
+
 export function formatJson(text, spaces = 2) {
   const value = JSON.parse(text);
-  return JSON.stringify(value, null, [2, 3, 4].includes(spaces) ? spaces : 2);
+  return JSON.stringify(value, null, indentation(spaces));
+}
+
+export function minifyJson(text) {
+  return JSON.stringify(JSON.parse(text));
+}
+
+export function sortKeys(value) {
+  if (Array.isArray(value)) return value.map(sortKeys);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort((a, b) => a.localeCompare(b)).map((key) => [key, sortKeys(value[key])]));
+  }
+  return value;
+}
+
+export function jsonStats(value) {
+  let keys = 0;
+  let depth = 0;
+  const walk = (node, level) => {
+    depth = Math.max(depth, level);
+    if (Array.isArray(node)) node.forEach((item) => walk(item, level + 1));
+    else if (node && typeof node === "object") {
+      for (const item of Object.values(node)) {
+        keys += 1;
+        walk(item, level + 1);
+      }
+    }
+  };
+  walk(value, 0);
+  return { keys, depth };
 }
 
 function quoteSingleQuotedStrings(text) {
@@ -14,6 +78,7 @@ function quoteSingleQuotedStrings(text) {
       continue;
     }
 
+    const start = index;
     const quote = char;
     let value = "";
     index += 1;
@@ -39,7 +104,7 @@ function quoteSingleQuotedStrings(text) {
     }
     if (index >= text.length) throw new SyntaxError("Unterminated string literal");
     index += 1;
-    output += JSON.stringify(value);
+    output += quote === '"' ? text.slice(start, index) : JSON.stringify(JSON.parse(`"${value.replaceAll('"', '\\"')}"`));
   }
   return output;
 }
@@ -124,7 +189,7 @@ export function fixJson(text, spaces = 2) {
   let candidate = quoteSingleQuotedStrings(text);
   candidate = quoteBareKeys(candidate);
   candidate = stripTrailingCommas(candidate);
-  return JSON.stringify(JSON.parse(candidate), null, [2, 3, 4].includes(spaces) ? spaces : 2);
+  return JSON.stringify(JSON.parse(candidate), null, indentation(spaces));
 }
 
 function xmlName(value) {
@@ -164,6 +229,9 @@ export function toCsv(value) {
   const rows = Array.isArray(value) ? value : [value];
   if (!rows.length) return "";
   const objects = rows.filter((row) => row !== null && typeof row === "object" && !Array.isArray(row));
+  if (objects.length && objects.length !== rows.length) {
+    throw new Error("CSV memerlukan array objek yang konsisten. Pisahkan objek dan nilai sederhana sebelum konversi.");
+  }
   if (!objects.length) return ["value", ...rows.map(csvCell)].join("\n");
   const headers = [...new Set(objects.flatMap((row) => Object.keys(row)))];
   return [headers.map(csvCell).join(","), ...rows.map((row) => headers.map((key) => csvCell(row?.[key])).join(","))].join("\n");

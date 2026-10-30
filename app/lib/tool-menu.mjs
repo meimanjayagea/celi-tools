@@ -39,4 +39,23 @@ export const TOOL_MENU_GROUPS = [
       { id: "auto-update", label: "Auto update", description: "Refresh the preview as you type" },
     ],
   },
+  {
+    title: "Encrypt & Decrypt",
+    items: [
+      { id: "base64-encode", label: "Base64 Encode", description: "Encode text to Base64" },
+      { id: "base64-decode", label: "Base64 Decode", description: "Decode Base64 to text" },
+      { id: "md5", label: "MD5 Hash", description: "Generate MD5 hash" },
+      { id: "sha1", label: "SHA-1 Hash", description: "Generate SHA-1 hash" },
+      { id: "sha256", label: "SHA-256 Hash", description: "Generate SHA-256 hash" },
+      { id: "sha512", label: "SHA-512 Hash", description: "Generate SHA-512 hash" },
+      { id: "aes-encrypt", label: "AES Encrypt", description: "Encrypt text with AES-GCM" },
+      { id: "aes-decrypt", label: "AES Decrypt", description: "Decrypt AES-GCM ciphertext" },
+      { id: "rot13", label: "ROT13", description: "Rotate text by 13 characters" },
+      { id: "caesar", label: "Caesar Cipher", description: "Shift text by custom amount" },
+      { id: "url-encode", label: "URL Encode", description: "Encode text for URLs" },
+      { id: "url-decode", label: "URL Decode", description: "Decode URL-encoded text" },
+      { id: "binary", label: "Binary Converter", description: "Text to binary and back" },
+      { id: "hex", label: "Hex Converter", description: "Text to hex and back" },
+    ],
+  },
 ];
