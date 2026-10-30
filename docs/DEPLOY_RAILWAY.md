@@ -31,16 +31,16 @@ Deployment belum siap jika `/ready` masih 503. Periksa build/runtime log, keters
 Gunakan proyek Vercel **web**, Root Directory **apps/web**, framework **Next.js**. Pada Settings → Environment Variables, isi Production:
 
 ```env
-NEXT_PUBLIC_FILE_API_URL=https://<domain-api-aktual>.up.railway.app
-NEXT_PUBLIC_SUPABASE_URL=https://<project-anda>.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<public-publishable-key-proyek-anda>
+FILE_API_URL=https://<domain-api-aktual>.up.railway.app
+SUPABASE_URL=https://<project-anda>.supabase.co
+SUPABASE_PUBLISHABLE_KEY=<public-publishable-key-proyek-anda>
 ```
 
-Gunakan nilai URL/key Supabase yang sama dengan konfigurasi lokal yang berfungsi. Legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` juga didukung. Jangan isi Google Client Secret atau service-role key di variabel publik.
+Gunakan nilai URL/key Supabase yang sama dengan konfigurasi lokal yang berfungsi. Legacy `SUPABASE_ANON_KEY` juga didukung. Jangan isi Google Client Secret atau service-role key di variabel publik.
 
-Lakukan **Redeploy web setelah environment tersimpan**, karena `NEXT_PUBLIC_` dimasukkan ke bundle saat build. Tidak diperlukan rewrite atau proxy file melalui Vercel: browser mengunggah langsung ke Railway agar file besar tidak melewati batas payload Vercel Functions.
+Lakukan **Redeploy web setelah environment tersimpan**, karena tiga nilai konfigurasi browser dipetakan secara eksplisit oleh `next.config.ts` saat build. Tidak diperlukan rewrite atau proxy file melalui Vercel: browser mengunggah langsung ke Railway agar file besar tidak melewati batas payload Vercel Functions.
 
-Proyek Vercel `api` dan `server-4ia5` bukan backend container Railway. Jangan gunakan domain kedua proyek itu sebagai `NEXT_PUBLIC_FILE_API_URL`. Tidak perlu menghapus proyek untuk menghubungkan layanan baru.
+Proyek Vercel `api` dan `server-4ia5` bukan backend container Railway. Jangan gunakan domain kedua proyek itu sebagai `FILE_API_URL`. Tidak perlu menghapus proyek untuk menghubungkan layanan baru.
 
 ## 3. Hubungkan autentikasi Supabase
 
@@ -68,7 +68,7 @@ Skrip memeriksa web, status autentikasi, health/readiness engine, CORS, prefligh
 | Gejala | Yang diperiksa |
 | --- | --- |
 | `/api/auth/providers` pada web mengembalikan 503 | Environment public Supabase Vercel dan redeploy web |
-| Halaman file menyebut layanan belum terhubung | `NEXT_PUBLIC_FILE_API_URL` kosong pada build web |
+| Halaman file menyebut layanan belum terhubung | `FILE_API_URL` kosong pada build web |
 | Request file menuju domain Vercel lama atau localhost | URL API pada build web belum diperbarui |
 | API 403 / CORS error | Origin aktual browser belum ada dalam `WEB_ORIGINS` Railway |
 | Redirect login Vercel / 401 | Deployment protection memblokir akses; gunakan domain yang memang diizinkan, jangan menonaktifkan proteksi tanpa meninjau kebijakan akses |

@@ -27,6 +27,8 @@ Browser mengambil halaman dari web dan mengirim file **langsung ke API**. Reques
 
 ## Menjalankan secara lokal
 
+[Daftar sample environment](./docs/ENVIRONMENT.md) memisahkan konfigurasi lokal, Vercel, Railway, Google OAuth, dan SMTP Supabase.
+
 Gunakan Node.js 22 atau lebih baru. Jalankan semua perintah dari root repository:
 
 ```sh
@@ -42,12 +44,14 @@ npm run dev
 Untuk checkout baru, salin `apps/web/.env.example` menjadi `apps/web/.env.local`, lalu isi public key dan URL Supabase. Jika sudah memiliki file environment, pertahankan nilai yang ada. Migrasi lokal memindahkan `.env`/`.env.local` lama ke `apps/web/` tanpa menampilkan nilainya.
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_public_key
-NEXT_PUBLIC_FILE_API_URL=http://localhost:3001
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your_public_key
+FILE_API_URL=http://localhost:3001
 ```
 
-Legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` tetap didukung. Variabel `NEXT_PUBLIC_` dibundel saat build; perubahan URL API production memerlukan build/deployment web baru.
+Legacy `SUPABASE_ANON_KEY` tetap didukung. Konfigurasi URL/API key publik dipetakan ke bundle browser saat build; perubahan URL API production memerlukan build/deployment web baru.
+
+Nama lama `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`, dan `NEXT_PUBLIC_FILE_API_URL` tetap diterima sebagai fallback. Nama baru di atas diprioritaskan. Nilai ini tetap publik meskipun prefix dihapus; gunakan hanya Supabase publishable/anon key.
 
 Backend dapat dikonfigurasi lewat `apps/api/.env` berdasarkan `apps/api/.env.example`. Default lokal hanya mengizinkan origin `http://localhost:3000`. Untuk web dengan port lain, sesuaikan `WEB_ORIGINS`.
 
@@ -96,7 +100,7 @@ Gunakan repository yang sama untuk dua layanan:
 
 | Layanan | Target | Konfigurasi utama |
 | --- | --- | --- |
-| `apps/web` | Vercel, framework Next.js | `NEXT_PUBLIC_FILE_API_URL=https://api-anda.example.com` dan public key Supabase |
+| `apps/web` | Vercel, framework Next.js | `FILE_API_URL=https://api-anda.example.com` dan public key Supabase |
 | `apps/api` | Container/server Node + Python | `apps/api/Dockerfile`, context root repository, `WEB_ORIGINS=https://web-anda.vercel.app` |
 
 [Panduan deployment monorepo](./DEPLOY_VERCEL.md) menjelaskan instalasi workspace, Root Directory Vercel, backend Docker, CORS, dan domain OAuth. Backend file memerlukan runtime yang menerima upload 100 MB serta proses native; backend ini tidak dipasang sebagai fungsi Vercel biasa.

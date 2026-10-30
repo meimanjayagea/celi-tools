@@ -63,14 +63,16 @@ Jika proyek Vercel sebelumnya memakai root repository atau `server`, ubah Root D
 Tambahkan ke environment Production Vercel (dan Preview jika diperlukan):
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_public_publishable_key
-NEXT_PUBLIC_FILE_API_URL=https://api-contoh.example.com
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your_public_publishable_key
+FILE_API_URL=https://api-contoh.example.com
 ```
 
-Legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` tetap didukung sebagai pengganti publishable key. Semua nilai harus berasal dari proyek yang benar. Client Secret Google dan service-role key tidak ditempatkan di `NEXT_PUBLIC_`.
+Legacy `SUPABASE_ANON_KEY` tetap didukung sebagai pengganti publishable key. Semua nilai harus berasal dari proyek yang benar. Client Secret Google dan service-role key tidak ditempatkan di `NEXT_PUBLIC_`.
 
-`NEXT_PUBLIC_FILE_API_URL` adalah origin backend HTTPS tanpa path endpoint. Web menambahkan `/api/files/capabilities`, `/api/files/convert`, atau `/api/files/compress`. Jangan mengisinya dengan localhost pada deployment production. Mengubah variabel publik membutuhkan deployment web baru.
+Nama environment deployment sekarang memakai `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, dan `FILE_API_URL`. `next.config.ts` memetakan hanya tiga nilai konfigurasi publik ini ke browser. Nama lama dengan prefix `NEXT_PUBLIC_` masih didukung sebagai fallback; jika keduanya diisi, nama baru diprioritaskan. Menghapus prefix tidak membuat nilai menjadi rahasia. Peringatan Vercel bahwa `NEXT_PUBLIC_` terlihat di browser adalah informasi, bukan error. Pakai hanya publishable/anon key pada field key tersebut; Google Client Secret tetap di Supabase, dan service-role/secret key bukan konfigurasi browser.
+
+`FILE_API_URL` adalah origin backend HTTPS tanpa path endpoint. Web menambahkan `/api/files/capabilities`, `/api/files/convert`, atau `/api/files/compress`. Jangan mengisinya dengan localhost pada deployment production. Mengubah variabel publik membutuhkan deployment web baru.
 
 ## 5. Hubungkan CORS dan autentikasi
 
