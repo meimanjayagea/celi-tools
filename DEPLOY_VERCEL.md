@@ -49,6 +49,7 @@ Import repository yang sama menjadi proyek Vercel dengan:
 | --- | --- |
 | Root Directory | **`apps/web`** |
 | Framework Preset | **Next.js** |
+| Node.js Version | **24.x** (sesuai versi yang dipin di `package.json`) |
 | Include source files outside Root Directory | Aktifkan agar paket workspace bersama dapat diakses |
 | Install Command | `npm ci --prefix ../..` |
 | Build Command | `npm run build` |
@@ -65,6 +66,7 @@ Tambahkan ke environment Production Vercel (dan Preview jika diperlukan):
 ```env
 AUTH_SECRET=<secret-acak-minimal-32-byte>
 AUTH_URL=https://nama-web.vercel.app
+AUTH_DATABASE_PROVIDER=prisma-postgres
 DATABASE_URL=<koneksi-postgresql-dengan-tls>
 SMTP_HOST=<host-smtp>
 SMTP_PORT=587
@@ -74,7 +76,7 @@ EMAIL_FROM="Celi Tools <no-reply@domain-terverifikasi.example>"
 FILE_API_URL=https://api-contoh.example.com
 ```
 
-Jalankan `apps/web/db/001_auth.sql` pada PostgreSQL terlebih dahulu. Auth secret, database password, dan SMTP password harus menjadi server-only environment variables; jangan gunakan prefix `NEXT_PUBLIC_`. Hanya `FILE_API_URL` yang dipetakan ke bundle browser. Lihat [docs/AUTH.md](./docs/AUTH.md) untuk membuat secret dan menyiapkan database/email.
+Jalankan `apps/web/db/001_auth.sql` pada PostgreSQL terlebih dahulu jika login akan diaktifkan. Auth database boleh tidak diatur untuk deployment web yang belum memerlukan login; set `AUTH_DATABASE_PROVIDER=none` agar endpoint auth nonaktif tanpa menggagalkan fitur publik. `supabase` dan `prisma-postgres` menggunakan connection string PostgreSQL, bukan credential browser. Auth secret, database password, dan SMTP password harus menjadi server-only environment variables; jangan gunakan prefix `NEXT_PUBLIC_`. Hanya `FILE_API_URL` yang dipetakan ke bundle browser. Lihat [docs/AUTH.md](./docs/AUTH.md) untuk provider database dan langkah menyiapkan email.
 
 `FILE_API_URL` adalah origin backend HTTPS tanpa path endpoint. Web menambahkan `/api/files/capabilities`, `/api/files/convert`, atau `/api/files/compress`. Jangan mengisinya dengan localhost pada deployment production. Mengubah variabel publik membutuhkan deployment web baru.
 

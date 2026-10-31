@@ -18,14 +18,14 @@
   --danger-soft: #fff0f1;
   --warning: #9b6500;
   --sidebar-width: 280px;
-  --font-sans: var(--font-interface), "Segoe UI", sans-serif;
-  --font-mono: var(--font-code), "Cascadia Code", monospace;
+  --font-sans: "Manrope", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Code", monospace;
 }
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--text-primary);
-  --font-sans: var(--font-interface), "Segoe UI", sans-serif;
-  --font-mono: var(--font-code), "Cascadia Code", monospace;
+  --font-sans: "Manrope", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Code", monospace;
 }
 html[data-theme="dark"] {
   --accent: #86a7ff;

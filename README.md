@@ -48,6 +48,7 @@ Salin [`apps/web/.env.example`](./apps/web/.env.example) ke `apps/web/.env.local
 ```env
 AUTH_SECRET=generate-a-random-secret-of-at-least-32-bytes
 AUTH_URL=http://localhost:3000
+AUTH_DATABASE_PROVIDER=postgres
 DATABASE_URL=postgresql://celi_auth:replace-me@localhost:5432/celi_auth
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
@@ -61,12 +62,15 @@ FILE_API_URL=http://localhost:3001
 | --- | --- |
 | `AUTH_SECRET` | Secret acak Auth.js, minimal 32 byte. Buat dengan `openssl rand -base64 32`. |
 | `AUTH_URL` | Origin kanonis web; lokal `http://localhost:3000`, production URL HTTPS Vercel. |
-| `DATABASE_URL` | URL PostgreSQL untuk akun, token sekali pakai, sesi, dan rate limit. Gunakan koneksi TLS di production. |
+| `AUTH_DATABASE_PROVIDER` | Pilih `postgres`, `supabase`, `prisma-postgres`, `neon`, `vercel-postgres`, atau `none`. Opsi selain `none` saat ini memakai driver PostgreSQL. Nilai `none` membuat web berjalan tanpa koneksi database dan menonaktifkan login. |
+| `DATABASE_URL` | Opsional saat provider `none`; URL PostgreSQL untuk akun, token sekali pakai, sesi, dan rate limit. Untuk kompatibilitas, `POSTGRES_URL` juga bisa digunakan. Pakai koneksi TLS di production. Supabase dan Prisma Postgres memakai URL koneksi PostgreSQL server-side. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | Kredensial server SMTP untuk mengirim tautan email. Port 465 memakai TLS implisit; 587 memakai STARTTLS. |
 | `EMAIL_FROM` | Alamat pengirim yang sudah diverifikasi penyedia email, misalnya `"Celi Tools <no-reply@domain-anda.com>"`. |
 | `FILE_API_URL` | Origin API file; lokal `http://localhost:3001`, production domain Railway. Variabel ini digunakan browser. |
 
-Jalankan skema `apps/web/db/001_auth.sql` satu kali pada database PostgreSQL tersebut sebelum mengaktifkan auth. Jika menjalankan migrasi via `psql`, gunakan `DATABASE_URL` yang sama seperti environment web. Auth.js memerlukan semua variabel auth di atas selain `FILE_API_URL`; jika ada yang belum diisi, login email tetap nonaktif. Jangan menaruh `AUTH_SECRET`, `DATABASE_URL`, atau password SMTP pada variabel `NEXT_PUBLIC_*` atau file yang di-commit.
+Jalankan skema `apps/web/db/001_auth.sql` satu kali pada database PostgreSQL tersebut sebelum mengaktifkan auth. Jika menjalankan migrasi via `psql`, gunakan `DATABASE_URL` yang sama seperti environment web. Auth.js memerlukan database, SMTP, secret, dan origin yang valid; jika belum lengkap, login email tetap nonaktif sementara fitur web lain tetap bisa dipakai. Jangan menaruh `AUTH_SECRET`, `DATABASE_URL`, atau password SMTP pada variabel `NEXT_PUBLIC_*` atau file yang di-commit.
+
+Untuk menjalankan web lokal tanpa database, set `AUTH_DATABASE_PROVIDER=none` dan kosongkan `DATABASE_URL`/`POSTGRES_URL`. Untuk Supabase pilih `supabase` dan gunakan connection string PostgreSQL server-side (bukan publishable/anon key); untuk resource Prisma Postgres pilih `prisma-postgres`. Engine database selain PostgreSQL memerlukan adapter Auth.js yang sesuai dan skema khusus; driver itu belum termasuk dalam build ini.
 
 ### Environment API (`apps/api`)
 
