@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { ArrowLeft, ArrowRight, Check, CircleAlert, Mail, LockKeyhole, LoaderCircle, CodeXml } from "lucide-react";
 import { useAuth } from "./auth-provider";
+import { safeCallbackUrl } from "../lib/redirect-path";
 
 type Providers = { available: boolean; email: boolean; registration: boolean };
 const unavailable: Providers = { available: false, email: false, registration: false };
@@ -17,8 +18,9 @@ function AuthFeedback() {
   return <div className="alert alert-error" role="alert"><CircleAlert size={18} /><span>Link masuk tidak dapat digunakan. Minta tautan baru dan gunakan tautan terbaru.</span></div>;
 }
 
-export default function AuthForm({ variant }: { variant: "login" | "register" }) {
+export default function AuthForm({ variant, callbackUrl: requestedCallbackUrl }: { variant: "login" | "register"; callbackUrl?: string | string[] }) {
   const registering = variant === "register";
+  const callbackUrl = safeCallbackUrl(requestedCallbackUrl);
   const router = useRouter();
   const { user, loading } = useAuth();
   const [email, setEmail] = useState("");
@@ -32,7 +34,7 @@ export default function AuthForm({ variant }: { variant: "login" | "register" })
   const coolingDown = cooldown > 0;
   const canRegister = !registering || providers?.registration === true;
 
-  useEffect(() => { if (user) router.replace("/dashboard"); }, [user, router]);
+  useEffect(() => { if (user) router.replace(callbackUrl); }, [user, router, callbackUrl]);
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/auth/status", { cache: "no-store", signal: controller.signal })
@@ -63,7 +65,7 @@ export default function AuthForm({ variant }: { variant: "login" | "register" })
       const response = await signIn("email", {
         email: email.trim(),
         redirect: false,
-        redirectTo: "/dashboard",
+        redirectTo: callbackUrl,
       });
       if (!response || response.error) throw new Error(response?.error || "email_request_failed");
       setSuccess(true);
@@ -87,7 +89,7 @@ export default function AuthForm({ variant }: { variant: "login" | "register" })
       <div className="auth-form-card">
         <span className="auth-form-icon">{registering ? <Mail size={24} /> : <LockKeyhole size={24} />}</span>
         <div className="auth-form-heading"><h1>{registering ? "Satu akun. Banyak yang beres." : "Selamat datang kembali"}</h1><p>{registering ? "Buat akun dengan tautan verifikasi yang dikirim ke email Anda." : "Masuk dengan tautan aman yang dikirim ke email Anda."}</p></div>
-        {loading || user ? <div className="auth-session-status" role="status"><LoaderCircle size={19} className="spin" /><p>{user ? "Membuka dashboard Anda…" : "Memeriksa sesi Anda…"}</p>{user && <Link href="/dashboard" className="auth-link">Lanjut ke dashboard</Link>}</div> : <>
+        {loading || user ? <div className="auth-session-status" role="status"><LoaderCircle size={19} className="spin" /><p>{user ? "Membuka workspace Anda…" : "Memeriksa sesi Anda…"}</p>{user && <Link href={callbackUrl} className="auth-link">Lanjut ke workspace</Link>}</div> : <>
           <Suspense fallback={null}><AuthFeedback /></Suspense>
           {error && <div className="alert alert-error" role="alert"><CircleAlert size={18} /><span>{error}</span></div>}
           {providers && !providers.available && <div className="auth-provider-notice" role="status"><CircleAlert size={17} /><div><p>Layanan akun belum dikonfigurasi. Hubungi administrator atau coba lagi nanti.</p><button type="button" className="auth-link" onClick={() => { setProviders(null); setRefresh(value => value + 1); }}>Periksa lagi</button></div></div>}
@@ -103,7 +105,7 @@ export default function AuthForm({ variant }: { variant: "login" | "register" })
             </fieldset>
           </form>
           <p className="auth-email-explanation">{registering ? "Akun dibuat setelah Anda membuka tautan verifikasi dari email." : "Belum memiliki akun? Anda dapat mendaftar menggunakan alamat email yang sama."}</p>
-          <p className="account-switch">{registering ? "Sudah punya akun?" : "Belum punya akun?"} <Link href={registering ? "/login" : "/register"}>{registering ? "Masuk di sini" : "Daftar sekarang"}</Link></p>
+          <p className="account-switch">{registering ? "Sudah punya akun?" : "Belum punya akun?"} <Link href={`${registering ? "/login" : "/register"}?callbackUrl=${encodeURIComponent(callbackUrl)}`}>{registering ? "Masuk di sini" : "Daftar sekarang"}</Link></p>
         </>}
         <div className="account-form-note"><LockKeyhole size={14} /><p>Tidak perlu membuat atau mengingat kata sandi. Gunakan email yang dapat Anda akses.</p></div>
       </div>

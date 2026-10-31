@@ -29,7 +29,7 @@ Web dan API berjalan sebagai dua Vercel Services dalam satu deployment. Browser 
 
 [Daftar sample environment](./docs/ENVIRONMENT.md) menjelaskan konfigurasi web, API, Vercel Blob, PostgreSQL, dan SMTP.
 
-Gunakan Node.js 24 atau lebih baru. Jalankan semua perintah dari root repository:
+Gunakan Node.js 26.12.1 (Vercel memakai runtime 26.x dan mengelola patch keamanan otomatis). Jalankan semua perintah dari root repository:
 
 ```sh
 npm ci

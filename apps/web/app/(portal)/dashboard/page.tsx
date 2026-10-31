@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Dashboard from "../../components/dashboard";
+import { requireAuth } from "../../lib/require-auth";
 export const metadata: Metadata = {
   title: "Dashboard — Celi Tools",
   description: "Workspace JSON, konversi, encoding, dan kriptografi dalam satu portal.",
 };
-export default function Page() { return <Dashboard />; }
+export default async function Page() { await requireAuth("/dashboard"); return <Dashboard />; }
