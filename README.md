@@ -9,7 +9,7 @@ apps/
   web/                  Next.js / React: UI dan autentikasi email Auth.js
     app/                Source aplikasi
     public/             Aset antarmuka
-    vercel.json         Konfigurasi proyek Vercel (Root Directory: apps/web)
+    vercel.json         Konfigurasi Vercel Services dan rewrite web/API
   api/                  HTTP API Node.js yang menjalankan worker Python
     src/                CORS, upload, pemrosesan, health check
     server/             Worker Python, dependency lock, pengujian engine
@@ -23,13 +23,13 @@ package-lock.json       Satu lockfile npm untuk semua workspaces
 compose.yaml            Menjalankan backend Docker secara lokal
 ```
 
-Browser mengambil halaman dari web dan mengirim file **langsung ke API**. Request upload dan hasil besar tidak melewati fungsi Vercel. Web tidak menjalankan Python dan tidak menyimpan file upload. Backend tetap menjalankan engine yang sebelumnya dipakai di aplikasi ini.
+Web dan API berjalan sebagai dua Vercel Services dalam satu deployment. Browser mengunggah file langsung ke Vercel Blob privat; API mengambil file tersebut, memprosesnya dalam container, lalu menyimpan hasil sementara privat dan mengembalikan tautan unduh berumur satu jam. File input dihapus setelah pemrosesan; hasil dihapus setelah diunduh. Hasil yang tertinggal dibersihkan ketika ada permintaan pemrosesan berikutnya jika usianya lebih dari 24 jam.
 
 ## Menjalankan secara lokal
 
-[Daftar sample environment](./docs/ENVIRONMENT.md) menjelaskan konfigurasi lokal, Vercel, Railway, PostgreSQL, dan SMTP.
+[Daftar sample environment](./docs/ENVIRONMENT.md) menjelaskan konfigurasi web, API, Vercel Blob, PostgreSQL, dan SMTP.
 
-Gunakan Node.js 22 atau lebih baru. Jalankan semua perintah dari root repository:
+Gunakan Node.js 24 atau lebih baru. Jalankan semua perintah dari root repository:
 
 ```sh
 npm ci
@@ -43,7 +43,7 @@ npm run dev
 
 ### Environment web (`apps/web`)
 
-Salin [`apps/web/.env.example`](./apps/web/.env.example) ke `apps/web/.env.local`. Web membaca file ini untuk Auth.js, database, SMTP, dan URL API file.
+Salin [`apps/web/.env.example`](./apps/web/.env.example) ke `apps/web/.env.local`. Web membaca file ini untuk Auth.js, database, dan SMTP. Pada lokal, file diproses langsung oleh API `localhost:3001`; Vercel Blob hanya dipakai pada deployment.
 
 ```env
 AUTH_SECRET=generate-a-random-secret-of-at-least-32-bytes
@@ -55,7 +55,6 @@ SMTP_PORT=587
 SMTP_USER=replace-with-smtp-username
 SMTP_PASSWORD=replace-with-smtp-password
 EMAIL_FROM="Celi Tools <no-reply@example.com>"
-FILE_API_URL=http://localhost:3001
 ```
 
 | Variabel | Kegunaan |
@@ -66,7 +65,6 @@ FILE_API_URL=http://localhost:3001
 | `DATABASE_URL` | Opsional saat provider `none`; URL PostgreSQL untuk akun, token sekali pakai, sesi, dan rate limit. Untuk kompatibilitas, `POSTGRES_URL` juga bisa digunakan. Pakai koneksi TLS di production. Supabase dan Prisma Postgres memakai URL koneksi PostgreSQL server-side. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | Kredensial server SMTP untuk mengirim tautan email. Port 465 memakai TLS implisit; 587 memakai STARTTLS. |
 | `EMAIL_FROM` | Alamat pengirim yang sudah diverifikasi penyedia email, misalnya `"Celi Tools <no-reply@domain-anda.com>"`. |
-| `FILE_API_URL` | Origin API file; lokal `http://localhost:3001`, production domain Railway. Variabel ini digunakan browser. |
 
 Jalankan skema `apps/web/db/001_auth.sql` satu kali pada database PostgreSQL tersebut sebelum mengaktifkan auth. Jika menjalankan migrasi via `psql`, gunakan `DATABASE_URL` yang sama seperti environment web. Auth.js memerlukan database, SMTP, secret, dan origin yang valid; jika belum lengkap, login email tetap nonaktif sementara fitur web lain tetap bisa dipakai. Jangan menaruh `AUTH_SECRET`, `DATABASE_URL`, atau password SMTP pada variabel `NEXT_PUBLIC_*` atau file yang di-commit.
 
@@ -78,14 +76,14 @@ Salin [`apps/api/.env.example`](./apps/api/.env.example) ke `apps/api/.env`. API
 
 | Variabel | Kegunaan |
 | --- | --- |
-| `PORT` | Port HTTP; lokal `3001`. Railway biasanya menyediakan nilainya otomatis. |
+| `PORT` | Port HTTP; lokal `3001`. Vercel Container Runtime memasok port container. |
 | `HOST` | Alamat bind; lokal `127.0.0.1`, container production `0.0.0.0`. |
-| `WEB_ORIGINS` | Daftar origin web yang diizinkan CORS, dipisahkan koma, tanpa path/wildcard. Contoh lokal `http://localhost:3000`. |
+| `WEB_ORIGINS` | Origin web yang diizinkan API. Vercel mengarahkan API melalui domain yang sama; production harus memuat origin domain web tersebut. |
 | `FILE_TOOLS_TRUST_PROXY` | Default `false`. Ubah ke `true` hanya bila semua request melewati reverse proxy tepercaya yang mengatur `X-Forwarded-For`. |
 | `FILE_TOOLS_TRUSTED_PROXY_HOPS` | Jumlah hop proxy tepercaya saat membaca alamat klien; sesuaikan topologi deployment. |
 | `FILE_TOOLS_PYTHON`, `FILE_TOOLS_OFFICE`, `FILE_TOOLS_FFMPEG`, `FILE_TOOLS_RUNTIME_ROOT` | Override opsional untuk lokasi executable dan direktori runtime engine file. Biasanya tidak perlu pada image Docker. |
 
-Web dan API memakai file environment masing-masing. Untuk production, masukkan environment web ke **Vercel → proyek web → Settings → Environment Variables** dan environment API ke **Railway → layanan API → Variables**. Contoh production: [Vercel](./deploy/vercel/.env.example) dan [Railway](./deploy/railway/.env.example). Jangan menaruh kredensial Auth.js/SMTP di Railway, atau konfigurasi CORS/API di web sebagai pengganti konfigurasi API. Restart server lokal setelah mengubah file `.env`.
+Web dan API memakai file environment masing-masing saat lokal. Di production, keduanya dideploy oleh Vercel Services. Simpan variabel Auth.js/SMTP sebagai environment server di Vercel dan hubungkan Vercel Blob privat ke project; jangan simpan credential Blob di bundle browser. Contoh auth production ada di [Vercel](./deploy/vercel/.env.example). Restart server lokal setelah mengubah file `.env`.
 
 ### Engine Python di Windows
 
@@ -122,26 +120,17 @@ Jalankan web di terminal lain melalui `npm run dev:web`. Jangan menjalankan dua 
 | `npm run test:api` | Menguji API nyata port 3001, dengan fixture dan API aktif |
 | `npm run test:auth` | Memeriksa route auth web pada port 3000 tanpa mengirim email |
 | `npm run check:css` | Diagnostik class CSS web |
-| `npm run check:deployment -- --web https://web-anda.example.com --api https://api-anda.example.com` | Memeriksa koneksi deployment, autentikasi, engine, CORS, dan ZIP sintetis |
+| `npm run check:deployment -- --web https://web-anda.example.com` | Memeriksa web, auth, engine, unggah Blob privat, pemrosesan ZIP sintetis, dan unduhan |
 
 Tes API nyata menerima `FILE_TOOLS_TEST_URL` dan `FILE_TOOLS_WEB_ORIGIN` untuk origin lain. `AUTH_TEST_URL` mengubah target pemeriksaan UI/status auth web. Artefak sintetis tetap di direktori `test-output/` yang diabaikan Git.
 
 ## Deployment
 
-Gunakan repository yang sama untuk dua layanan:
-
-| Layanan | Target | Konfigurasi utama |
-| --- | --- | --- |
-| `apps/web` | Vercel, framework Next.js | `FILE_API_URL`, `AUTH_SECRET`, `DATABASE_URL`, dan kredensial SMTP |
-| `apps/api` | Container/server Node + Python | `apps/api/Dockerfile`, context root repository, `WEB_ORIGINS=https://web-anda.vercel.app` |
-
-[Panduan deployment monorepo](./DEPLOY_VERCEL.md) menjelaskan instalasi workspace, Root Directory Vercel, backend Docker, CORS, dan environment auth email. Backend file memerlukan runtime yang menerima upload 100 MB serta proses native; backend ini tidak dipasang sebagai fungsi Vercel biasa.
-
-[Panduan Railway + Vercel](./docs/DEPLOY_RAILWAY.md) memakai `railway.json` root untuk membangun backend Docker dan memeriksa kesiapan engine sebelum menerima traffic.
+[Panduan deployment Vercel](./DEPLOY_VERCEL.md) menjelaskan Services, private Blob, PostgreSQL, SMTP, environment, dan pemeriksaan production. Vercel project harus memakai framework Services, Root Directory repository root, dan menghubungkan private Blob store.
 
 ## Perilaku dan batas
 
-- Maksimum 10 file, total 100 MiB upload dan hasil 200 MiB. Dua job bersamaan per proses API; setiap alamat klien dibatasi satu pekerjaan aktif dan enam upload per menit. Readiness/capabilities dibatasi 30 pemeriksaan per menit per alamat. Tetapkan batas upload, waktu, dan rate limit reverse proxy backend agar perlindungan juga berlaku lintas instance.
+- Maksimum 10 file, total 100 MiB input dan 200 MiB hasil. Dua job bersamaan per proses API; setiap alamat klien dibatasi satu pekerjaan aktif dan enam job per menit. Readiness/capabilities dibatasi 30 pemeriksaan per menit per alamat. Rate limit dalam memori hanya berlaku per container instance.
 - CORS menerima origin eksplisit dari `WEB_ORIGINS`, dipisahkan koma. Wildcard tidak diterima. Akses tool tetap tidak memerlukan login, seperti perilaku sebelumnya; CORS bukan autentikasi API atau pembatas akses untuk klien non-browser. API memakai alamat peer secara default. Aktifkan `FILE_TOOLS_TRUST_PROXY=true` hanya jika semua traffic masuk melalui proxy tepercaya yang menambahkan `X-Forwarded-For`; atur `FILE_TOOLS_TRUSTED_PROXY_HOPS` sesuai jumlah proxy. Terapkan juga rate limit pada ingress untuk membatasi klien yang menyebar ke beberapa alamat atau instance.
 - File diproses dalam folder job terpisah dan dihapus setelah hasil selesai dikirim atau saat kegagalan yang tertangani. Hasil dialirkan ke klien agar arsip tidak disalin penuh ke memori server. Pembatalan koneksi menghentikan worker terkait. Hard crash host/proses dapat meninggalkan folder job; bersihkan hanya folder yang sudah tidak aktif.
 - Cookie sesi Auth.js hanya digunakan oleh web; browser tidak mengirim cookie sesi ke API file. Database dan SMTP hanya diperlukan oleh web.

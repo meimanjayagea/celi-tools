@@ -5,7 +5,7 @@ import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { FILE_LIMITS } from "@celi/file-tools";
-import { FileBackendError, fileCapabilities, fileErrorResponse, processFileRequest, stopWorkers } from "./file-backend.mjs";
+import { FileBackendError, fileCapabilities, fileErrorResponse, processBlobFileRequest, processFileRequest, deleteTemporaryFileRequest, stopWorkers } from "./file-backend.mjs";
 
 export function allowedWebOrigins(value, production = false) {
   if (!value && production) throw new Error("WEB_ORIGINS wajib diisi dengan origin frontend production.");
@@ -26,6 +26,8 @@ function normalizeAddress(value) {
 
 function getClientAddress(incoming, trustProxy, trustedProxyHops) {
   if (trustProxy) {
+    const vercelAddress = normalizeAddress(incoming.headers["x-vercel-forwarded-for"]);
+    if (vercelAddress) return vercelAddress;
     const forwarded = incoming.headers["x-forwarded-for"];
     const addresses = typeof forwarded === "string" ? forwarded.split(",").map(value => value.trim()) : [];
     const candidate = addresses[addresses.length - trustedProxyHops];
@@ -122,7 +124,10 @@ export function createFileServer({
         }
       } else if (incoming.method === "POST" && ["/api/files/convert", "/api/files/compress"].includes(pathname)) {
         const length = Number(incoming.headers["content-length"]);
-        if (!Number.isFinite(length) || length <= 0 || length > FILE_LIMITS.maxBytes + 1024 * 1024) throw new FileBackendError("Upload membutuhkan Content-Length dan maksimum 100 MB.", 413);
+        const isJson = incoming.headers["content-type"]?.startsWith("application/json");
+        const isLocalMultipart = process.env.NODE_ENV !== "production" && incoming.headers["content-type"]?.startsWith("multipart/form-data");
+        if (!Number.isFinite(length) || length <= 0 || length > (isJson ? 64 * 1024 : FILE_LIMITS.maxBytes + 1024 * 1024)) throw new FileBackendError("Metadata file tidak valid atau terlalu besar.", 413);
+        if (!isJson && !isLocalMultipart) throw new FileBackendError("Metadata harus berupa JSON.", 415);
         const limit = limitClient(getClientAddress(incoming, trustProxy, trustedProxyHops), "upload");
         if (!limit.allowed) {
           response = Response.json({ error: "Batas penggunaan file tercapai. Tunggu sebentar sebelum mencoba lagi." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
@@ -130,7 +135,19 @@ export function createFileServer({
         } else {
           releaseClientRequest = limit.release;
           const request = new Request("http://file-api.internal" + pathname, { method: "POST", headers: incoming.headers, body: Readable.toWeb(incoming), duplex: "half", signal: controller.signal });
-          response = await processFiles(request, pathname.endsWith("/convert") ? "convert" : "compress");
+          response = isLocalMultipart ? await processFiles(request, pathname.endsWith("/convert") ? "convert" : "compress") : await processBlobFileRequest(request, pathname.endsWith("/convert") ? "convert" : "compress");
+        }
+      } else if (incoming.method === "POST" && pathname === "/api/files/delete") {
+        const length = Number(incoming.headers["content-length"]);
+        if (!Number.isFinite(length) || length <= 0 || length > 4096) throw new FileBackendError("Permintaan penghapusan tidak valid.", 413);
+        if (!incoming.headers["content-type"]?.startsWith("application/json")) throw new FileBackendError("Metadata harus berupa JSON.", 415);
+        const limit = limitClient(getClientAddress(incoming, trustProxy, trustedProxyHops), "probe");
+        if (!limit.allowed) {
+          response = Response.json({ error: "Terlalu banyak permintaan penghapusan." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
+          incoming.resume();
+        } else {
+          const request = new Request("http://file-api.internal" + pathname, { method: "POST", headers: incoming.headers, body: Readable.toWeb(incoming), duplex: "half", signal: controller.signal });
+          response = await deleteTemporaryFileRequest(request);
         }
       } else {
         response = Response.json({ error: "Endpoint tidak ditemukan." }, { status: 404 });

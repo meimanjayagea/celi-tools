@@ -1,131 +1,80 @@
-# Deploy monorepo Celi Tools
+# Deploy Celi Tools ke Vercel
 
-Satu repository berisi web Next.js (`apps/web`), API pemrosesan file (`apps/api`), dan manifest format bersama (`packages/file-tools`). Web dideploy ke Vercel. API dideploy sebagai container di host yang mendukung Python, FFmpeg, LibreOffice, dan upload besar. Kedua layanan dihubungkan lewat URL publik dan CORS.
+Repository ini menjalankan web Next.js dan API file container dalam satu project Vercel menggunakan **Vercel Services**. File besar tidak dikirim sebagai body Function Vercel: browser mengunggah langsung ke private Vercel Blob, lalu API menariknya ke container untuk diproses.
 
-Untuk pilihan Railway, gunakan [panduan Railway + Vercel](./docs/DEPLOY_RAILWAY.md). `railway.json` di root sudah memilih Dockerfile backend dan readiness check; panduan tersebut memuat origin web production yang telah ditemukan.
+## 1. Konfigurasi project
 
-## 1. Kirim versi monorepo ke repository Git
-
-Sertakan source di `apps/`, `packages/`, `scripts/`, serta `package.json` dan `package-lock.json` root. Jangan membuat lockfile npm terpisah per aplikasi. File `.env*`, `.file-tools/`, `node_modules/`, `.next/`, dan fixture upload tidak diikutkan. File `.env.example` aman sebagai contoh konfigurasi tanpa kredensial asli.
-
-## 2. Deploy backend file
-
-Pada layanan Docker seperti Render/Railway atau server container Anda, gunakan repository yang sama dan pengaturan berikut:
+Hubungkan repository `celi-tools` ke project Vercel, lalu atur:
 
 | Pengaturan | Nilai |
 | --- | --- |
-| Docker build context | Root repository (`.`) |
-| Dockerfile | `apps/api/Dockerfile` |
-| Start command | Gunakan `CMD` bawaan image |
-| Health check | `GET /health` |
-| Readiness engine | `GET /ready` |
+| Root Directory | Repository root (`.`) |
+| Framework Preset | **Services** |
+| Node.js Version | **24.x** |
+| Include source files outside Root Directory | Aktif |
 
-Contoh build manual dari root repository:
+Konfigurasi kedua service, build commands, Dockerfile, dan routing ada di [vercel.json](./vercel.json). Frontend memakai `apps/web`; backend membangun `apps/api/Dockerfile` dengan Docker context root. Vercel container menerima trafik HTTP pada port 80 secara default; Dockerfile juga menjalankan API pada port 80, kecuali platform memasok `PORT` lain.
 
-```sh
-docker build -f apps/api/Dockerfile -t celi-file-api .
-docker run --rm -p 3001:3001 -e WEB_ORIGINS=https://nama-web.vercel.app celi-file-api
-```
+Project framework harus Services agar konfigurasi `services` dipakai. Jangan mengubah Root Directory ke `apps/web` atau `apps/api`, karena kedua service membutuhkan konfigurasi monorepo dan Docker context root.
 
-Pada platform managed, isi environment backend:
+## 2. Hubungkan private Vercel Blob
 
-```env
-NODE_ENV=production
-HOST=0.0.0.0
-WEB_ORIGINS=https://nama-web.vercel.app
-```
+Pada project yang sama, buka **Storage → Create → Blob** dan pilih akses **Private**, lalu hubungkan store ke project. Runtime server menggunakan integrasi Vercel; jangan menyalin token Blob ke `NEXT_PUBLIC_*` atau menyimpannya dalam repository. Bila store private sudah ada, cukup hubungkan ke project ini.
 
-Platform dapat mengisi `PORT`; jika tidak, API menggunakan 3001. Image sudah mengatur path Python, LibreOffice, dan direktori runtime yang dapat ditulis. Environment autentikasi web tidak diperlukan pada layanan ini. Pastikan proxy host menerima request setidaknya 101 MiB (file 100 MiB ditambah multipart) dan tidak memutus pemrosesan empat menit. Hasil dapat mencapai 200 MiB.
+Client upload dikunci ke prefix `celi-input`, tipe dan ukuran file divalidasi lagi oleh API, dan pathname tidak pernah dipakai sebagai URL fetch bebas. Hasil disimpan pada `celi-output` dan diberikan lewat signed GET URL privat selama satu jam. API menghapus file input setelah proses, dan menghapus hasil ketika download dimulai. Hasil yang tertinggal karena tab ditutup dihapus saat permintaan file berikutnya jika usianya lebih dari 24 jam.
 
-Catat domain HTTPS backend, misalnya `https://api-contoh.example.com`. Periksa `/health`, `/ready`, dan `/api/files/capabilities` melalui domain itu. `/health` hanya memeriksa proses; `/ready` mengembalikan 503 jika ada engine yang belum tersedia.
+## 3. Environment Production
 
-Untuk Render, pilih runtime Docker dan biarkan Root Directory layanan pada root repository karena image memerlukan manifest npm root serta `packages/file-tools`. Atur Dockerfile Path menjadi `./apps/api/Dockerfile`. Untuk Railway, gunakan context repository root dan konfigurasi Dockerfile Path yang sama (atau variabel `RAILWAY_DOCKERFILE_PATH=apps/api/Dockerfile` sesuai pengaturan Railway). Periksa biaya/kapasitas layanan pada platform sebelum membuat layanan.
+Masukkan konfigurasi autentikasi di **Settings → Environment Variables**. Gunakan [contoh env Vercel](./deploy/vercel/.env.example) sebagai daftar nama tanpa nilai kredensial asli.
 
-## 3. Import frontend ke Vercel
+Variabel penting:
 
-Import repository yang sama menjadi proyek Vercel dengan:
-
-| Pengaturan Vercel | Nilai |
+| Variabel | Catatan |
 | --- | --- |
-| Root Directory | **`apps/web`** |
-| Framework Preset | **Next.js** |
-| Node.js Version | **24.x** (sesuai versi yang dipin di `package.json`) |
-| Include source files outside Root Directory | Aktifkan agar paket workspace bersama dapat diakses |
-| Install Command | `npm ci --prefix ../.. --include=dev` |
-| Build Command | `npm run build` |
-| Output Directory | Default Next.js |
+| `AUTH_SECRET` | Secret acak server-side, minimal 32 byte |
+| `AUTH_URL` | Origin web Production, HTTPS |
+| `AUTH_DATABASE_PROVIDER` | `prisma-postgres`, `supabase`, atau driver PostgreSQL yang didukung |
+| `DATABASE_URL` | Koneksi PostgreSQL TLS untuk schema Auth.js `celi_auth` |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` | Provider email untuk magic link |
+| `WEB_ORIGINS` | Daftar origin HTTPS yang diizinkan API, dipisahkan koma |
+| `FILE_TOOLS_TRUST_PROXY` | `true` untuk membaca IP klien dari `x-vercel-forwarded-for` |
 
-`apps/web/vercel.json` sudah menetapkan framework dan perintah tersebut. `next.config.ts` mengatur root monorepo untuk Turbopack dan tracing. Tidak ada worker Python dalam web atau route upload file yang menjalankan subprocess. Folder `apps/api` tidak dipilih sebagai aplikasi Vercel.
+Tidak perlu mengatur `FILE_API_URL`: web dan API dilayani pada domain sama melalui rewrite. Tidak ada migrasi database file baru; skema auth yang telah dibuat di schema `celi_auth` tetap digunakan. Pertahankan variabel auth yang sudah terpasang. Jangan memasukkan nilai rahasia SMTP, DB, Auth.js, atau Blob ke konfigurasi frontend.
 
-Jika proyek Vercel sebelumnya memakai root repository atau `server`, ubah Root Directory ke `apps/web`. Error `PYTHON_ENTRYPOINT_NOT_FOUND` tidak diselesaikan dengan menambahkan entrypoint Python dummy; pastikan Vercel membaca konfigurasi Next.js dari workspace web dan commit monorepo terbaru.
+Jika memakai database baru untuk Auth.js, jalankan [apps/web/db/001_auth.sql](./apps/web/db/001_auth.sql) satu kali pada schema target sebelum login dipakai. Koneksi production yang ada memakai schema terisolasi `celi_auth`.
 
-## 4. Isi environment web dan autentikasi email
+## 4. Deploy dan verifikasi
 
-Tambahkan ke environment Production Vercel (dan Preview jika diperlukan):
+Commit dan push perubahan ke branch Production yang terhubung. Tunggu deployment sampai **Ready**, lalu periksa:
 
-```env
-AUTH_SECRET=<secret-acak-minimal-32-byte>
-AUTH_URL=https://nama-web.vercel.app
-AUTH_DATABASE_PROVIDER=prisma-postgres
-DATABASE_URL=<koneksi-postgresql-dengan-tls>
-SMTP_HOST=<host-smtp>
-SMTP_PORT=587
-SMTP_USER=<username-smtp>
-SMTP_PASSWORD=<password-smtp>
-EMAIL_FROM="Celi Tools <no-reply@domain-terverifikasi.example>"
-FILE_API_URL=https://api-contoh.example.com
-```
+1. `/`, `/login`, dan `/register` memberi HTTP 200.
+2. `/api/auth/status` memberi `available: true`; `/api/auth/providers` menampilkan provider email.
+3. `/health`, `/ready`, dan `/api/files/capabilities` berhasil; semua engine yang diumumkan bernilai `true`.
+4. Jalankan pemeriksaan sintetis tanpa mengirim email:
 
-Jalankan `apps/web/db/001_auth.sql` pada PostgreSQL terlebih dahulu jika login akan diaktifkan. Auth database boleh tidak diatur untuk deployment web yang belum memerlukan login; set `AUTH_DATABASE_PROVIDER=none` agar endpoint auth nonaktif tanpa menggagalkan fitur publik. `supabase` dan `prisma-postgres` menggunakan connection string PostgreSQL, bukan credential browser. Auth secret, database password, dan SMTP password harus menjadi server-only environment variables; jangan gunakan prefix `NEXT_PUBLIC_`. Hanya `FILE_API_URL` yang dipetakan ke bundle browser. Lihat [docs/AUTH.md](./docs/AUTH.md) untuk provider database dan langkah menyiapkan email.
+   ```sh
+   npm run check:deployment -- --web https://domain-production-anda
+   ```
 
-`FILE_API_URL` adalah origin backend HTTPS tanpa path endpoint. Web menambahkan `/api/files/capabilities`, `/api/files/convert`, atau `/api/files/compress`. Jangan mengisinya dengan localhost pada deployment production. Mengubah variabel publik membutuhkan deployment web baru.
+   Ini mengunggah file sintetis melalui private Blob, meminta API membuat ZIP, mengunduh hasil dengan URL bertanda tangan, memeriksa byte ZIP, lalu menghapus hasilnya.
 
-## 5. Hubungkan CORS dan autentikasi
+5. Uji manual file lebih dari 4,5 MB dan hasil besar dari browser. Buka DevTools Network dan pastikan konten file diunggah ke Blob dan API hanya menerima metadata file.
+6. Untuk memverifikasi SMTP sepenuhnya, gunakan alamat uji yang diizinkan pemiliknya, kirim magic link, dan buka link tersebut. Pemeriksaan deployment tidak mengirim email.
 
-Setelah domain web diketahui, pastikan `WEB_ORIGINS` backend sama dengan origin web, termasuk protokol dan port jika ada. Untuk beberapa domain yang memang dipakai:
-
-```env
-WEB_ORIGINS=https://nama-web.vercel.app,https://tools.example.com
-```
-
-Hostname preview harus ditambahkan secara eksplisit jika ingin menguji fitur file dari preview. `*` dan wildcard domain tidak diterima. Jangan menambahkan path seperti `/converter` ke daftar origin.
-
-Auth.js menggunakan `AUTH_URL` sebagai origin kanonis untuk tautan verifikasi. Pastikan nilainya origin HTTPS dari domain web production. Tidak diperlukan konfigurasi OAuth provider.
-
-## 6. Verifikasi kedua layanan
-
-1. Buka landing, dashboard, login, registrasi, JSON, dan Crypto di domain Vercel.
-2. Periksa `/api/auth/status` pada domain web; konfigurasi siap ditandai `available: true`.
-3. Buka File Converter/Compress. Status engine harus tampil sebagai tersedia.
-4. Di browser DevTools → Network, pastikan request file menuju **domain API**, bukan domain Vercel. Request auth tetap menuju web dan database/email hanya diakses server.
-5. Konversikan gambar kecil, lalu coba arsip ZIP dengan file lebih dari 4,5 MB. Unduh hasil dan periksa isinya.
-6. Origin yang tidak ada di `WEB_ORIGINS` harus ditolak. Jika browser menampilkan CORS error, samakan origin aktual browser dengan konfigurasi backend lalu restart layanan backend.
-
-Batas request/response Vercel Functions 4,5 MB tidak menjadi jalur upload pada arsitektur ini: file dan hasil dikirim langsung antara browser dan API. Batas upload/time limit host API tetap harus dikonfigurasi dengan benar.
-
-## Validasi sebelum deploy
+## 5. Menjalankan lokal
 
 ```sh
 npm ci
-npm test
-npm run lint
-npm run typecheck
-npm run build
+npm run dev
 ```
 
-Setelah engine siap dan API lokal berjalan:
-
-```sh
-npm run test:files -- --fixtures
-npm run test:api
-```
-
-Source dan konfigurasi deployment monorepo disiapkan di repository; deployment publik belum dijalankan oleh perubahan ini. Build Docker harus diuji pada Docker Engine/Linux yang aktif. Tes engine Windows dan build Next.js tidak menggantikan validasi image Docker.
+Web lokal berjalan pada port 3000 dan API pada 3001. Web lokal mengirim multipart langsung ke API lokal, jadi Blob Vercel tidak dibutuhkan. Gunakan `npm test`, `npm run lint`, dan `npm run typecheck` untuk pemeriksaan source. Dockerfile tetap dapat dijalankan terpisah melalui `docker compose up --build api`.
 
 ## Referensi
 
-- [Vercel monorepos](https://vercel.com/docs/monorepos)
-- [Framework Vercel](https://vercel.com/docs/project-configuration/vercel-json#framework)
-- [Batas Vercel Functions](https://vercel.com/docs/functions/limitations#request-body-size)
-- [Docker pada Render](https://render.com/docs/docker)
-- [Dockerfile pada Railway](https://docs.railway.com/builds/dockerfiles)
+- [Vercel Services](https://vercel.com/kb/guide/vercel-services)
+- [Menjalankan container di Vercel](https://vercel.com/kb/guide/docker)
+- [Client uploads Vercel Blob](https://vercel.com/docs/vercel-blob/client-upload)
+- [Private Vercel Blob](https://vercel.com/docs/vercel-blob/private-storage)
+- [Signed URLs Vercel Blob](https://vercel.com/changelog/signed-urls-are-now-available-for-vercel-blob)
+- [Batas Vercel Functions](https://vercel.com/docs/functions/limitations)

@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { ArrowRight, Check, CircleAlert, Download, FileArchive, FileInput, Files, LoaderCircle, Search, Server, Trash2, Upload, X } from "lucide-react";
+import { upload } from "@vercel/blob/client";
 import { COMPRESS_METHODS, CONVERTER_GROUPS, FILE_LIMITS, conversionTargets, converterGroup, formatBytes, validateSelection } from "@celi/file-tools";
 import { fileApiEndpoint } from "../lib/file-api";
 
-type Result = { url: string; name: string; size: number; original: number; notes: string[] };
+type Result = { url: string; name: string; size: number; original: number; notes: string[]; cleanupPath: string };
 export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }) {
   const converting = mode === "convert";
   const [files, setFiles] = useState<File[]>([]);
@@ -30,7 +31,7 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
     return () => controller.abort();
   }, [refresh]);
   useEffect(() => () => request.current?.abort(), []);
-  useEffect(() => () => { if (result) URL.revokeObjectURL(result.url); }, [result]);
+  useEffect(() => () => { if (result?.url.startsWith("blob:")) URL.revokeObjectURL(result.url); }, [result]);
 
   const choices = useMemo(() => converting
     ? conversionTargets(files.map(file => file.name), engines || {})
@@ -62,25 +63,50 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
     setFiles(next); resetResult();
   };
   const dropped = (event: DragEvent<HTMLDivElement>) => { event.preventDefault(); setDragging(false); addFiles(Array.from(event.dataTransfer.files)); };
-  const process = async () => {
+  const processFiles = async () => {
     const issue = validateSelection(files, mode, selected, engines || {});
     if (issue || !engines) { setError(issue || "Tunggu pemeriksaan server selesai."); return; }
     const controller = new AbortController();
     request.current = controller;
     setPending(true); resetResult();
+    const uploadedFiles: { pathname: string; name: string; size: number }[] = [];
     try {
-      const body = new FormData();
-      files.forEach(file => body.append("files", file));
-      body.append("target", selected); body.append("preset", preset);
-      const response = await fetch(fileApiEndpoint(mode), { method: "POST", body, signal: controller.signal, credentials: "omit" });
+      if (process.env.NODE_ENV === "development") {
+        const body = new FormData();
+        files.forEach(file => body.append("files", file));
+        body.append("target", selected); body.append("preset", preset);
+        const response = await fetch(fileApiEndpoint(mode), { method: "POST", body, signal: controller.signal, credentials: "omit" });
+        if (!response.ok) { const payload = await response.json(); throw new Error(payload.error || "File tidak dapat diproses."); }
+        const blob = await response.blob();
+        let notes: string[] = [];
+        try { const bytes = Uint8Array.from(atob(response.headers.get("X-File-Notes") || ""), char => char.charCodeAt(0)); notes = JSON.parse(new TextDecoder().decode(bytes)); } catch {}
+        const encoded = response.headers.get("Content-Disposition")?.split("filename*=UTF-8''")[1];
+        const name = encoded ? decodeURIComponent(encoded) : "celi-result.zip";
+        if (!controller.signal.aborted) setResult({ url: URL.createObjectURL(blob), cleanupPath: "", name, size: blob.size, original: total, notes });
+        return;
+      }
+      const uploaded = await Promise.all(files.map(async file => {
+        const safeName = (file.name.replaceAll("\\", "/").split("/").at(-1)?.replace(/[^A-Za-z0-9._-]/g, "_").slice(-180) || "file").replace(/^\.{1,2}$/, "file");
+        const stored = await upload(`celi-input/${crypto.randomUUID()}/${safeName}`, file, {
+          access: "private", handleUploadUrl: "/api/files/upload", multipart: file.size > 5 * 1024 * 1024,
+          contentType: file.type || "application/octet-stream", abortSignal: controller.signal,
+        });
+        const entry = { pathname: stored.pathname, name: file.name, size: file.size };
+        uploadedFiles.push(entry);
+        return entry;
+      }));
+      const response = await fetch(fileApiEndpoint(mode), {
+        method: "POST", signal: controller.signal, credentials: "omit",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: uploaded, target: selected, preset }),
+      });
       if (!response.ok) { const payload = await response.json(); throw new Error(payload.error || "File tidak dapat diproses."); }
-      const blob = await response.blob();
-      let notes: string[] = [];
-      try { const bytes = Uint8Array.from(atob(response.headers.get("X-File-Notes") || ""), char => char.charCodeAt(0)); notes = JSON.parse(new TextDecoder().decode(bytes)); } catch {}
-      const encoded = response.headers.get("Content-Disposition")?.split("filename*=UTF-8''")[1];
-      const name = encoded ? decodeURIComponent(encoded) : "celi-result.zip";
-      if (!controller.signal.aborted) setResult({ url: URL.createObjectURL(blob), name, size: blob.size, original: total, notes });
+      const payload = await response.json();
+      if (!controller.signal.aborted) setResult({ url: payload.downloadUrl, cleanupPath: payload.cleanupPath, name: payload.name, size: payload.size, original: total, notes: payload.notes || [] });
     } catch (caught) {
+      await Promise.all(uploadedFiles.map(file => fetch(fileApiEndpoint("compress").replace("/compress", "/delete"), {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pathname: file.pathname }), credentials: "omit",
+      }).catch(() => {})));
       if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : "Koneksi terputus. File belum dapat diproses.");
     } finally { if (!controller.signal.aborted) setPending(false); }
   };
@@ -108,14 +134,14 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
           {!converting && selectedMethod && <div className="file-format-note"><CircleAlert size={16}/><p>{selectedMethod.note}</p></div>}
           {converting && groups.filter(Boolean).map(id => <div className="file-format-note" key={id}><CircleAlert size={16}/><p>{CONVERTER_GROUPS.find(group => group.id === id)?.note}</p></div>)}
           {selectionError && <p className="file-selection-error" role="status">{selectionError}</p>}
-          <button className="primary-button file-process-button" disabled={pending || !files.length || !engines || !!selectionError} onClick={process}>{pending ? <><LoaderCircle size={17} className="spin"/>Memproses file…</> : <>{converting ? <Files size={17}/> : <FileArchive size={17}/>} {converting ? "Konversi file" : "Kompres file"}<ArrowRight size={17}/></>}</button>
-          <p className="file-privacy"><Server size={14}/>File dikirim ke server Celi Tools saat diproses dan dihapus setelah proses selesai. Proses batch maksimum 4 menit.</p>
+          <button className="primary-button file-process-button" disabled={pending || !files.length || !engines || !!selectionError} onClick={processFiles}>{pending ? <><LoaderCircle size={17} className="spin"/>Memproses file…</> : <>{converting ? <Files size={17}/> : <FileArchive size={17}/>} {converting ? "Konversi file" : "Kompres file"}<ArrowRight size={17}/></>}</button>
+          <p className="file-privacy"><Server size={14}/>File disimpan sementara secara privat untuk diproses. Hasil akan dihapus setelah diunduh atau paling lambat 24 jam. Proses batch maksimum 4 menit.</p>
         </div>
       </section>
     </div>
     {pending && <div className="file-processing" role="status"><LoaderCircle size={23} className="spin"/><div><strong>Sedang menyiapkan hasil Anda</strong><p>Konversi video atau dokumen besar membutuhkan waktu lebih lama. Biarkan halaman ini tetap terbuka.</p></div></div>}
     {error && <div className="alert alert-error" role="alert"><CircleAlert size={18}/><span>{error}</span></div>}
-    {result && <section className="file-result" aria-label="Hasil pemrosesan"><div className="file-result-heading"><span className="file-result-check"><Check size={22}/></span><div><h2>File Anda sudah siap</h2><p>{result.name}</p></div><a href={result.url} download={result.name} className="primary-button"><Download size={17}/>Unduh hasil</a></div><div className="file-result-stats"><div><span>Ukuran awal</span><strong>{formatBytes(result.original)}</strong></div><ArrowRight size={19}/><div><span>Ukuran hasil</span><strong>{formatBytes(result.size)}</strong></div><div className={savings > 0 ? "file-saved" : "file-larger"}><strong>{Math.abs(savings).toLocaleString("id-ID", { maximumFractionDigits:1 })}% {savings >= 0 ? "lebih kecil" : "lebih besar"}</strong><span>Ukuran berdasarkan hasil aktual</span></div></div>{result.notes.map((note, index) => <p key={index} className="file-result-note"><CircleAlert size={14}/>{note}</p>)}</section>}
+    {result && <section className="file-result" aria-label="Hasil pemrosesan"><div className="file-result-heading"><span className="file-result-check"><Check size={22}/></span><div><h2>File Anda sudah siap</h2><p>{result.name}{result.cleanupPath ? " · tautan unduh berlaku 1 jam" : ""}</p></div><a href={result.url} download={result.cleanupPath ? undefined : result.name} className="primary-button" onClick={() => { if (result.cleanupPath) window.setTimeout(() => { void fetch(fileApiEndpoint("compress").replace("/compress", "/delete"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pathname: result.cleanupPath }), credentials: "omit" }).catch(() => {}); }, 5 * 60 * 1000); }}><Download size={17}/>Unduh hasil</a></div><div className="file-result-stats"><div><span>Ukuran awal</span><strong>{formatBytes(result.original)}</strong></div><ArrowRight size={19}/><div><span>Ukuran hasil</span><strong>{formatBytes(result.size)}</strong></div><div className={savings > 0 ? "file-saved" : "file-larger"}><strong>{Math.abs(savings).toLocaleString("id-ID", { maximumFractionDigits:1 })}% {savings >= 0 ? "lebih kecil" : "lebih besar"}</strong><span>Ukuran berdasarkan hasil aktual</span></div></div>{result.notes.map((note, index) => <p key={index} className="file-result-note"><CircleAlert size={14}/>{note}</p>)}</section>}
     <section className="file-supported" aria-labelledby="supported-title">
       <div className="file-supported-heading"><div><h2 id="supported-title">Format yang didukung</h2><p>{converting ? "Pilihan tujuan mengikuti jenis file sumber dan engine yang tersedia." : "ZIP dan arsip lossless menerima semua jenis file; optimasi khusus mengikuti format sumber."}</p></div><label className="file-format-search"><Search size={16}/><input aria-label="Cari format file" value={search} onChange={event => setSearch(event.target.value)} placeholder="Cari PDF, MP4, DOCX…"/></label></div>
       <div className="file-format-table-wrap" role="region" aria-label="Tabel format yang didukung" tabIndex={0}>

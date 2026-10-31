@@ -9,6 +9,12 @@
   "engines": {
     "node": "24.x"
   },
+  "overrides": {
+    "minimatch": "^11.0.1",
+    "@vercel/cli-config": {
+      "zod": "^4.6.7"
+    }
+  },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:web": "npm run dev --workspace=@celi/web",

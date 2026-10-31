@@ -5,6 +5,7 @@ import { Readable } from "node:stream";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
+import { del, get, issueSignedToken, list, presignUrl, put } from "@vercel/blob";
 import { FILE_LIMITS, converterGroup, validateSelection } from "@celi/file-tools";
 export class FileBackendError extends Error {
     status;
@@ -200,6 +201,93 @@ export async function processFileRequest(request, mode) {
     finally {
         if (!streamingResponse) await cleanup();
     }
+}
+
+async function removeExpiredFileResults() {
+    try {
+        const expiry = Date.now() - 24 * 60 * 60 * 1000;
+        for (const prefix of ["celi-input/", "celi-output/"]) {
+            const { blobs } = await list({ prefix, limit: 1000 });
+            const expired = blobs.filter(blob => blob.uploadedAt.getTime() < expiry).map(blob => blob.pathname);
+            if (expired.length) await del(expired);
+        }
+    }
+    catch (error) {
+        console.error("Temporary file cleanup could not complete.", error instanceof Error ? error.name : "unknown");
+    }
+}
+
+export async function processBlobFileRequest(request, mode) {
+    const inputPaths = [];
+    let outputPath;
+    try {
+        const payload = await request.json();
+        if (!payload || !Array.isArray(payload.files) || payload.files.length < 1 || payload.files.length > FILE_LIMITS.maxFiles)
+            throw new FileBackendError("Pilih 1 sampai 10 file untuk diproses.");
+        if (typeof payload.target !== "string" || typeof payload.preset !== "string")
+            throw new FileBackendError("Pilihan pemrosesan tidak valid.");
+        const files = [];
+        const seen = new Set();
+        let sizeTotal = 0;
+        for (const entry of payload.files) {
+            if (!entry || typeof entry.pathname !== "string" || !/^celi-input\/[0-9a-f-]{36}\/(?!\.{1,2}$)[A-Za-z0-9._-]{1,200}$/i.test(entry.pathname) || typeof entry.name !== "string" || entry.name.length > 255 || !Number.isSafeInteger(entry.size) || entry.size <= 0 || seen.has(entry.pathname)) {
+                throw new FileBackendError("Daftar file unggahan tidak valid.");
+            }
+            seen.add(entry.pathname);
+            inputPaths.push(entry.pathname);
+            sizeTotal += entry.size;
+            if (sizeTotal > FILE_LIMITS.maxBytes) throw new FileBackendError("Total file melebihi batas 100 MB.", 413);
+            const stored = await get(entry.pathname, { access: "private", abortSignal: request.signal, useCache: false });
+            if (!stored || stored.blob.size !== entry.size) throw new FileBackendError("File unggahan tidak ditemukan atau ukurannya berubah.", 400);
+            const contents = await new Response(stored.stream).blob();
+            files.push(new File([contents], entry.name, { type: stored.blob.contentType || "application/octet-stream" }));
+        }
+        if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.VERCEL_OIDC_TOKEN) throw new FileBackendError("Penyimpanan file belum dikonfigurasi.", 503);
+        await removeExpiredFileResults();
+        const form = new FormData();
+        files.forEach(file => form.append("files", file));
+        form.set("target", payload.target);
+        form.set("preset", payload.preset);
+        const syntheticLength = sizeTotal + 64 * 1024;
+        const internalRequest = new Request(`http://file-api.internal/api/files/${mode}`, {
+            method: "POST", headers: { "content-length": String(Math.min(syntheticLength, FILE_LIMITS.maxBytes + 1024 * 1024)) },
+            body: form, signal: request.signal,
+        });
+        // Request/FormData supplies its own multipart boundary; content-length is only used for the backend's size guard.
+        const result = await processFileRequest(internalRequest, mode);
+        if (!result.ok) throw new FileBackendError(await result.text(), result.status);
+        const disposition = result.headers.get("content-disposition") || "";
+        const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+        const name = encodedName ? decodeURIComponent(encodedName) : "celi-result.zip";
+        const outputId = crypto.randomUUID();
+        const safeOutputName = name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-180) || "result.bin";
+        outputPath = `celi-output/${outputId}/${safeOutputName}`;
+        const uploaded = await put(outputPath, result.body, {
+            access: "private", multipart: true, maximumSizeInBytes: FILE_LIMITS.maxOutputBytes,
+            contentType: "application/octet-stream", cacheControlMaxAge: 60,
+        });
+        const expiresAt = Date.now() + 60 * 60 * 1000;
+        const signedToken = await issueSignedToken({ pathname: uploaded.pathname, operations: ["get"], validUntil: expiresAt });
+        const { presignedUrl } = await presignUrl(signedToken, { operation: "get", pathname: uploaded.pathname, access: "private", validUntil: expiresAt });
+        const notes = JSON.parse(Buffer.from(result.headers.get("x-file-notes") || "", "base64").toString("utf8") || "[]");
+        return Response.json({ downloadUrl: presignedUrl, cleanupPath: uploaded.pathname, name, size: uploaded.size, notes, expiresAt }, { headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
+    }
+    catch (error) {
+        if (outputPath) await del(outputPath).catch(() => {});
+        throw error;
+    }
+    finally {
+        if (inputPaths.length) await del(inputPaths).catch(() => {});
+    }
+}
+
+export async function deleteTemporaryFileRequest(request) {
+    const payload = await request.json();
+    if (!payload || typeof payload.pathname !== "string" || !/^celi-(?:input|output)\/[0-9a-f-]{36}\/(?!\.{1,2}$)[A-Za-z0-9._-]{1,200}$/i.test(payload.pathname)) {
+        throw new FileBackendError("Hasil sementara tidak valid.");
+    }
+    await del(payload.pathname);
+    return Response.json({ deleted: true }, { headers: { "Cache-Control": "no-store" } });
 }
 export function fileErrorResponse(error) {
     const known = error instanceof FileBackendError;

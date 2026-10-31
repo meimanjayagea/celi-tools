@@ -1,68 +1,74 @@
 import assert from "node:assert/strict";
+import { upload } from "@vercel/blob/client";
 
-// This check uploads only synthetic text. It never reads local credentials/files.
-const argumentsList = process.argv.slice(2);
-function originArgument(name) {
-  const index = argumentsList.indexOf(name);
-  assert.ok(index >= 0 && argumentsList[index + 1], `Gunakan npm run check:deployment -- --web https://web.example.com --api https://api.example.com`);
-  const url = new URL(argumentsList[index + 1]);
-  const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  assert.ok(url.protocol === "https:" || (local && url.protocol === "http:"), `${name} harus menggunakan HTTPS (HTTP hanya localhost).`);
-  assert.ok(!url.username && !url.password && !url.search && !url.hash && url.pathname === "/", `${name} harus berupa origin tanpa path atau kredensial.`);
-  return url.origin;
+const args = process.argv.slice(2);
+const index = args.indexOf("--web");
+assert.ok(index >= 0 && args[index + 1], "Gunakan npm run check:deployment -- --web https://web.example.com");
+const web = new URL(args[index + 1]);
+assert.ok(web.protocol === "https:" && !web.username && !web.password && !web.search && !web.hash && web.pathname === "/", "--web harus berupa origin HTTPS production.");
+const origin = web.origin;
+
+async function request(path, options = {}) {
+  return fetch(new URL(path, origin), { redirect: "manual", signal: AbortSignal.timeout(300_000), ...options });
 }
 
 async function checkDeployment() {
-  const web = originArgument("--web");
-  const api = originArgument("--api");
-  async function request(url, options = {}) {
-    const response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(60000), ...options });
-    assert.ok(![301, 302, 303, 307, 308, 401].includes(response.status), `${url}: status ${response.status}; periksa domain atau deployment protection.`);
-    return response;
+  for (const path of ["/", "/login", "/register"]) {
+    const response = await request(path, path === "/api/files/capabilities" ? { headers: { Origin: origin } } : {});
+    assert.equal(response.status, 200, `${path}: status ${response.status}`);
+    console.log(`PASS ${path}`);
   }
-  const webPage = await request(web);
-  assert.equal(webPage.status, 200, "Halaman web belum siap.");
-  console.log("PASS halaman web");
 
-  const authResponse = await request(`${web}/api/auth/status`);
-  assert.equal(authResponse.status, 200, "Auth.js belum dikonfigurasi. Isi environment Vercel dan siapkan PostgreSQL/SMTP.");
-  const auth = await authResponse.json();
-  assert.deepEqual(auth, { available: true, email: true, google: false, registration: true });
-  console.log("PASS konfigurasi autentikasi tautan email");
+  const authResponse = await request("/api/auth/status");
+  assert.equal(authResponse.status, 200, "Auth.js belum dikonfigurasi sepenuhnya.");
+  assert.deepEqual(await authResponse.json(), { available: true, email: true, google: false, registration: true });
+  console.log("PASS konfigurasi Auth.js email");
 
-  for (const route of ["/health", "/ready", "/api/files/capabilities"]) {
-    const response = await request(`${api}${route}`, { headers: { Origin: web } });
-    assert.equal(response.status, 200, `${route}: API atau engine belum siap.`);
-    assert.equal(response.headers.get("access-control-allow-origin"), web, `${route}: WEB_ORIGINS belum sesuai domain web.`);
-    if (route !== "/health") {
+  for (const path of ["/health", "/ready", "/api/files/capabilities"]) {
+    const response = await request(path);
+    assert.equal(response.status, 200, `${path}: API/container atau engine belum siap.`);
+    if (path !== "/health") {
       const result = await response.json();
-      assert.ok(Object.keys(result.engines || {}).length > 0 && Object.values(result.engines).every(Boolean), "Ada engine file yang belum tersedia.");
+      assert.ok(Object.keys(result.engines || {}).length > 0 && Object.values(result.engines).every(Boolean), `${path}: ada engine yang belum siap.`);
     }
-    console.log(`PASS ${route} dan CORS`);
+    console.log(`PASS ${path}`);
   }
-  const preflight = await request(`${api}/api/files/compress`, { method: "OPTIONS", headers: { Origin: web, "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type" } });
-  assert.equal(preflight.status, 204, "Preflight upload ditolak.");
-  assert.equal(preflight.headers.get("access-control-allow-origin"), web);
-  assert.match(preflight.headers.get("access-control-allow-methods") || "", /POST/);
-  console.log("PASS preflight upload");
 
-  const form = new FormData();
-  form.append("files", new Blob(["Celi Tools synthetic deployment connection check.\n"]), "connection-check.txt");
-  form.append("target", "zip");
-  form.append("preset", "balanced");
-  const archive = await request(`${api}/api/files/compress`, { method: "POST", headers: { Origin: web }, body: form });
-  assert.equal(archive.status, 200, "Pemrosesan file belum berhasil.");
-  assert.equal(archive.headers.get("access-control-allow-origin"), web);
-  assert.match(archive.headers.get("content-disposition") || "", /attachment/);
-  assert.match(archive.headers.get("access-control-expose-headers") || "", /Content-Disposition/i);
-  const bytes = new Uint8Array(await archive.arrayBuffer());
-  assert.equal(String.fromCharCode(...bytes.slice(0, 2)), "PK", "Hasil kompresi bukan ZIP.");
-  console.log(`PASS kompresi ZIP sintetis (${bytes.length} bytes) dan header unduhan`);
-
-  const denied = await request(`${api}/api/files/capabilities`, { headers: { Origin: "https://unapproved-deployment-check.invalid" } });
+  const denied = await request("/api/files/capabilities", { headers: { Origin: "https://unapproved-deployment-check.invalid" } });
   assert.equal(denied.status, 403, "Origin asing seharusnya ditolak.");
   console.log("PASS origin asing ditolak");
-  console.log("Koneksi HTTP web dan API lolos. Pastikan FILE_API_URL di Vercel sama dengan --api, redeploy, lalu uji upload dari browser.");
+
+  const bytes = new TextEncoder().encode("Celi Tools synthetic deployment connection check.\n");
+  const pathname = `celi-input/${crypto.randomUUID()}/deployment-check.txt`;
+  let inputPath;
+  let outputPath;
+  try {
+    const uploaded = await upload(pathname, new File([bytes], "deployment-check.txt", { type: "text/plain" }), {
+      access: "private", contentType: "text/plain", handleUploadUrl: new URL("/api/files/upload", origin).href,
+    });
+    inputPath = uploaded.pathname;
+    const processed = await request("/api/files/compress", {
+      method: "POST", headers: { "Content-Type": "application/json", Origin: origin },
+      body: JSON.stringify({ files: [{ pathname: uploaded.pathname, name: "deployment-check.txt", size: bytes.byteLength }], target: "zip", preset: "balanced" }),
+    });
+    assert.equal(processed.status, 200, `File API: ${processed.status} ${await processed.clone().text()}`);
+    const result = await processed.json();
+    assert.equal(typeof result.downloadUrl, "string");
+    assert.equal(result.size > 0, true);
+    outputPath = result.cleanupPath;
+    const download = await fetch(result.downloadUrl, { signal: AbortSignal.timeout(60_000) });
+    assert.equal(download.status, 200, "Private Blob signed download gagal.");
+    const archive = new Uint8Array(await download.arrayBuffer());
+    assert.equal(String.fromCharCode(...archive.slice(0, 2)), "PK", "Hasil pemrosesan bukan ZIP.");
+    console.log(`PASS unggah Blob privat, kompresi ZIP sintetis, dan unduhan (${archive.length} bytes)`);
+  } finally {
+    for (const pathnameToDelete of [inputPath, outputPath].filter(Boolean)) {
+      await request("/api/files/delete", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pathname: pathnameToDelete }),
+      }).catch(() => {});
+    }
+  }
+  console.log("Deployment check passed. Pemeriksaan ini tidak mengirim email.");
 }
 
 checkDeployment().catch(error => { console.error(`FAIL ${error.message}`); process.exitCode = 1; });
