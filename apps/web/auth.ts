@@ -17,6 +17,7 @@ const hasPostgresUrl = typeof databaseUrl === "string" && /^postgres(?:ql)?:\/\/
 const pool = usesPostgres && hasPostgresUrl
   ? globalForAuth.authPool ?? new Pool({
       connectionString: databaseUrl,
+      options: "-c search_path=celi_auth",
       max: 5,
       idleTimeoutMillis: 10_000,
       connectionTimeoutMillis: 5_000,
@@ -114,6 +115,9 @@ const emailProvider: EmailConfig = {
 
 const configuredAdapter: Adapter | undefined = pool ? PostgresAdapter(pool) : undefined;
 const providers = configuredAdapter ? [emailProvider] : [];
+const authTables = ["users", "accounts", "sessions", "verification_token", "auth_email_rate_limits", "auth_ip_rate_limits"];
+let authSchemaReady = false;
+let authSchemaCheckedAt = 0;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...(configuredAdapter ? { adapter: configuredAdapter } : {}),
@@ -130,6 +134,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
 });
 
-export function authConfigurationReady() {
-  return authConfigurationStatus().available;
+export async function liveAuthConfigurationStatus() {
+  const configured = authConfigurationStatus();
+  if (!configured.available || !pool) return configured;
+
+  if (Date.now() - authSchemaCheckedAt < 10_000) {
+    return authSchemaReady ? configured : { ...configured, available: false, email: false, registration: false };
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT count(*)::int AS count
+       FROM information_schema.tables
+       WHERE table_schema = 'celi_auth' AND table_name = ANY($1::text[])`,
+      [authTables],
+    );
+    authSchemaReady = result.rows[0]?.count === authTables.length;
+  } catch {
+    authSchemaReady = false;
+  }
+  authSchemaCheckedAt = Date.now();
+  return authSchemaReady ? configured : { ...configured, available: false, email: false, registration: false };
+}
+
+export async function authConfigurationReady() {
+  return (await liveAuthConfigurationStatus()).available;
 }

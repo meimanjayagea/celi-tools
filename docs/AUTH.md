@@ -4,7 +4,7 @@ Web menggunakan Auth.js passwordless dengan PostgreSQL adapter dan SMTP. Koneksi
 
 ## Siapkan database
 
-Buat PostgreSQL database khusus autentikasi dan role dengan hak minimum yang diperlukan aplikasi pada tabel Auth.js. Jalankan migrasi berikut sekali menggunakan kredensial migrasi yang berwenang:
+Gunakan PostgreSQL database khusus atau database PostgreSQL yang sudah dipakai aplikasi. Migrasi menempatkan semua tabel auth di schema terpisah `celi_auth`, sehingga tabel `users`/`sessions` milik aplikasi lain tidak berubah. Jalankan migrasi berikut sekali menggunakan kredensial yang boleh membuat schema:
 
 ```sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/web/db/001_auth.sql
@@ -13,12 +13,12 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/web/db/001_auth.sql
 Jangan jalankan aplikasi dengan kredensial superuser. Jika migrasi dijalankan dengan role terpisah, berikan role runtime hanya akses baca/tulis tabel auth dan sequence terkait setelah migrasi:
 
 ```sql
-GRANT USAGE ON SCHEMA public TO celi_auth_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON users, accounts, sessions, verification_token, auth_email_rate_limits, auth_ip_rate_limits TO celi_auth_app;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO celi_auth_app;
+GRANT USAGE ON SCHEMA celi_auth TO celi_auth_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA celi_auth TO celi_auth_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA celi_auth TO celi_auth_app;
 ```
 
-Sesuaikan nama role/schema dengan database Anda. Database menyimpan identitas pengguna, sesi, token verifikasi, serta HMAC email/IP untuk pembatasan. Vercel menyediakan `x-vercel-forwarded-for`; pada production, pengiriman email ditolak jika IP tepercaya tersebut tidak tersedia. Token link disimpan dengan hash yang dibuat Auth.js, bukan token mentah.
+Sesuaikan nama role dengan database Anda. Pool Auth.js mengatur `search_path` ke `celi_auth,public`; role runtime hanya perlu akses ke schema `celi_auth`. Database menyimpan identitas pengguna, sesi, token verifikasi, serta HMAC email/IP untuk pembatasan. Vercel menyediakan `x-vercel-forwarded-for`; pada production, pengiriman email ditolak jika IP tepercaya tersebut tidak tersedia. Token link disimpan dengan hash yang dibuat Auth.js, bukan token mentah.
 
 ## Atur web dan SMTP
 
@@ -51,10 +51,10 @@ Auth.js menyediakan route `/api/auth/*`; `/api/auth/status` hanya mengembalikan 
 Jalankan pembersihan terjadwal harian pada database agar sesi/token kedaluwarsa dan catatan limiter lama tidak menumpuk:
 
 ```sql
-DELETE FROM verification_token WHERE expires < now();
-DELETE FROM sessions WHERE expires < now();
-DELETE FROM auth_email_rate_limits WHERE last_sent_at < now() - interval '30 days';
-DELETE FROM auth_ip_rate_limits WHERE window_started_at < now() - interval '30 days';
+DELETE FROM celi_auth.verification_token WHERE expires < now();
+DELETE FROM celi_auth.sessions WHERE expires < now();
+DELETE FROM celi_auth.auth_email_rate_limits WHERE last_sent_at < now() - interval '30 days';
+DELETE FROM celi_auth.auth_ip_rate_limits WHERE window_started_at < now() - interval '30 days';
 ```
 
 Fitur file tetap bisa dibuka tanpa login sesuai perilaku aplikasi sebelumnya. `AuthProvider` mengatur UI; ia bukan pembatas akses untuk route/API file. Jika nanti ada data atau operasi yang membutuhkan akun, route server wajib memanggil `auth()` dan memeriksa otorisasi di server.

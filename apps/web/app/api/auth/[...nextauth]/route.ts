@@ -9,11 +9,11 @@ function unavailable() {
 }
 
 export async function GET(request: NextRequest) {
-  if (!authConfigurationReady()) return unavailable();
+  if (!(await authConfigurationReady())) return unavailable();
   return handlers.GET(request);
 }
 
 export async function POST(request: NextRequest) {
-  if (!authConfigurationReady()) return unavailable();
+  if (!(await authConfigurationReady())) return unavailable();
   return handlers.POST(request);
 }
