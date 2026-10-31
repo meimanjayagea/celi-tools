@@ -51,7 +51,7 @@ Import repository yang sama menjadi proyek Vercel dengan:
 | Framework Preset | **Next.js** |
 | Node.js Version | **24.x** (sesuai versi yang dipin di `package.json`) |
 | Include source files outside Root Directory | Aktifkan agar paket workspace bersama dapat diakses |
-| Install Command | `npm ci --prefix ../..` |
+| Install Command | `npm ci --prefix ../.. --include=dev` |
 | Build Command | `npm run build` |
 | Output Directory | Default Next.js |
 
