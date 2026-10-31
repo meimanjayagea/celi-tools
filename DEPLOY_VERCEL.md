@@ -13,7 +13,7 @@ Hubungkan repository `celi-tools` ke project Vercel, lalu atur:
 | Node.js Version | **24.x** |
 | Include source files outside Root Directory | Aktif |
 
-Konfigurasi kedua service, build commands, Dockerfile, dan routing ada di [vercel.json](./vercel.json). Frontend memakai `apps/web`; backend membangun `apps/api/Dockerfile` dengan Docker context root. Vercel container menerima trafik HTTP pada port 80 secara default; Dockerfile juga menjalankan API pada port 80, kecuali platform memasok `PORT` lain.
+Konfigurasi kedua service, build commands, Dockerfile, dan routing ada di [vercel.json](./vercel.json). Frontend memakai `apps/web`; backend membangun `Dockerfile.api` dari root repository agar Docker context mencakup semua package workspace. Vercel container menerima trafik HTTP pada port 80 secara default; Dockerfile juga menjalankan API pada port 80, kecuali platform memasok `PORT` lain.
 
 Project framework harus Services agar konfigurasi `services` dipakai. Jangan mengubah Root Directory ke `apps/web` atau `apps/api`, karena kedua service membutuhkan konfigurasi monorepo dan Docker context root.
 

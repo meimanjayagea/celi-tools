@@ -19,7 +19,7 @@ API lokal berjalan pada `http://localhost:3001`, menggunakan `WEB_ORIGINS=http:/
 
 ## Production di Vercel
 
-`vercel.json` membangun Next.js (`apps/web`) dan worker container (Dockerfile `apps/api/Dockerfile`) sebagai dua Vercel Services dengan domain dan route bersama. Project framework Vercel harus disetel ke **Services**, Root Directory harus repository root, dan service frontend/API memakai rewrites dari `vercel.json`.
+`vercel.json` membangun Next.js (`apps/web`) dan worker container (`Dockerfile.api`) sebagai dua Vercel Services dengan domain dan route bersama. Project framework Vercel harus disetel ke **Services**, Root Directory harus repository root, dan service frontend/API memakai rewrites dari `vercel.json`.
 
 Hubungkan **private Vercel Blob store** ke project. Vercel memasok akses storage ke runtime server; tidak menambahkan token Blob ke browser atau file `.env`. File klien diunggah langsung ke Blob, API mengambil dan menghapus input setelah proses. Hasil berada di private Blob dengan tautan unduh bertanda tangan selama satu jam. Hasil dihapus beberapa menit setelah unduhan dimulai; jika tab ditutup sebelum download, API menghapus hasil yang lebih tua dari 24 jam pada permintaan pemrosesan berikutnya.
 

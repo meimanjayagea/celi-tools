@@ -2,7 +2,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: Dockerfile.api
     ports:
       - "127.0.0.1:3001:3001"
     environment:
