@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { createReadStream, existsSync } from "node:fs";
 import { mkdtemp, writeFile, readFile, rm, stat, mkdir } from "node:fs/promises";
+import { Readable } from "node:stream";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
@@ -95,9 +96,15 @@ function runWorker(args, timeout = 240_000, signal) {
 export async function fileCapabilities() {
     if (shared.fileToolsCapabilities && shared.fileToolsCapabilities.until > Date.now())
         return shared.fileToolsCapabilities.result;
-    const result = await runWorker(["--capabilities"], 20_000);
-    shared.fileToolsCapabilities = { result, until: Date.now() + 60_000 };
-    return result;
+    if (!shared.fileToolsCapabilitiesPromise) {
+        shared.fileToolsCapabilitiesPromise = runWorker(["--capabilities"], 20_000)
+            .then(result => {
+                shared.fileToolsCapabilities = { result, until: Date.now() + 60_000 };
+                return result;
+            })
+            .finally(() => { shared.fileToolsCapabilitiesPromise = undefined; });
+    }
+    return shared.fileToolsCapabilitiesPromise;
 }
 function safeName(name, index) {
     const base = name.replaceAll("\\", "/").split("/").at(-1) || "file";
@@ -115,9 +122,35 @@ export async function processFileRequest(request, mode) {
         throw new FileBackendError("Server sedang memproses file lain. Coba kembali sebentar lagi.", 429);
     shared.fileToolsActive = (shared.fileToolsActive || 0) + 1;
     let directory;
+    let form;
+    let files = [];
+    let streamingResponse = false;
+    let cleanupPromise;
+    const cleanup = () => cleanupPromise ||= (async () => {
+        if (directory) {
+            // The worker uses short OS-temp profiles for Windows path compatibility.
+            // Keep their manifest in the job so timeout/crash cleanup also removes them.
+            try {
+                const profiles = JSON.parse(await readFile(path.join(directory, "office-profiles.json"), "utf8"));
+                if (Array.isArray(profiles))
+                    for (const profile of profiles.slice(0, 30)) {
+                        if (typeof profile === "string" && path.dirname(path.resolve(profile)) === path.resolve(os.tmpdir()) && /^cf-[a-z0-9_]{8}$/.test(path.basename(profile))) {
+                            await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
+                        }
+                    }
+            }
+            catch (error) {
+                if (error.code !== "ENOENT")
+                    console.error("Could not clean an Office job profile.");
+            }
+            await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }).catch(() => console.error("Could not remove a file processing job directory."));
+            directory = undefined;
+        }
+        shared.fileToolsActive = Math.max(0, (shared.fileToolsActive || 1) - 1);
+    })();
     try {
-        const form = await request.formData();
-        const files = form.getAll("files").filter((entry) => entry instanceof File);
+        form = await request.formData();
+        files = form.getAll("files").filter((entry) => entry instanceof File);
         const target = String(form.get("target") || "");
         const preset = String(form.get("preset") || "balanced");
         if (!["small", "balanced", "quality"].includes(preset))
@@ -138,6 +171,9 @@ export async function processFileRequest(request, mode) {
             await writeFile(destination, new Uint8Array(await file.arrayBuffer()));
             uploaded.push({ path: destination, safeName: name, group: converterGroup(file.name)?.id || "archive" });
         }
+        const originalBytes = files.reduce((sum, file) => sum + file.size, 0);
+        files = [];
+        form = undefined;
         const jobPath = path.join(directory, "job.json");
         await writeFile(jobPath, JSON.stringify({ mode, target, preset, directory, files: uploaded }));
         const result = await runWorker([jobPath], 240_000, request.signal);
@@ -146,37 +182,23 @@ export async function processFileRequest(request, mode) {
         const info = await stat(result.path);
         if (info.size > FILE_LIMITS.maxOutputBytes)
             throw new FileBackendError("Hasil melebihi batas 200 MB.", 413);
-        const content = await readFile(result.path);
-        return new Response(content, {
+        const content = createReadStream(result.path);
+        content.once("close", () => { void cleanup(); });
+        content.once("error", () => { void cleanup(); });
+        const response = new Response(Readable.toWeb(content), {
             headers: {
                 "Content-Type": "application/octet-stream", "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(result.name)}`,
                 "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
                 "X-File-Notes": Buffer.from(JSON.stringify(result.notes || [])).toString("base64"),
-                "X-Original-Bytes": String(files.reduce((sum, file) => sum + file.size, 0)),
-                "Content-Length": String(content.byteLength),
+                "X-Original-Bytes": String(originalBytes),
+                "Content-Length": String(info.size),
             },
         });
+        streamingResponse = true;
+        return response;
     }
     finally {
-        if (directory) {
-            // The worker uses short OS-temp profiles for Windows path compatibility.
-            // Keep their manifest in the job so timeout/crash cleanup also removes them.
-            try {
-                const profiles = JSON.parse(await readFile(path.join(directory, "office-profiles.json"), "utf8"));
-                if (Array.isArray(profiles))
-                    for (const profile of profiles.slice(0, 30)) {
-                        if (typeof profile === "string" && path.dirname(path.resolve(profile)) === path.resolve(os.tmpdir()) && /^cf-[a-z0-9_]{8}$/.test(path.basename(profile))) {
-                            await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
-                        }
-                    }
-            }
-            catch (error) {
-                if (error.code !== "ENOENT")
-                    console.error("Could not clean an Office job profile.");
-            }
-            await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }).catch(() => console.error("Could not remove a file processing job directory."));
-        }
-        shared.fileToolsActive = Math.max(0, (shared.fileToolsActive || 1) - 1);
+        if (!streamingResponse) await cleanup();
     }
 }
 export function fileErrorResponse(error) {

@@ -221,7 +221,8 @@ export function toXml(value) {
 }
 
 function csvCell(value) {
-  const text = value !== null && typeof value === "object" ? JSON.stringify(value) : String(value ?? "");
+  let text = value !== null && typeof value === "object" ? JSON.stringify(value) : String(value ?? "");
+  if (/^[\s\u0000-\u001f\u007f-\u009f\ufeff]*[=+\-@]/.test(text)) text = `'${text}`;
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 

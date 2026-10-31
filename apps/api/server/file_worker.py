@@ -18,6 +18,7 @@ import tempfile
 import time
 import warnings
 import zipfile
+from contextlib import contextmanager
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -30,6 +31,41 @@ ACTIVE_JOB_DIRECTORY = None
 
 class FileError(Exception):
     pass
+
+
+class BoundedZipWriter:
+    def __init__(self, destination, limit):
+        self.destination = destination
+        self.limit = limit
+
+    def write(self, data):
+        if self.destination.tell() + len(data) > self.limit:
+            raise FileError("Hasil melebihi batas 200 MB.")
+        return self.destination.write(data)
+
+    def __getattr__(self, name):
+        return getattr(self.destination, name)
+
+
+@contextmanager
+def bounded_zip(output):
+    try:
+        with output.open("w+b") as destination:
+            with zipfile.ZipFile(BoundedZipWriter(destination, MAX_OUTPUT), "w",
+                                 compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+                yield archive
+    except Exception:
+        output.unlink(missing_ok=True)
+        raise
+
+
+FORMULA_CELL = re.compile(r"^[\s\x00-\x1f\x7f-\x9f\ufeff]*[=+\-@]")
+
+
+def spreadsheet_safe_cell(value):
+    if isinstance(value, str) and FORMULA_CELL.match(value):
+        return "'" + value
+    return value
 
 
 def kill_native_tree(child):
@@ -235,16 +271,12 @@ def pdf_convert(source, output, target, notes):
                 notes.append("PDF tidak memiliki lapisan teks. OCR tidak disediakan.")
         elif target in ("jpg", "png"):
             output = output.with_suffix(".zip")
-            with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-                total = 0
+            with bounded_zip(output) as archive:
                 for index, page in enumerate(document):
                     if page.rect.width * page.rect.height * 4 > 20_000_000:
                         raise FileError("Ukuran halaman PDF terlalu besar untuk dirender.")
                     pixmap = page.get_pixmap(dpi=120, alpha=False)
                     data = pixmap.tobytes("jpeg" if target == "jpg" else "png")
-                    total += len(data)
-                    if total > MAX_OUTPUT:
-                        raise FileError("Hasil render PDF melebihi 200 MB.")
                     archive.writestr(f"halaman-{index + 1:03d}.{target}", data)
             notes.append("Semua halaman PDF dikemas dalam ZIP.")
         elif target == "docx":
@@ -371,7 +403,7 @@ def office_convert_with_profile(source, folder, target, profile):
         assets = [path for path in destination.iterdir() if path != expected]
         if assets:
             bundle = folder / "document-html.zip"
-            with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            with bounded_zip(bundle) as archive:
                 for path in destination.rglob("*"):
                     if path.is_file():
                         archive.write(path, path.relative_to(destination).as_posix())
@@ -529,7 +561,7 @@ def data_convert(source, output, target, folder, notes, sheet=False):
             with output.open("w", encoding="utf-8-sig", newline="") as stream:
                 writer = csv.writer(stream, delimiter="\t" if target == "tsv" else ",")
                 for row in rows:
-                    writer.writerow(row)
+                    writer.writerow([spreadsheet_safe_cell(cell) for cell in row])
     elif target in ("json", "txt"):
         output.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
     elif target == "yaml":
@@ -601,7 +633,7 @@ def media_convert(source, output, target, preset, notes, compress=False):
 
 def archive_files(files, output, method):
     if method == "zip":
-        with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        with bounded_zip(output) as archive:
             for item in files:
                 archive.write(item["path"], item["safeName"])
     elif method == "tar.gz":
@@ -673,7 +705,7 @@ def execute(job):
         final = outputs[0]
     else:
         final = folder / "celi-results.zip"
-        with zipfile.ZipFile(final, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        with bounded_zip(final) as archive:
             used = set()
             for index, output in enumerate(outputs):
                 name = output.name

@@ -109,9 +109,9 @@ Gunakan repository yang sama untuk dua layanan:
 
 ## Perilaku dan batas
 
-- Maksimum 10 file, total 100 MiB upload dan hasil 200 MiB. Dua job bersamaan per proses API; batas pemrosesan empat menit per job. Tetapkan batas upload/time limit reverse proxy backend yang sesuai.
-- CORS menerima origin eksplisit dari `WEB_ORIGINS`, dipisahkan koma. Wildcard tidak diterima. Akses tool tetap tidak memerlukan login, seperti perilaku sebelumnya; CORS bukan autentikasi API atau pembatas akses untuk klien non-browser. Gunakan kontrol akses/rate limiting pada infrastruktur sesuai pengguna deployment Anda.
-- File diproses dalam folder job terpisah dan dihapus setelah hasil siap atau saat kegagalan yang tertangani. Pembatalan koneksi menghentikan worker terkait. Hard crash host/proses dapat meninggalkan folder job; bersihkan hanya folder yang sudah tidak aktif.
+- Maksimum 10 file, total 100 MiB upload dan hasil 200 MiB. Dua job bersamaan per proses API; setiap alamat klien dibatasi satu pekerjaan aktif dan enam upload per menit. Readiness/capabilities dibatasi 30 pemeriksaan per menit per alamat. Tetapkan batas upload, waktu, dan rate limit reverse proxy backend agar perlindungan juga berlaku lintas instance.
+- CORS menerima origin eksplisit dari `WEB_ORIGINS`, dipisahkan koma. Wildcard tidak diterima. Akses tool tetap tidak memerlukan login, seperti perilaku sebelumnya; CORS bukan autentikasi API atau pembatas akses untuk klien non-browser. API memakai alamat peer secara default. Aktifkan `FILE_TOOLS_TRUST_PROXY=true` hanya jika semua traffic masuk melalui proxy tepercaya yang menambahkan `X-Forwarded-For`; atur `FILE_TOOLS_TRUSTED_PROXY_HOPS` sesuai jumlah proxy. Terapkan juga rate limit pada ingress untuk membatasi klien yang menyebar ke beberapa alamat atau instance.
+- File diproses dalam folder job terpisah dan dihapus setelah hasil selesai dikirim atau saat kegagalan yang tertangani. Hasil dialirkan ke klien agar arsip tidak disalin penuh ke memori server. Pembatalan koneksi menghentikan worker terkait. Hard crash host/proses dapat meninggalkan folder job; bersihkan hanya folder yang sudah tidak aktif.
 - Browser tidak mengirim cookie Supabase ke API file. API tidak memerlukan public Supabase key atau Google client secret. Supabase Auth tetap digunakan hanya oleh web/callback-nya.
 - Semua jenis file dapat diarsipkan. Konversi mengikuti matriks format dan codec yang dapat dibaca engine; ukuran tidak selalu berkurang setelah kompresi.
 - [Daftar format, batas, dan perilaku pemrosesan](./docs/FILE_TOOLS.md).

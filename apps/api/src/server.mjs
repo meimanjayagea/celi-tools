@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { isIP } from "node:net";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
@@ -18,7 +19,70 @@ export function allowedWebOrigins(value, production = false) {
   }));
 }
 
-export function createFileServer({ origins = allowedWebOrigins(process.env.WEB_ORIGINS, process.env.NODE_ENV === "production"), capabilities = fileCapabilities, processFiles = processFileRequest } = {}) {
+function normalizeAddress(value) {
+  if (typeof value !== "string" || !isIP(value)) return null;
+  return value.startsWith("::ffff:") ? value.slice(7) : value;
+}
+
+function getClientAddress(incoming, trustProxy, trustedProxyHops) {
+  if (trustProxy) {
+    const forwarded = incoming.headers["x-forwarded-for"];
+    const addresses = typeof forwarded === "string" ? forwarded.split(",").map(value => value.trim()) : [];
+    const candidate = addresses[addresses.length - trustedProxyHops];
+    const trustedAddress = normalizeAddress(candidate);
+    if (trustedAddress) return trustedAddress;
+  }
+  return normalizeAddress(incoming.socket.remoteAddress) || "unknown";
+}
+
+function createClientLimiter() {
+  const clients = new Map();
+  let requests = 0;
+  return (address, kind) => {
+    const now = Date.now();
+    if (++requests % 128 === 0) {
+      for (const [key, state] of clients) {
+        if (now - state.lastSeen > 10 * 60_000 && state.activeUploads === 0) clients.delete(key);
+      }
+    }
+    let state = clients.get(address);
+    if (!state) {
+      if (clients.size >= 10_000) return { allowed: false, retryAfter: 60 };
+      state = { lastSeen: now, uploads: [], probes: [], activeUploads: 0 };
+      clients.set(address, state);
+    }
+    state.lastSeen = now;
+    const timestamps = kind === "upload" ? state.uploads : state.probes;
+    const maxRequests = kind === "upload" ? 6 : 30;
+    while (timestamps.length && now - timestamps[0] >= 60_000) timestamps.shift();
+    if (kind === "upload" && state.activeUploads >= 1) return { allowed: false, retryAfter: 2 };
+    if (timestamps.length >= maxRequests) {
+      return { allowed: false, retryAfter: Math.max(1, Math.ceil((timestamps[0] + 60_000 - now) / 1000)) };
+    }
+    timestamps.push(now);
+    if (kind !== "upload") return { allowed: true, release: () => {} };
+    state.activeUploads += 1;
+    let released = false;
+    return {
+      allowed: true,
+      release: () => {
+        if (released) return;
+        released = true;
+        state.activeUploads = Math.max(0, state.activeUploads - 1);
+      },
+    };
+  };
+}
+
+export function createFileServer({
+  origins = allowedWebOrigins(process.env.WEB_ORIGINS, process.env.NODE_ENV === "production"),
+  capabilities = fileCapabilities,
+  processFiles = processFileRequest,
+  trustProxy = process.env.FILE_TOOLS_TRUST_PROXY === "true",
+  trustedProxyHops = Number(process.env.FILE_TOOLS_TRUSTED_PROXY_HOPS || 1),
+} = {}) {
+  if (!Number.isInteger(trustedProxyHops) || trustedProxyHops < 1 || trustedProxyHops > 8) throw new Error("FILE_TOOLS_TRUSTED_PROXY_HOPS harus berupa bilangan bulat 1-8.");
+  const limitClient = createClientLimiter();
   return createServer({ maxHeaderSize: 16 * 1024, requestTimeout: 150000, headersTimeout: 30000 }, async (incoming, outgoing) => {
     const origin = incoming.headers.origin;
     outgoing.setHeader("Cache-Control", "no-store");
@@ -35,6 +99,7 @@ export function createFileServer({ origins = allowedWebOrigins(process.env.WEB_O
     const controller = new AbortController();
     incoming.on("aborted", () => controller.abort());
     outgoing.on("close", () => { if (!outgoing.writableFinished) controller.abort(); });
+    let releaseClientRequest;
     try {
       const pathname = new URL(incoming.url, "http://file-api.internal").pathname;
       let response;
@@ -47,18 +112,33 @@ export function createFileServer({ origins = allowedWebOrigins(process.env.WEB_O
       if (incoming.method === "GET" && pathname === "/health") {
         response = Response.json({ status: "ok", service: "celi-file-api" });
       } else if (incoming.method === "GET" && ["/api/files/capabilities", "/ready"].includes(pathname)) {
-        const result = await capabilities();
-        const ready = Object.values(result.engines || {}).every(Boolean);
-        response = Response.json(result, { status: pathname === "/ready" && !ready ? 503 : 200 });
+        const limit = limitClient(getClientAddress(incoming, trustProxy, trustedProxyHops), "probe");
+        if (!limit.allowed) {
+          response = Response.json({ error: "Terlalu banyak pemeriksaan status. Coba kembali sebentar lagi." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
+        } else {
+          const result = await capabilities();
+          const ready = Object.values(result.engines || {}).every(Boolean);
+          response = Response.json(result, { status: pathname === "/ready" && !ready ? 503 : 200 });
+        }
       } else if (incoming.method === "POST" && ["/api/files/convert", "/api/files/compress"].includes(pathname)) {
         const length = Number(incoming.headers["content-length"]);
         if (!Number.isFinite(length) || length <= 0 || length > FILE_LIMITS.maxBytes + 1024 * 1024) throw new FileBackendError("Upload membutuhkan Content-Length dan maksimum 100 MB.", 413);
-        const request = new Request("http://file-api.internal" + pathname, { method: "POST", headers: incoming.headers, body: Readable.toWeb(incoming), duplex: "half", signal: controller.signal });
-        response = await processFiles(request, pathname.endsWith("/convert") ? "convert" : "compress");
+        const limit = limitClient(getClientAddress(incoming, trustProxy, trustedProxyHops), "upload");
+        if (!limit.allowed) {
+          response = Response.json({ error: "Batas penggunaan file tercapai. Tunggu sebentar sebelum mencoba lagi." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
+          incoming.resume();
+        } else {
+          releaseClientRequest = limit.release;
+          const request = new Request("http://file-api.internal" + pathname, { method: "POST", headers: incoming.headers, body: Readable.toWeb(incoming), duplex: "half", signal: controller.signal });
+          response = await processFiles(request, pathname.endsWith("/convert") ? "convert" : "compress");
+        }
       } else {
         response = Response.json({ error: "Endpoint tidak ditemukan." }, { status: 404 });
       }
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        if (response?.body) await response.body.cancel().catch(() => {});
+        return;
+      }
       response.headers.forEach((value, name) => outgoing.setHeader(name, value));
       outgoing.writeHead(response.status);
       if (response.body) await pipeline(Readable.fromWeb(response.body), outgoing);
@@ -70,6 +150,8 @@ export function createFileServer({ origins = allowedWebOrigins(process.env.WEB_O
       outgoing.writeHead(response.status);
       outgoing.end(await response.text());
       incoming.resume();
+    } finally {
+      releaseClientRequest?.();
     }
   });
 }

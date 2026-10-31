@@ -18,7 +18,11 @@ Isi Railway → Variables:
 NODE_ENV=production
 HOST=0.0.0.0
 WEB_ORIGINS=https://web-tau-ivory-11.vercel.app,https://web-jayas-projects-97030461.vercel.app,https://web-git-main-jayas-projects-97030461.vercel.app
+FILE_TOOLS_TRUST_PROXY=true
+FILE_TOOLS_TRUSTED_PROXY_HOPS=1
 ```
+
+Rate limit aplikasi membatasi satu upload aktif dan enam upload per menit per alamat klien, serta 30 pemeriksaan `/ready` atau capabilities per menit. `FILE_TOOLS_TRUST_PROXY=true` membuat alamat itu dibaca dari `X-Forwarded-For`; gunakan hanya saat semua traffic datang melalui ingress Railway yang tepercaya. Jika ada beberapa proxy, sesuaikan `FILE_TOOLS_TRUSTED_PROXY_HOPS`. Terapkan juga limit request dan rate limit pada ingress agar batas berlaku lintas instance dan terhadap klien yang berganti alamat.
 
 Biarkan Railway memasok `PORT`. Jika mengaturnya sendiri, gunakan `3001` dan samakan target port domain. Python, LibreOffice, dan direktori runtime sudah diatur di Dockerfile; tidak perlu key Supabase pada backend.
 
