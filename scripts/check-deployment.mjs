@@ -24,12 +24,11 @@ async function checkDeployment() {
   assert.equal(webPage.status, 200, "Halaman web belum siap.");
   console.log("PASS halaman web");
 
-  const providerResponse = await request(`${web}/api/auth/providers`);
-  assert.equal(providerResponse.status, 200, "Konfigurasi Supabase web belum siap. Isi environment Vercel lalu redeploy.");
-  const providers = await providerResponse.json();
-  assert.equal(providers.available, true, "Supabase belum tersedia.");
-  assert.equal(providers.email, true, "Provider email belum aktif.");
-  console.log(`PASS autentikasi email; Google: ${providers.google ? "aktif" : "belum aktif di Supabase"}`);
+  const authResponse = await request(`${web}/api/auth/status`);
+  assert.equal(authResponse.status, 200, "Auth.js belum dikonfigurasi. Isi environment Vercel dan siapkan PostgreSQL/SMTP.");
+  const auth = await authResponse.json();
+  assert.deepEqual(auth, { available: true, email: true, google: false, registration: true });
+  console.log("PASS konfigurasi autentikasi tautan email");
 
   for (const route of ["/health", "/ready", "/api/files/capabilities"]) {
     const response = await request(`${api}${route}`, { headers: { Origin: web } });
@@ -63,7 +62,7 @@ async function checkDeployment() {
   const denied = await request(`${api}/api/files/capabilities`, { headers: { Origin: "https://unapproved-deployment-check.invalid" } });
   assert.equal(denied.status, 403, "Origin asing seharusnya ditolak.");
   console.log("PASS origin asing ditolak");
-  console.log("Koneksi HTTP web dan API lolos. Pastikan NEXT_PUBLIC_FILE_API_URL di Vercel sama dengan --api, redeploy, lalu uji upload dari browser.");
+  console.log("Koneksi HTTP web dan API lolos. Pastikan FILE_API_URL di Vercel sama dengan --api, redeploy, lalu uji upload dari browser.");
 }
 
 checkDeployment().catch(error => { console.error(`FAIL ${error.message}`); process.exitCode = 1; });

@@ -24,42 +24,35 @@ FILE_TOOLS_TRUSTED_PROXY_HOPS=1
 
 Rate limit aplikasi membatasi satu upload aktif dan enam upload per menit per alamat klien, serta 30 pemeriksaan `/ready` atau capabilities per menit. `FILE_TOOLS_TRUST_PROXY=true` membuat alamat itu dibaca dari `X-Forwarded-For`; gunakan hanya saat semua traffic datang melalui ingress Railway yang tepercaya. Jika ada beberapa proxy, sesuaikan `FILE_TOOLS_TRUSTED_PROXY_HOPS`. Terapkan juga limit request dan rate limit pada ingress agar batas berlaku lintas instance dan terhadap klien yang berganti alamat.
 
-Biarkan Railway memasok `PORT`. Jika mengaturnya sendiri, gunakan `3001` dan samakan target port domain. Python, LibreOffice, dan direktori runtime sudah diatur di Dockerfile; tidak perlu key Supabase pada backend.
+Biarkan Railway memasok `PORT`. Jika mengaturnya sendiri, gunakan `3001` dan samakan target port domain. Python, LibreOffice, dan direktori runtime sudah diatur di Dockerfile; backend tidak memerlukan konfigurasi autentikasi.
 
 Di **Networking → Public Networking → Generate Domain**, buat domain HTTPS untuk layanan API. Gunakan port yang didengarkan proses dari log `File API ready`. Catat URL aktual, misalnya `https://<domain-api>.up.railway.app`. Placeholder ini tidak boleh disalin sebagai nilai environment.
 
 Deployment belum siap jika `/ready` masih 503. Periksa build/runtime log, ketersediaan engine Python/Office/FFmpeg, dan memori layanan. Pastikan batas request/time limit Railway yang berlaku mendukung file yang akan diproses; konfigurasi ini tidak menaikkan batas platform.
 
-## 2. Hubungkan web Vercel
+## 2. Hubungkan web Vercel dan email auth
 
 Gunakan proyek Vercel **web**, Root Directory **apps/web**, framework **Next.js**. Pada Settings → Environment Variables, isi Production:
 
 ```env
 FILE_API_URL=https://<domain-api-aktual>.up.railway.app
-SUPABASE_URL=https://<project-anda>.supabase.co
-SUPABASE_PUBLISHABLE_KEY=<public-publishable-key-proyek-anda>
+AUTH_SECRET=<secret-acak-minimal-32-byte>
+AUTH_URL=https://web-tau-ivory-11.vercel.app
+DATABASE_URL=<koneksi-postgresql-dengan-tls>
+SMTP_HOST=<host-smtp>
+SMTP_PORT=587
+SMTP_USER=<username-smtp>
+SMTP_PASSWORD=<password-smtp>
+EMAIL_FROM="Celi Tools <no-reply@domain-terverifikasi.example>"
 ```
 
-Gunakan nilai URL/key Supabase yang sama dengan konfigurasi lokal yang berfungsi. Legacy `SUPABASE_ANON_KEY` juga didukung. Jangan isi Google Client Secret atau service-role key di variabel publik.
+Jalankan `apps/web/db/001_auth.sql` pada PostgreSQL sebelum deployment. Isi rahasia hanya di Environment Variables proyek **web**, jangan pada API Railway atau prefix `NEXT_PUBLIC_`. Gunakan database khusus auth dan role database dengan hak minimal. SMTP sender/domain harus diverifikasi oleh penyedia email.
 
-Lakukan **Redeploy web setelah environment tersimpan**, karena tiga nilai konfigurasi browser dipetakan secara eksplisit oleh `next.config.ts` saat build. Tidak diperlukan rewrite atau proxy file melalui Vercel: browser mengunggah langsung ke Railway agar file besar tidak melewati batas payload Vercel Functions.
+Lakukan **Redeploy web setelah environment tersimpan**. Hanya `FILE_API_URL` yang disisipkan ke bundle browser. Tidak diperlukan rewrite atau proxy file melalui Vercel: browser mengunggah langsung ke Railway agar file besar tidak melewati batas payload Vercel Functions.
 
 Proyek Vercel `api` dan `server-4ia5` bukan backend container Railway. Jangan gunakan domain kedua proyek itu sebagai `FILE_API_URL`. Tidak perlu menghapus proyek untuk menghubungkan layanan baru.
 
-## 3. Hubungkan autentikasi Supabase
-
-Di Authentication → URL Configuration:
-
-```text
-Site URL: https://web-tau-ivory-11.vercel.app
-Redirect URLs:
-https://web-tau-ivory-11.vercel.app/auth/callback**
-https://web-tau-ivory-11.vercel.app/auth/confirm**
-```
-
-Tambahkan redirect URL domain lain hanya jika benar-benar digunakan. Google OAuth diarahkan ke `https://<project-anda>.supabase.co/auth/v1/callback` pada Google Cloud. Client ID/Secret dimasukkan langsung ke provider Google di Supabase. Lihat [AUTH.md](./AUTH.md).
-
-## 4. Periksa koneksi
+## 3. Periksa koneksi
 
 Setelah kedua deployment selesai, jalankan dari root repository dengan URL API aktual:
 
@@ -71,11 +64,11 @@ Skrip memeriksa web, status autentikasi, health/readiness engine, CORS, prefligh
 
 | Gejala | Yang diperiksa |
 | --- | --- |
-| `/api/auth/providers` pada web mengembalikan 503 | Environment public Supabase Vercel dan redeploy web |
+| `/api/auth/status` pada web mengembalikan 503 | Isi environment server Auth.js, jalankan skema PostgreSQL, lalu redeploy web |
 | Halaman file menyebut layanan belum terhubung | `FILE_API_URL` kosong pada build web |
 | Request file menuju domain Vercel lama atau localhost | URL API pada build web belum diperbarui |
 | API 403 / CORS error | Origin aktual browser belum ada dalam `WEB_ORIGINS` Railway |
-| Redirect login Vercel / 401 | Deployment protection memblokir akses; gunakan domain yang memang diizinkan, jangan menonaktifkan proteksi tanpa meninjau kebijakan akses |
+| Link email tidak masuk | Periksa host/port/kredensial SMTP dan sender terverifikasi; lihat log web dan batas penyedia email |
 | `/ready` 503 atau deployment gagal health check | Engine belum siap; baca log backend dan periksa dependency/memori |
 | `PYTHON_ENTRYPOINT_NOT_FOUND` pada `server-4ia5` | Worker ditempatkan sebagai proyek Python Vercel; gunakan backend Docker Railway |
 

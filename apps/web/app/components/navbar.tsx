@@ -3,9 +3,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import { signOut } from "next-auth/react";
 import { CodeXml, Home, LockKeyhole, Settings2, FileInput, FileArchive, Menu, X, ChevronRight, LogOut, LogIn } from "lucide-react";
 import { useAuth } from "./auth-provider";
-import { createClientSupabase } from "../lib/supabase";
 import { ThemeToggle } from "./theme-provider";
 const links = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -63,11 +63,12 @@ export default function Navbar({ children }: {
         <nav className="breadcrumbs" aria-label="Breadcrumb"><Link href="/dashboard" aria-label="Dashboard"><Home size={17}/></Link><ChevronRight size={14}/><span>{title}</span></nav>
         <div className="header-actions"><ThemeToggle />
           {user ? <details className="account-menu"><summary><span className="avatar">{(user.email || "A")[0].toUpperCase()}</span><span className="account-label">{user.email?.split("@")[0] || "Akun"}</span><ChevronRight size={14}/></summary><div className="account-dropdown"><span>{user.email}</span><button onClick={async () => {
-                const { error } = await createClientSupabase().auth.signOut();
-                if (error)
-                    setAuthError("Gagal keluar. Silakan coba lagi.");
-                else
+                try {
+                    await signOut({ redirect: false });
                     router.replace("/");
+                } catch {
+                    setAuthError("Gagal keluar. Silakan coba lagi.");
+                }
             }}><LogOut size={16}/>Keluar</button></div></details> : <Link href="/login" className="account-login"><span className="avatar"><LogIn size={18}/></span><span>{loading ? "Memuat…" : "Masuk"}</span></Link>}
         </div>
       </header>

@@ -1,5 +1,7 @@
 # Celi Tools public flow and portal — design QA
 
+> Historical report: auth details below describe the earlier implementation. Current email-only Auth.js/PostgreSQL setup is documented in [docs/AUTH.md](./docs/AUTH.md); Google and Supabase auth have since been removed from the app.
+
 ## Latest update: standalone landing, login, and registration
 
 User-requested structural change: `/` is now a public landing page; `/login` and `/register` are separate pages using a public header/footer, while `/dashboard`, `/json`, `/crypto`, and `/preferences` use the portal sidebar layout. The selected blue design remains the visual system; the public layout intentionally differs from the original dashboard composition.

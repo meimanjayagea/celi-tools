@@ -1,90 +1,60 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
-import { createClientSupabase } from "../lib/supabase";
+import { SessionProvider, useSession } from "next-auth/react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 export type User = {
   id: string;
   email: string | null;
-  user_metadata?: Record<string, unknown>;
 };
-
-interface AuthProviderProps {
-  children: ReactNode;
-}
 
 const AuthContext = createContext<{
   user: User | null;
   loading: boolean;
 } | undefined>(undefined);
 
-export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let supabase: ReturnType<typeof createClientSupabase>;
-    try { supabase = createClientSupabase(); }
-    catch { const timer = setTimeout(() => setLoading(false), 0); return () => clearTimeout(timer); }
-
-    let active = true;
-    let changed = false;
-    // Session data drives presentation only; server callbacks validate sign-in.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!active || changed) return;
-      setUser(
-        session?.user
-          ? {
-              id: session.user.id,
-              email: session.user.email ?? null,
-              user_metadata: session.user.user_metadata,
-            }
-          : null
-      );
-      setLoading(false);
-    }).catch(() => { if (active) setLoading(false); });
-
-    // Listen for auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        changed = true;
-        if (!active) return;
-        setUser(
-          session?.user
-            ? {
-                id: session.user.id,
-                email: session.user.email ?? null,
-                user_metadata: session.user.user_metadata,
-              }
-            : null
-        );
-        setLoading(false);
-      }
-    );
-
-    return () => {
-      active = false;
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
+function AuthState({ children }: { children: ReactNode }) {
+  const { data, status } = useSession();
+  const user = data?.user?.id
+    ? { id: data.user.id, email: data.user.email ?? null }
+    : null;
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading: status === "loading" }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within an AuthProvider");
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [authReady, setAuthReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/auth/status", { cache: "no-store", signal: controller.signal })
+      .then(response => response.ok)
+      .then(ready => { if (!controller.signal.aborted) setAuthReady(ready); })
+      .catch(() => { if (!controller.signal.aborted) setAuthReady(false); });
+    return () => controller.abort();
+  }, []);
+
+  if (authReady !== true) {
+    return (
+      <AuthContext.Provider value={{ user: null, loading: authReady === null }}>
+        {children}
+      </AuthContext.Provider>
+    );
   }
-  return ctx;
+
+  return (
+    <SessionProvider>
+      <AuthState>{children}</AuthState>
+    </SessionProvider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
+  return context;
 }

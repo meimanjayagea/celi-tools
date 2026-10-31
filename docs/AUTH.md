@@ -1,23 +1,61 @@
-# Authentication setup
+# Autentikasi email
 
+Web menggunakan Auth.js passwordless dengan PostgreSQL adapter dan SMTP. Google OAuth serta Supabase Auth tidak dipakai. Auth.js mengirim link bertanda tangan, menyimpan token verifikasi sekali pakai pada database, lalu membuat sesi database setelah link dikonfirmasi. Link berlaku 10 menit; permintaan dibatasi 10 kali per IP dan satu kali per alamat email dalam 60 detik.
 
-The app uses `@supabase/ssr` browser/server clients with cookie sessions and S256 PKCE. `/auth/callback` exchanges the Google authorization code; `/auth/confirm` supports email token hashes (`type=email`) and PKCE codes from standard confirmation links. Callbacks reject external redirect destinations, do not echo provider errors/tokens, and return private, non-cacheable responses. `/api/auth/providers` reads public provider availability so the UI can disable unavailable options. Supabase remains responsible for Google/OIDC validation, email delivery, session revocation and account linking.
+## Siapkan database
 
-1. Ensure the existing Supabase project is active and reachable. The configured project `coli-tools` (`bklokpkgpbijgqidqmnv`) was restored from `INACTIVE` to `ACTIVE_HEALTHY` during implementation. Its public Auth settings returned HTTP 200 with Email enabled, signup enabled and Google disabled; Google provider configuration remains required. No replacement project was created.
-2. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `apps/web/.env.local`. The existing `SUPABASE_ANON_KEY` remains supported. Use only a publishable/anon key in public variables, never a service-role key or Google client secret. Restart/rebuild after changing public variables.
-3. In Google Cloud, create a **Web application** OAuth client and configure the consent screen with only `openid`, `email`, `profile`. Authorized app origins include `http://localhost:3000` and your production origin. Set Google's **Authorized redirect URI** to `https://bklokpkgpbijgqidqmnv.supabase.co/auth/v1/callback` (use the matching Supabase host if changing projects). This is the Supabase provider callback, distinct from the application's callback. Add test users if the Google app is in testing mode.
-4. In Supabase Auth → Sign In / Providers → Google, enable Google and enter the client ID and client secret **there**. No Google secret belongs in this repository or browser bundle.
-5. Keep Email enabled; enable new-user signup if registration is required. Set Site URL to your production origin (or `http://localhost:3000` for local development). Add these Redirect URLs for each approved app origin: `http://localhost:3000/auth/callback**` and `http://localhost:3000/auth/confirm**`. The trailing wildcard allows the flow/query parameters while restricting redirects to these paths. Use the corresponding exact production host; avoid a wildcard domain.
-6. Standard confirmation links must preserve Supabase's generated `{{ .ConfirmationURL }}`. Open these in the same browser that requested them so the PKCE verifier cookie is available. For cross-browser email confirmation, configure both Magic Link and Confirm Signup templates to use the hash-based endpoint below. This requires the correct Site URL and template-editing permission; newer free-tier projects using default SMTP may require custom SMTP before templates can be edited.
+Buat PostgreSQL database khusus autentikasi dan role dengan hak minimum yang diperlukan aplikasi pada tabel Auth.js. Jalankan migrasi berikut sekali menggunakan kredensial migrasi yang berwenang:
 
-```html
-<h2>Masuk ke Celi Tools</h2>
-<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email">Konfirmasi email dan lanjutkan</a></p>
+```sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/web/db/001_auth.sql
 ```
 
-Configure a production SMTP provider for delivery to your users; Supabase's default sender has delivery and rate restrictions. No test email is sent to a real address by automated unit tests. Login and signup share one Google flow: the first successful Google sign-in creates the account when Supabase signup policy allows it. Email submission has a 60-second resend cooldown and neutral responses for unknown login emails. One pending standard PKCE email/OAuth flow per browser is recommended; requesting another link can invalidate an earlier verifier, so use the newest email. Google/SMTP credentials and provider activation must be verified before claiming a real end-to-end login succeeds.
+Jangan jalankan aplikasi dengan kredensial superuser. Jika migrasi dijalankan dengan role terpisah, berikan role runtime hanya akses baca/tulis tabel auth dan sequence terkait setelah migrasi:
 
-Current portal tools remain available without signing in, matching the existing product behavior. This refactor does not turn the portal into an authorization boundary. Session data in `AuthProvider` controls presentation only; future protected server routes must validate identity with `getUser()`/`getClaims()` and implement the applicable access policy. Browser clients refresh sessions; server-side session reads outside the callback routes would additionally require a Supabase session-refresh proxy.
+```sql
+GRANT USAGE ON SCHEMA public TO celi_auth_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON users, accounts, sessions, verification_token, auth_email_rate_limits, auth_ip_rate_limits TO celi_auth_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO celi_auth_app;
+```
 
-References: [Google sign-in](https://supabase.com/docs/guides/auth/social-sign-in/auth-google), [SSR clients](https://supabase.com/docs/guides/auth/server-side/creating-a-client), [passwordless email](https://supabase.com/docs/guides/auth/auth-email-passwordless).
+Sesuaikan nama role/schema dengan database Anda. Database menyimpan identitas pengguna, sesi, token verifikasi, serta HMAC email/IP untuk pembatasan. Vercel menyediakan `x-vercel-forwarded-for`; pada production, pengiriman email ditolak jika IP tepercaya tersebut tidak tersedia. Token link disimpan dengan hash yang dibuat Auth.js, bukan token mentah.
 
+## Atur web dan SMTP
+
+Salin `apps/web/.env.example` ke `apps/web/.env.local`. Isi variabel berikut di environment **server-side** untuk lokal maupun Vercel:
+
+| Variabel | Fungsi |
+| --- | --- |
+| `AUTH_SECRET` | Kunci acak Auth.js untuk mengamankan token/cookie; buat rahasia minimal 32 byte |
+| `AUTH_URL` | Origin kanonis web, misalnya `http://localhost:3000` atau origin HTTPS production |
+| `DATABASE_URL` | Koneksi PostgreSQL; gunakan TLS untuk database production |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | Kredensial SMTP penyedia email; port 465 memakai TLS implisit, port 587 memakai STARTTLS |
+| `EMAIL_FROM` | Alamat pengirim yang sudah diverifikasi oleh penyedia SMTP |
+| `FILE_API_URL` | Origin API file Railway, tanpa path endpoint |
+
+Buat secret lokal dengan `openssl rand -base64 32`. Jangan menaruh `AUTH_SECRET`, password database, atau SMTP password pada variabel `NEXT_PUBLIC_*`, file yang di-commit, atau bundle browser. Batas per alamat dan IP ada di database; aktifkan juga kuota/batas pengiriman pada SMTP dan Vercel Firewall untuk mengendalikan traffic terdistribusi.
+
+Auth.js menyediakan route `/api/auth/*`; `/api/auth/status` hanya mengembalikan status konfigurasi yang dibutuhkan UI. POST login menggunakan endpoint sign-in `nodemailer` dan mengirim email tanpa mengungkap apakah pengguna sudah ada. Saat link email valid dikonfirmasi, Auth.js membuat pengguna bila belum ada. Logout menghapus sesi database.
+
+## Deployment dan pemeriksaan
+
+1. Jalankan `apps/web/db/001_auth.sql` pada database auth production.
+2. Tambahkan `AUTH_SECRET`, `AUTH_URL`, `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, dan `EMAIL_FROM` ke environment server Vercel. Jangan menambahkan rahasia tersebut ke proyek API Railway.
+3. Pastikan domain pengirim sudah diverifikasi pada penyedia SMTP, dan redirect domain web melalui `AUTH_URL` menggunakan HTTPS.
+4. Deploy ulang web. Endpoint `/api/auth/status` harus mengembalikan HTTP 200 dengan `available: true`.
+5. Kirim link ke mailbox yang dikuasai, buka link sebelum 10 menit, lalu periksa sesi dan logout. Jangan mengklaim email live berfungsi sebelum melakukan pemeriksaan ini.
+
+Jalankan pembersihan terjadwal harian pada database agar sesi/token kedaluwarsa dan catatan limiter lama tidak menumpuk:
+
+```sql
+DELETE FROM verification_token WHERE expires < now();
+DELETE FROM sessions WHERE expires < now();
+DELETE FROM auth_email_rate_limits WHERE last_sent_at < now() - interval '30 days';
+DELETE FROM auth_ip_rate_limits WHERE window_started_at < now() - interval '30 days';
+```
+
+Fitur file tetap bisa dibuka tanpa login sesuai perilaku aplikasi sebelumnya. `AuthProvider` mengatur UI; ia bukan pembatas akses untuk route/API file. Jika nanti ada data atau operasi yang membutuhkan akun, route server wajib memanggil `auth()` dan memeriksa otorisasi di server.
+
+## Peralihan dari sesi sebelumnya
+
+Sesi Supabase lama tidak dipindahkan. Pengguna perlu masuk ulang dengan email; setelah link dikonfirmasi, Auth.js membuat identitas pengguna baru pada PostgreSQL. Saat ini aplikasi tidak mengaitkan data tersimpan dengan ID pengguna. Jika integrasi lain memakai Supabase user ID, migrasikan mapping data secara terpisah sebelum mengandalkan ID Auth.js.

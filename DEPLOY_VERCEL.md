@@ -35,7 +35,7 @@ HOST=0.0.0.0
 WEB_ORIGINS=https://nama-web.vercel.app
 ```
 
-Platform dapat mengisi `PORT`; jika tidak, API menggunakan 3001. Image sudah mengatur path Python, LibreOffice, dan direktori runtime yang dapat ditulis. Environment Supabase tidak diperlukan pada layanan ini. Pastikan proxy host menerima request setidaknya 101 MiB (file 100 MiB ditambah multipart) dan tidak memutus pemrosesan empat menit. Hasil dapat mencapai 200 MiB.
+Platform dapat mengisi `PORT`; jika tidak, API menggunakan 3001. Image sudah mengatur path Python, LibreOffice, dan direktori runtime yang dapat ditulis. Environment autentikasi web tidak diperlukan pada layanan ini. Pastikan proxy host menerima request setidaknya 101 MiB (file 100 MiB ditambah multipart) dan tidak memutus pemrosesan empat menit. Hasil dapat mencapai 200 MiB.
 
 Catat domain HTTPS backend, misalnya `https://api-contoh.example.com`. Periksa `/health`, `/ready`, dan `/api/files/capabilities` melalui domain itu. `/health` hanya memeriksa proses; `/ready` mengembalikan 503 jika ada engine yang belum tersedia.
 
@@ -58,19 +58,23 @@ Import repository yang sama menjadi proyek Vercel dengan:
 
 Jika proyek Vercel sebelumnya memakai root repository atau `server`, ubah Root Directory ke `apps/web`. Error `PYTHON_ENTRYPOINT_NOT_FOUND` tidak diselesaikan dengan menambahkan entrypoint Python dummy; pastikan Vercel membaca konfigurasi Next.js dari workspace web dan commit monorepo terbaru.
 
-## 4. Isi environment frontend
+## 4. Isi environment web dan autentikasi email
 
 Tambahkan ke environment Production Vercel (dan Preview jika diperlukan):
 
 ```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_PUBLISHABLE_KEY=your_public_publishable_key
+AUTH_SECRET=<secret-acak-minimal-32-byte>
+AUTH_URL=https://nama-web.vercel.app
+DATABASE_URL=<koneksi-postgresql-dengan-tls>
+SMTP_HOST=<host-smtp>
+SMTP_PORT=587
+SMTP_USER=<username-smtp>
+SMTP_PASSWORD=<password-smtp>
+EMAIL_FROM="Celi Tools <no-reply@domain-terverifikasi.example>"
 FILE_API_URL=https://api-contoh.example.com
 ```
 
-Legacy `SUPABASE_ANON_KEY` tetap didukung sebagai pengganti publishable key. Semua nilai harus berasal dari proyek yang benar. Client Secret Google dan service-role key tidak ditempatkan di `NEXT_PUBLIC_`.
-
-Nama environment deployment sekarang memakai `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, dan `FILE_API_URL`. `next.config.ts` memetakan hanya tiga nilai konfigurasi publik ini ke browser. Nama lama dengan prefix `NEXT_PUBLIC_` masih didukung sebagai fallback; jika keduanya diisi, nama baru diprioritaskan. Menghapus prefix tidak membuat nilai menjadi rahasia. Peringatan Vercel bahwa `NEXT_PUBLIC_` terlihat di browser adalah informasi, bukan error. Pakai hanya publishable/anon key pada field key tersebut; Google Client Secret tetap di Supabase, dan service-role/secret key bukan konfigurasi browser.
+Jalankan `apps/web/db/001_auth.sql` pada PostgreSQL terlebih dahulu. Auth secret, database password, dan SMTP password harus menjadi server-only environment variables; jangan gunakan prefix `NEXT_PUBLIC_`. Hanya `FILE_API_URL` yang dipetakan ke bundle browser. Lihat [docs/AUTH.md](./docs/AUTH.md) untuk membuat secret dan menyiapkan database/email.
 
 `FILE_API_URL` adalah origin backend HTTPS tanpa path endpoint. Web menambahkan `/api/files/capabilities`, `/api/files/convert`, atau `/api/files/compress`. Jangan mengisinya dengan localhost pada deployment production. Mengubah variabel publik membutuhkan deployment web baru.
 
@@ -84,31 +88,14 @@ WEB_ORIGINS=https://nama-web.vercel.app,https://tools.example.com
 
 Hostname preview harus ditambahkan secara eksplisit jika ingin menguji fitur file dari preview. `*` dan wildcard domain tidak diterima. Jangan menambahkan path seperti `/converter` ke daftar origin.
 
-Pada Supabase → Authentication → URL Configuration:
-
-```text
-Site URL:
-https://nama-web.vercel.app
-
-Redirect URLs:
-https://nama-web.vercel.app/auth/callback**
-https://nama-web.vercel.app/auth/confirm**
-```
-
-Google provider dan Email provider harus aktif sesuai pilihan masuk. Google Cloud Authorized redirect URI tetap milik Supabase:
-
-```text
-https://YOUR_PROJECT.supabase.co/auth/v1/callback
-```
-
-Isi Client ID/Client Secret Google langsung di Supabase. Detail template email, SMTP, dan PKCE tersedia di [docs/AUTH.md](./docs/AUTH.md).
+Auth.js menggunakan `AUTH_URL` sebagai origin kanonis untuk tautan verifikasi. Pastikan nilainya origin HTTPS dari domain web production. Tidak diperlukan konfigurasi OAuth provider.
 
 ## 6. Verifikasi kedua layanan
 
 1. Buka landing, dashboard, login, registrasi, JSON, dan Crypto di domain Vercel.
-2. Periksa `/api/auth/providers` pada domain web; Google/email memerlukan konfigurasi Supabase yang sesuai.
+2. Periksa `/api/auth/status` pada domain web; konfigurasi siap ditandai `available: true`.
 3. Buka File Converter/Compress. Status engine harus tampil sebagai tersedia.
-4. Di browser DevTools → Network, pastikan request file menuju **domain API**, bukan domain Vercel. Request auth tetap menuju web/Supabase.
+4. Di browser DevTools → Network, pastikan request file menuju **domain API**, bukan domain Vercel. Request auth tetap menuju web dan database/email hanya diakses server.
 5. Konversikan gambar kecil, lalu coba arsip ZIP dengan file lebih dari 4,5 MB. Unduh hasil dan periksa isinya.
 6. Origin yang tidak ada di `WEB_ORIGINS` harus ditolak. Jika browser menampilkan CORS error, samakan origin aktual browser dengan konfigurasi backend lalu restart layanan backend.
 

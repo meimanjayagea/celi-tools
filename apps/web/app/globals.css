@@ -1778,14 +1778,10 @@ kbd {
 .auth-form-icon { width: 48px; height: 48px; border-radius: 11px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-bottom: 21px; }
 .auth-form-heading h1 { font-size: 25px; letter-spacing: -.03em; font-weight: 700; }
 .auth-form-heading p { font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin-top: 9px; margin-bottom: 24px; }
-.auth-google-button { display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:48px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text-primary);font-size:13px;font-weight:600;padding:11px 15px; }
-.auth-google-button:hover:not(:disabled) { border-color:var(--accent);background:var(--surface-secondary); }
-.auth-google-button:disabled { opacity:.55;cursor:not-allowed; }
 .auth-provider-notice { display:flex;align-items:flex-start;gap:9px;padding:13px;margin-bottom:18px;border:1px solid var(--border);border-radius:9px;background:var(--surface-secondary);color:var(--text-secondary);font-size:12px;line-height:1.7; }
 .auth-provider-notice > svg { margin-top:3px;flex-shrink:0; }
 .auth-provider-notice button { margin-top:6px;font-size:12px; }
-.auth-provider-hint,.auth-email-explanation { font-size:11px;line-height:1.8;color:var(--text-muted);margin-top:12px; }
-.auth-provider-hint a { color:var(--accent); }
+.auth-email-explanation { font-size:11px;line-height:1.8;color:var(--text-muted);margin-top:12px; }
 .auth-email-success { display:flex;align-items:flex-start;gap:11px;padding:15px;margin-bottom:20px;border:1px solid color-mix(in srgb,var(--success) 25%,var(--border));background:var(--success-soft);border-radius:9px; }
 .auth-email-success > span { color:var(--success);padding-top:2px; }
 .auth-email-success strong { font-size:13px;color:var(--text-primary); }
