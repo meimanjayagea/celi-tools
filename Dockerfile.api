@@ -6,6 +6,8 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && apt-get update && apt-get install -y --no-install-recommends \
     libreoffice-writer libreoffice-calc libreoffice-impress fonts-dejavu-core libgomp1 \
     && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY apps/api/server/requirements.lock apps/api/server/requirements.lock
 RUN python -m venv /opt/file-tools && /opt/file-tools/bin/pip install --no-cache-dir -r apps/api/server/requirements.lock
