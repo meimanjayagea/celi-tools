@@ -1857,15 +1857,6 @@ kbd {
   align-items: center;
   gap: 22px;
 }
-.public-login {
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 9px 0;
-}
-.public-login:hover, .public-login.active {
-  color: var(--accent);
-}
 .public-header-actions .primary-button { min-width: 86px; }
 #public-content { flex: 1; outline: none; }
 .public-footer {
@@ -1943,29 +1934,7 @@ kbd {
 .google-auth-button { width:100%;min-height:46px;display:flex;align-items:center;justify-content:center;gap:11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-primary);font-size:13px;font-weight:600;transition:background .15s,border-color .15s; }
 .google-auth-button:hover:not(:disabled) { background:var(--surface-secondary);border-color:var(--text-muted); }
 .google-auth-button:disabled { opacity:.65;cursor:wait; }
-.auth-email-explanation { font-size:11px;line-height:1.8;color:var(--text-muted);margin-top:12px; }
-.auth-email-success { display:flex;align-items:flex-start;gap:11px;padding:15px;margin-bottom:20px;border:1px solid color-mix(in srgb,var(--success) 25%,var(--border));background:var(--success-soft);border-radius:9px; }
-.auth-email-success > span { color:var(--success);padding-top:2px; }
-.auth-email-success strong { font-size:13px;color:var(--text-primary); }
-.auth-email-success p { font-size:12px;line-height:1.7;margin-top:5px;color:var(--text-secondary); }
-.auth-email-success small { display:block;font-size:10px;line-height:1.7;margin-top:7px;color:var(--text-muted); }
-.account-form fieldset { display: flex; flex-direction: column; min-width: 0; border: 0; padding: 0; margin: 0; }
-.account-form label { font-size: 12px; font-weight: 600; margin-bottom: 8px; }
-.account-input { border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; gap: 10px; padding: 0 12px; min-height: 46px; margin-bottom: 19px; background: var(--surface); transition: border-color .15s; }
-.account-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.account-input > svg { color: var(--text-muted); }
-.account-input input { border: 0; outline: none; min-width: 0; flex: 1; width: 100%; font-size: 13px; height: 44px; background: transparent; }
-.account-input input:focus-visible { outline: none; }
-.account-input button { width: 28px; min-height: 34px; display: grid; place-items: center; color: var(--text-muted); flex-shrink: 0; padding: 0; }
-.account-input button:hover { color: var(--accent); }
-.account-input.input-error { border-color: var(--danger); }
-.account-input-hint { margin: -10px 0 18px; font-size: 10px; color: var(--text-muted); }
-.auth-submit { width: 100%; min-height: 46px; justify-content: space-between; margin-top: 4px; font-size: 13px; }
-.auth-submit:disabled { justify-content: center; }
-.magic-link-button { width: 100%; min-height: 44px; font-size: 12px; }
-.account-switch { margin-top: 23px; font-size: 12px; color: var(--text-secondary); text-align: center; }
-.account-switch a { color: var(--accent); font-weight: 600; margin-left: 4px; }
-.account-switch a:hover { text-decoration: underline; }
+.auth-provider-hint { font-size:11px;line-height:1.8;color:var(--text-muted);margin-top:12px; }
 .account-form-note { border-top: 1px solid var(--border-light); margin-top: 25px; padding-top: 17px; display: flex; align-items: flex-start; gap: 7px; color: var(--text-muted); font-size: 10px; line-height: 1.6; }
 .account-form-note svg { margin-top: 2px; }
 .auth-form-card .alert { align-items: flex-start; font-size: 12px; overflow-wrap: anywhere; }
@@ -1989,9 +1958,7 @@ kbd {
   .public-brand img { width: 29px; height: 29px; }
   .public-navigation { display: none; }
   .public-header-actions { gap: 14px; }
-  .public-header-actions .public-register { display: none; }
   .public-header-actions .primary-button { font-size: 11px; min-width: 0; padding: 8px 11px; }
-  .public-login { font-size: 12px; }
   .public-footer { padding: 22px 21px; flex-wrap: wrap; gap: 12px; font-size: 10px; }
   .public-footer > span:nth-child(2) { display: none; }
   .landing-page { padding: 0 23px; }

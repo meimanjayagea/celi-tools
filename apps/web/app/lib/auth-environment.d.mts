@@ -1,7 +1,7 @@
 export type AuthConfigurationStatus = {
   available: boolean;
   email: boolean;
-  google: false;
+  google: boolean;
   registration: boolean;
 };
 

@@ -9,7 +9,7 @@
 
 ## Web
 
-`AUTH_SECRET`, `DATABASE_PROVIDER`, `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, dan `EMAIL_FROM` dipakai server web untuk Auth.js dan data aplikasi. Migrasi PostgreSQL berurutan berada di [apps/web/db/migrations](../apps/web/db/migrations); periksa dan terapkan dengan `npm run db:status` dan `npm run db:migrate` dari root repository. `FILE_API_SIGNING_SECRET` dipakai server web untuk menerbitkan token API file berumur lima menit; set secret acak yang sama pada frontend dan API Vercel. `AUTH_URL` adalah origin web kanonis. Jangan publikasikan rahasia melalui `NEXT_PUBLIC_*` atau commit ke git.
+`AUTH_SECRET`, `AUTH_URL`, `DATABASE_PROVIDER`, `DATABASE_URL`, `GOOGLE_CLIENT_ID`, dan `GOOGLE_CLIENT_SECRET` dipakai server web untuk Auth.js, Google OAuth, dan data aplikasi. Migrasi PostgreSQL berurutan berada di [apps/web/db/migrations](../apps/web/db/migrations); periksa dan terapkan dengan `npm run db:status` dan `npm run db:migrate` dari root repository. `FILE_API_SIGNING_SECRET` dipakai server web untuk menerbitkan token API file berumur lima menit; set secret acak yang sama pada frontend dan API Vercel. Jangan publikasikan rahasia melalui `NEXT_PUBLIC_*` atau commit ke git.
 
 Untuk lokal, ubah `DATABASE_PROVIDER=none` dan kosongkan URL database bila auth belum dipakai. File web lokal mengirim FormData langsung ke API localhost. Tidak perlu `FILE_API_URL` dan tidak perlu Vercel Blob untuk kerja lokal.
 
@@ -30,6 +30,6 @@ Hubungkan **private Vercel Blob store** ke project. Vercel memasok akses storage
 1. Browser meminta token upload terbatas dari route server web, lalu mengunggah file ke Blob privat tanpa meneruskan isi file melalui Function Vercel.
 2. Browser mengirim nama, ukuran, dan pathname Blob ke API. API hanya menerima pathname `celi-input/<uuid>/<nama>` yang divalidasi, menarik Blob melalui SDK privat, menjalankan worker lokal pada container, lalu menghapus input.
 3. API menyimpan hasil sementara pada private Blob dan mengembalikan URL `GET` bertanda tangan dengan masa berlaku satu jam. Token dibatasi untuk satu objek dan operasi download.
-4. Auth.js mengirim link email melalui SMTP dan menyimpan pengguna, sesi, token verifikasi, serta data rate limit di PostgreSQL.
+4. Auth.js memverifikasi identitas Google dan menyimpan pengguna, akun OAuth, serta sesi di PostgreSQL. Akun baru dibuat otomatis saat login Google pertama.
 
 Jangan mengatur `FILE_API_URL`/`NEXT_PUBLIC_FILE_API_URL` di production; request file tetap pada domain web yang sama dan rewrite Vercel mengarahkannya ke API container. Lihat [AUTH.md](./AUTH.md) dan [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md).

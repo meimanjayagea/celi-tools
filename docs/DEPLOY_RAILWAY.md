@@ -39,14 +39,11 @@ FILE_API_URL=https://<domain-api-aktual>.up.railway.app
 AUTH_SECRET=<secret-acak-minimal-32-byte>
 AUTH_URL=https://web-tau-ivory-11.vercel.app
 DATABASE_URL=<koneksi-postgresql-dengan-tls>
-SMTP_HOST=<host-smtp>
-SMTP_PORT=587
-SMTP_USER=<username-smtp>
-SMTP_PASSWORD=<password-smtp>
-EMAIL_FROM="Celi Tools <no-reply@domain-terverifikasi.example>"
+GOOGLE_CLIENT_ID=<google-oauth-client-id>
+GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>
 ```
 
-Jalankan `npm run db:status` lalu `npm run db:migrate` dari root repository pada PostgreSQL sebelum mengaktifkan auth. Isi rahasia hanya di Environment Variables proyek **web**, jangan pada API Railway atau prefix `NEXT_PUBLIC_`. Gunakan database khusus auth dan role database dengan hak minimal. SMTP sender/domain harus diverifikasi oleh penyedia email.
+Jalankan `npm run db:status` lalu `npm run db:migrate` dari root repository pada PostgreSQL sebelum mengaktifkan auth. Isi rahasia hanya di Environment Variables proyek **web**, jangan pada API Railway atau prefix `NEXT_PUBLIC_`. Gunakan database khusus auth dan role database dengan hak minimal. Daftarkan Authorized redirect URI `${AUTH_URL}/api/auth/callback/google` pada Google OAuth Client.
 
 Lakukan **Redeploy web setelah environment tersimpan**. Hanya `FILE_API_URL` yang disisipkan ke bundle browser. Tidak diperlukan rewrite atau proxy file melalui Vercel: browser mengunggah langsung ke Railway agar file besar tidak melewati batas payload Vercel Functions.
 
@@ -68,7 +65,7 @@ Skrip memeriksa web, status autentikasi, health/readiness engine, CORS, prefligh
 | Halaman file menyebut layanan belum terhubung | `FILE_API_URL` kosong pada build web |
 | Request file menuju domain Vercel lama atau localhost | URL API pada build web belum diperbarui |
 | API 403 / CORS error | Origin aktual browser belum ada dalam `WEB_ORIGINS` Railway |
-| Link email tidak masuk | Periksa host/port/kredensial SMTP dan sender terverifikasi; lihat log web dan batas penyedia email |
+| Login Google gagal | Periksa Client ID/Secret, `AUTH_URL`, Authorized redirect URI, dan log web |
 | `/ready` 503 atau deployment gagal health check | Engine belum siap; baca log backend dan periksa dependency/memori |
 | `PYTHON_ENTRYPOINT_NOT_FOUND` pada `server-4ia5` | Worker ditempatkan sebagai proyek Python Vercel; gunakan backend Docker Railway |
 

@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
-import AuthForm from "../../components/auth-form";
+import { redirect } from "next/navigation";
+import { pathWithSearchParams, safeCallbackUrl } from "../../lib/redirect-path";
 export const instant = false;
-export const metadata: Metadata = { title: "Daftar — Celi Tools", description: "Buat akun Celi Tools dengan tautan verifikasi email, tanpa kata sandi." };
+
 export default async function Page({ searchParams }: { searchParams: Promise<{ callbackUrl?: string | string[] }> }) {
   const { callbackUrl } = await searchParams;
-  return <AuthForm key="register" variant="register" callbackUrl={callbackUrl} />;
+  redirect(pathWithSearchParams("/login", { callbackUrl: safeCallbackUrl(callbackUrl) }));
 }

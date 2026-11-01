@@ -1,10 +1,12 @@
-# Autentikasi email
+# Autentikasi Google
 
-Web menggunakan Auth.js passwordless dengan PostgreSQL adapter dan SMTP. Koneksi database opsional saat menjalankan fitur web tanpa login; login email otomatis nonaktif sampai koneksi dan semua konfigurasi email tersedia. Google OAuth serta Supabase Auth tidak dipakai. Auth.js mengirim link bertanda tangan, menyimpan token verifikasi sekali pakai pada database, lalu membuat sesi database setelah link dikonfirmasi. Link berlaku 10 menit; permintaan dibatasi 10 kali per IP dan satu kali per alamat email dalam 60 detik.
+Web menggunakan Auth.js, PostgreSQL, dan Google OAuth. Google adalah satu-satunya metode autentikasi. Saat login pertama berhasil, Auth.js membuat akun Celi Tools dan menautkan identitas Google; login berikutnya menggunakan akun yang sama. Tidak ada form registrasi terpisah atau login tautan email.
+
+Pengguna lama yang pernah masuk dengan tautan email dapat melanjutkan dengan Google bila alamat emailnya sama dan diverifikasi Google. Auth.js menautkannya ke user yang sudah ada; callback server menolak profil Google yang tidak memiliki `email_verified=true`. Status keberadaan email tidak disediakan lewat endpoint publik.
 
 ## Siapkan database
 
-Gunakan PostgreSQL database khusus atau database PostgreSQL yang sudah dipakai aplikasi. Migrasi menempatkan semua tabel auth di schema terpisah `celi_auth`, sehingga tabel `users`/`sessions` milik aplikasi lain tidak berubah. Jalankan migrasi dari root repository menggunakan kredensial yang boleh membuat schema:
+Gunakan PostgreSQL database khusus atau database PostgreSQL yang sudah dipakai aplikasi. Migrasi menempatkan semua tabel auth di schema `celi_auth`, sehingga tabel `users`/`sessions` milik aplikasi lain tidak berubah. Jalankan migrasi dari root repository menggunakan kredensial yang boleh membuat schema:
 
 ```sh
 npm run db:status
@@ -12,58 +14,46 @@ npm run db:migrate
 npm run db:status
 ```
 
-Perintah di atas memakai `DATABASE_URL` dari environment shell. Untuk database lokal dalam `apps/web/.env.local`, gunakan `npm run db:status:local` dan `npm run db:migrate:local`; pastikan URL-nya menunjuk ke target yang benar. Runner menerapkan `apps/web/db/migrations/*.sql` berurutan, dalam transaksi, dan mencatat checksum serta versi di schema metadata terpisah `celi_meta.schema_migrations`. Jika schema dibuat sebelumnya dengan file SQL lama, migrasi `IF NOT EXISTS` diadopsi ke ledger tanpa menghapus tabel atau baris. Gunakan role migrasi yang boleh membuat schema `celi_meta`; role runtime tidak perlu akses ke schema metadata. Backup database sebelum penerapan production. Migrasi yang pernah dipakai tidak boleh diedit; perubahan berikutnya masuk sebagai file bernomor baru.
+Perintah memakai `DATABASE_URL` dari environment shell. Untuk database lokal di `apps/web/.env.local`, gunakan `npm run db:status:local` dan `npm run db:migrate:local`; pastikan URL menunjuk ke target yang benar. Runner menerapkan `apps/web/db/migrations/*.sql` berurutan, dalam transaksi, dan mencatat checksum serta versi pada schema terpisah `celi_meta.schema_migrations`. Migrasi lama yang sudah membuat tabel `celi_auth` bisa diadopsi tanpa menghapus tabel atau baris.
 
-Jangan jalankan aplikasi dengan kredensial superuser. Jika migrasi dijalankan dengan role terpisah, berikan role runtime hanya akses baca/tulis tabel auth dan sequence terkait setelah migrasi:
+Login Google memerlukan tabel `users`, `accounts`, dan `sessions`. Tabel `verification_token` serta limiter email/IP dari versi terdahulu tetap berada di database, tetapi tidak digunakan atau dihapus oleh versi ini. Gunakan role migrasi yang dapat membuat schema metadata. Jangan jalankan aplikasi dengan kredensial superuser; role runtime hanya perlu akses pada schema dan tabel Auth.js serta `celi_app` yang diperlukan aplikasi.
 
-```sql
-GRANT USAGE ON SCHEMA celi_auth TO celi_auth_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA celi_auth TO celi_auth_app;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA celi_auth TO celi_auth_app;
-```
+Backup database sebelum migrasi production. Migrasi yang sudah pernah dipakai jangan diedit; tambahkan perubahan berikutnya sebagai file bernomor baru. Jangan menambahkan seed user atau note ke database production karena identitas dan catatan adalah data privat.
 
-Sesuaikan nama role dengan database Anda. Pool Auth.js mengatur `search_path` ke `celi_auth,public`; role runtime hanya perlu akses ke schema `celi_auth`. Database menyimpan identitas pengguna, sesi, token verifikasi, serta HMAC email/IP untuk pembatasan. Vercel menyediakan `x-vercel-forwarded-for`; pada production, pengiriman email ditolak jika IP tepercaya tersebut tidak tersedia. Token link disimpan dengan hash yang dibuat Auth.js, bukan token mentah.
+## Environment web
 
-## Atur web dan SMTP
-
-Salin `apps/web/.env.example` ke `apps/web/.env.local`. Isi variabel berikut di environment **server-side** untuk lokal maupun Vercel:
+Salin `apps/web/.env.example` ke `apps/web/.env.local`. Variabel berikut harus berada di environment **server-side**:
 
 | Variabel | Fungsi |
 | --- | --- |
-| `AUTH_SECRET` | Kunci acak Auth.js untuk mengamankan token/cookie; buat rahasia minimal 32 byte |
-| `AUTH_URL` | Origin kanonis web, misalnya `http://localhost:3000` atau origin HTTPS production |
-| `DATABASE_PROVIDER` | `postgres` (default), `supabase`, `prisma-postgres`, `neon`, `vercel-postgres`, atau `none`. Semua PostgreSQL memakai satu pool `pg` untuk Auth.js dan data aplikasi; `none` tidak membuat pool dan menonaktifkan auth. `AUTH_DATABASE_PROVIDER` dibaca sebagai fallback lama. |
-| `DATABASE_URL` | Satu-satunya koneksi PostgreSQL server-side. `POSTGRES_URL` tidak dibaca oleh aplikasi. Gunakan TLS untuk production. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | Kredensial SMTP penyedia email; port 465 memakai TLS implisit, port 587 memakai STARTTLS |
-| `EMAIL_FROM` | Alamat pengirim yang sudah diverifikasi oleh penyedia SMTP |
+| `AUTH_SECRET` | Kunci acak Auth.js minimal 32 byte; buat dengan `openssl rand -base64 32`. |
+| `AUTH_URL` | Origin kanonis web, misalnya `http://localhost:3000` atau origin HTTPS production. |
+| `DATABASE_PROVIDER` | `postgres` (default), `supabase`, `prisma-postgres`, `neon`, `vercel-postgres`, atau `none`. PostgreSQL provider memakai satu pool `pg`. `none` menonaktifkan login dan persistence database. |
+| `DATABASE_URL` | Satu-satunya koneksi PostgreSQL server-side untuk Auth.js dan catatan aplikasi. Gunakan TLS di production. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Kredensial OAuth Client bertipe Web application dari Google Cloud Console. Client Secret hanya disimpan server-side. |
 
-Buat secret lokal dengan `openssl rand -base64 32`. Untuk menjalankan web tanpa database, atur `DATABASE_PROVIDER=none`; halaman dan fitur publik tetap tersedia, sedangkan endpoint Auth.js menolak permintaan dengan status 503. Provider Supabase dan Prisma Postgres menggunakan URL PostgreSQL langsung dari sisi server. Jangan gunakan publishable/anon key Supabase untuk koneksi database. Jangan menaruh `AUTH_SECRET`, password database, atau SMTP password pada variabel `NEXT_PUBLIC_*`, file yang di-commit, atau bundle browser. Batas per alamat dan IP ada di database; aktifkan juga kuota/batas pengiriman pada SMTP dan Vercel Firewall untuk mengendalikan traffic terdistribusi.
+Daftarkan Authorized redirect URI `${AUTH_URL}/api/auth/callback/google` di Google Cloud Console. Gunakan OAuth Client ID dan Client Secret, bukan API key. Supabase dan Prisma Postgres memakai koneksi PostgreSQL langsung; jangan gunakan Supabase publishable/anon key sebagai database URL. Engine selain PostgreSQL memerlukan adapter Auth.js dan skema khusus.
 
-Adapter `pg` ini hanya mendukung PostgreSQL dan layanan yang kompatibel dengannya. Prisma Postgres adalah layanan PostgreSQL sehingga dapat dipakai langsung. Untuk MySQL, SQLite, SQL Server, atau MongoDB, tambahkan adapter Auth.js yang sesuai dan sesuaikan skema; jangan mengubah hanya URL database karena tabel/Auth adapter dan limiter berbeda antar-engine.
+Jangan menaruh `AUTH_SECRET`, `DATABASE_URL`, atau Google Client Secret pada variabel `NEXT_PUBLIC_*`, file yang di-commit, atau bundle browser. Auth status di `/api/auth/status` hanya mengembalikan boolean konfigurasi dan tidak membuka kredensial.
 
-Auth.js menyediakan route `/api/auth/*`; `/api/auth/status` hanya mengembalikan status konfigurasi yang dibutuhkan UI. POST login menggunakan endpoint sign-in `nodemailer` dan mengirim email tanpa mengungkap apakah pengguna sudah ada. Saat link email valid dikonfirmasi, Auth.js membuat pengguna bila belum ada. Logout menghapus sesi database.
+## Perilaku login
+
+- Tombol login memulai OAuth Google. Aplikasi tidak meminta atau mengirim tautan email.
+- Google memverifikasi identitas dan email. Profil tanpa email terverifikasi ditolak.
+- Akun baru dibuat otomatis setelah login Google pertama berhasil.
+- Login selanjutnya menemukan akun melalui identitas Google yang sudah ditautkan.
+- User lama dengan email terverifikasi yang sama dapat ditautkan tanpa kehilangan ID atau data Sticky Note.
+- `/register` mengarahkan pengguna ke `/login` agar tautan lama tetap berfungsi.
+- Logout menghapus sesi database.
 
 ## Deployment dan pemeriksaan
 
-1. Pilih `DATABASE_PROVIDER`; periksa status lalu jalankan `npm run db:migrate` terhadap database PostgreSQL production yang sama. `DATABASE_URL` harus berada di environment aman yang dibaca perintah; runner tidak menyimpan atau mencetak URL tersebut.
-2. Tambahkan `AUTH_SECRET`, `AUTH_URL`, `DATABASE_PROVIDER`, `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, dan `FILE_API_SIGNING_SECRET` ke environment server Vercel. `FILE_API_SIGNING_SECRET` harus secret acak minimal 32 byte yang juga tersedia pada API service; jangan publikasikan rahasia ke browser.
-3. Pastikan domain pengirim sudah diverifikasi pada penyedia SMTP, dan redirect domain web melalui `AUTH_URL` menggunakan HTTPS.
-4. Deploy ulang web. Endpoint `/api/auth/status` harus mengembalikan HTTP 200 dengan `available: true`.
-5. Kirim link ke mailbox yang dikuasai, buka link sebelum 10 menit, lalu periksa sesi dan logout. Jangan mengklaim email live berfungsi sebelum melakukan pemeriksaan ini.
+1. Pastikan koneksi PostgreSQL target dan schema sudah siap dengan `npm run db:status`; terapkan migrasi pending menggunakan `npm run db:migrate` bila diperlukan.
+2. Isi `AUTH_SECRET`, `AUTH_URL`, `DATABASE_PROVIDER`, `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, dan `FILE_API_SIGNING_SECRET` pada environment server Vercel. Signing secret juga harus ada di API service.
+3. Pastikan Google OAuth Client menerima callback URI production yang tepat.
+4. Setelah deploy, `/api/auth/status` harus mengembalikan HTTP 200 dengan `available: true` dan `google: true`. `/api/auth/providers` hanya menampilkan Google.
+5. Uji dengan akun Google yang Anda kuasai. Periksa sesi, logout, kemudian login lagi untuk memastikan akun yang sama digunakan. Untuk akun lama, pastikan email Google yang sama dan terverifikasi.
 
-Sticky Note memakai sesi Auth.js dan query server-side yang selalu dibatasi ke ID pengguna dari sesi; `user_id` tidak diterima dari klien. Pengingat browser berjalan saat halaman Sticky Note terbuka dan izin notifikasi aktif, bukan melalui push service saat browser ditutup.
+Sticky Note menggunakan sesi Auth.js dan selalu membatasi query berdasarkan user ID dari sesi server; `user_id` tidak diterima dari klien. Pengingat browser berjalan saat halaman Sticky Note terbuka dan izin notifikasi aktif, bukan melalui push service saat browser ditutup.
 
-Jalankan pembersihan terjadwal harian pada database agar sesi/token kedaluwarsa dan catatan limiter lama tidak menumpuk:
-
-```sql
-DELETE FROM celi_auth.verification_token WHERE expires < now();
-DELETE FROM celi_auth.sessions WHERE expires < now();
-DELETE FROM celi_auth.auth_email_rate_limits WHERE last_sent_at < now() - interval '30 days';
-DELETE FROM celi_auth.auth_ip_rate_limits WHERE window_started_at < now() - interval '30 days';
-```
-
-Route converter, compress, dashboard, JSON, dan crypto mensyaratkan sesi Auth.js. Route upload memeriksa sesi dan Origin. API file production memverifikasi token HMAC lima menit yang hanya diterbitkan web untuk pengguna dengan sesi aktif; UI/AuthProvider sendiri bukan kontrol keamanan.
-
-## Peralihan dari sesi sebelumnya
-
-Sesi Supabase lama tidak dipindahkan. Pengguna perlu masuk ulang dengan email; setelah link dikonfirmasi, Auth.js membuat identitas pengguna baru pada PostgreSQL. Saat ini aplikasi tidak mengaitkan data tersimpan dengan ID pengguna. Jika integrasi lain memakai Supabase user ID, migrasikan mapping data secara terpisah sebelum mengandalkan ID Auth.js.
+Route converter, compress, dashboard, JSON, Crypto, dan Sticky Note mensyaratkan sesi Auth.js. Route upload juga memeriksa sesi dan Origin. API file production memverifikasi token HMAC singkat yang hanya diterbitkan web setelah sesi tervalidasi.
