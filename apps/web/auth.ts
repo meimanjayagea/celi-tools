@@ -2,29 +2,12 @@ import { createHmac } from "node:crypto";
 import { isIP } from "node:net";
 import { createTransport } from "nodemailer";
 import PostgresAdapter from "@auth/pg-adapter";
-import { Pool } from "pg";
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import type { EmailConfig } from "next-auth/providers/email";
 import type { Adapter } from "next-auth/adapters";
 import { authConfigurationStatus } from "./app/lib/auth-environment.mjs";
-
-const globalForAuth = globalThis as typeof globalThis & { authPool?: Pool };
-const databaseProvider = (process.env.AUTH_DATABASE_PROVIDER || "postgres").trim().toLowerCase();
-const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-const usesPostgres = ["postgres", "postgresql", "supabase", "prisma-postgres", "neon", "vercel-postgres"]
-  .includes(databaseProvider);
-const hasPostgresUrl = typeof databaseUrl === "string" && /^postgres(?:ql)?:\/\//i.test(databaseUrl);
-const pool = usesPostgres && hasPostgresUrl
-  ? globalForAuth.authPool ?? new Pool({
-      connectionString: databaseUrl,
-      options: "-c search_path=celi_auth",
-      max: 5,
-      idleTimeoutMillis: 10_000,
-      connectionTimeoutMillis: 5_000,
-    })
-  : undefined;
-if (pool && process.env.NODE_ENV !== "production") globalForAuth.authPool = pool;
+import { pool } from "./app/lib/database";
 
 const smtpPort = Number(process.env.SMTP_PORT || 587);
 const smtpServer = {

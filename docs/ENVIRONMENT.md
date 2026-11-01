@@ -9,9 +9,9 @@
 
 ## Web
 
-`AUTH_SECRET`, `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, dan `EMAIL_FROM` dipakai server web untuk Auth.js. `FILE_API_SIGNING_SECRET` dipakai server web untuk menerbitkan token API file berumur lima menit; set secret acak yang sama pada frontend dan API Vercel. Buat skema [001_auth.sql](../apps/web/db/001_auth.sql) pada PostgreSQL auth sebelum login diaktifkan. `AUTH_URL` adalah origin web kanonis. Jangan publikasikan rahasia melalui `NEXT_PUBLIC_*` atau commit ke git.
+`AUTH_SECRET`, `DATABASE_PROVIDER`, `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, dan `EMAIL_FROM` dipakai server web untuk Auth.js dan data aplikasi. Jalankan migrasi `apps/web/db/001_auth.sql` lalu `apps/web/db/002_sticky_notes.sql` pada database PostgreSQL yang sama. `FILE_API_SIGNING_SECRET` dipakai server web untuk menerbitkan token API file berumur lima menit; set secret acak yang sama pada frontend dan API Vercel. Buat skema [001_auth.sql](../apps/web/db/001_auth.sql) pada PostgreSQL auth sebelum login diaktifkan. `AUTH_URL` adalah origin web kanonis. Jangan publikasikan rahasia melalui `NEXT_PUBLIC_*` atau commit ke git.
 
-Untuk lokal, ubah `AUTH_DATABASE_PROVIDER=none` dan kosongkan URL database bila auth belum dipakai. File web lokal mengirim FormData langsung ke API localhost. Tidak perlu `FILE_API_URL` dan tidak perlu Vercel Blob untuk kerja lokal.
+Untuk lokal, ubah `DATABASE_PROVIDER=none` dan kosongkan URL database bila auth belum dipakai. File web lokal mengirim FormData langsung ke API localhost. Tidak perlu `FILE_API_URL` dan tidak perlu Vercel Blob untuk kerja lokal.
 
 ## API lokal
 

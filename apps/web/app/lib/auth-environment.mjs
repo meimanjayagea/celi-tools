@@ -1,12 +1,7 @@
+import { databaseConfiguration } from "./database-config.mjs";
+
 export function authConfigurationStatus(env = process.env) {
-  const databaseAdapter = (env.AUTH_DATABASE_PROVIDER || "postgres").trim().toLowerCase();
-  const databaseUrl = env.DATABASE_URL || env.POSTGRES_URL || "";
-  const postgresProviders = ["postgres", "postgresql", "supabase", "prisma-postgres", "neon", "vercel-postgres"];
-  const supportedDatabaseProvider = [...postgresProviders, "none"].includes(databaseAdapter);
-  const databaseConfigured = databaseAdapter === "none" || (
-    postgresProviders.includes(databaseAdapter) &&
-    typeof databaseUrl === "string" && /^postgres(?:ql)?:\/\//i.test(databaseUrl)
-  );
+  const database = databaseConfiguration(env);
   const port = Number(env.SMTP_PORT);
   let canonicalOrigin = false;
   try {
@@ -16,7 +11,7 @@ export function authConfigurationStatus(env = process.env) {
   } catch { /* Missing or invalid canonical auth origin. */ }
 
   const baseConfigurationReady = Boolean(
-    databaseAdapter !== "none" && supportedDatabaseProvider && databaseConfigured &&
+    database.provider !== "none" && database.configured &&
     typeof env.AUTH_SECRET === "string" && env.AUTH_SECRET.length >= 32 && canonicalOrigin,
   );
   const smtpHost = typeof env.SMTP_HOST === "string" ? env.SMTP_HOST.trim().toLowerCase() : "";

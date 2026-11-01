@@ -1,4 +1,4 @@
-import { CodeXml, FileArchive, FileInput, LockKeyhole } from "lucide-react";
+import { CodeXml, FileArchive, FileInput, LockKeyhole, StickyNote } from "lucide-react";
 
 export const WORKSPACES = [
   { title: "File Converter", href: "/converter", icon: FileInput,
@@ -17,4 +17,8 @@ export const WORKSPACES = [
     description: "Ubah representasi teks, buat hash, atau enkripsi data. Tools encoding dan kriptografi yang fokus pada hasil, langsung di browser Anda.",
     features: ["Base64, URL, Hex & Biner", "Hash SHA-256 dan SHA-512", "Enkripsi & dekripsi AES"],
     tools: [{ label: "Base64 Encode", href: "/crypto?tool=base64-encode" }, { label: "Base64 Decode", href: "/crypto?tool=base64-decode" }, { label: "SHA-256", href: "/crypto?tool=sha256" }, { label: "AES Encrypt", href: "/crypto?tool=aes-encrypt" }, { label: "AES Decrypt", href: "/crypto?tool=aes-decrypt" }] },
+  { title: "Sticky Note", href: "/sticky-notes", icon: StickyNote,
+    description: "Kumpulkan ide dalam catatan pribadi yang bisa dipindah, diberi warna, tag, dan pengingat.",
+    features: ["Catatan privat tersimpan di akun", "Cari dan filter dengan tag", "Pengingat melalui notifikasi browser"],
+    tools: [{ label: "Catatan pribadi", href: "/sticky-notes" }, { label: "Tag dan pencarian", href: "/sticky-notes" }, { label: "Pengingat", href: "/sticky-notes" }] },
 ];

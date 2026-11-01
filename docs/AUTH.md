@@ -28,12 +28,12 @@ Salin `apps/web/.env.example` ke `apps/web/.env.local`. Isi variabel berikut di 
 | --- | --- |
 | `AUTH_SECRET` | Kunci acak Auth.js untuk mengamankan token/cookie; buat rahasia minimal 32 byte |
 | `AUTH_URL` | Origin kanonis web, misalnya `http://localhost:3000` atau origin HTTPS production |
-| `AUTH_DATABASE_PROVIDER` | `postgres` (default), `supabase`, `prisma-postgres`, `neon`, `vercel-postgres`, atau `none`. Provider PostgreSQL memakai driver `pg`; `none` tidak membuat pool dan menonaktifkan auth. |
-| `DATABASE_URL` | Opsional jika provider `none`; koneksi PostgreSQL server-side. `POSTGRES_URL` diterima sebagai fallback. Gunakan TLS untuk production. |
+| `DATABASE_PROVIDER` | `postgres` (default), `supabase`, `prisma-postgres`, `neon`, `vercel-postgres`, atau `none`. Semua PostgreSQL memakai satu pool `pg` untuk Auth.js dan data aplikasi; `none` tidak membuat pool dan menonaktifkan auth. `AUTH_DATABASE_PROVIDER` dibaca sebagai fallback lama. |
+| `DATABASE_URL` | Satu-satunya koneksi PostgreSQL server-side. `POSTGRES_URL` tidak dibaca oleh aplikasi. Gunakan TLS untuk production. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | Kredensial SMTP penyedia email; port 465 memakai TLS implisit, port 587 memakai STARTTLS |
 | `EMAIL_FROM` | Alamat pengirim yang sudah diverifikasi oleh penyedia SMTP |
 
-Buat secret lokal dengan `openssl rand -base64 32`. Untuk menjalankan web tanpa database, atur `AUTH_DATABASE_PROVIDER=none`; halaman dan fitur publik tetap tersedia, sedangkan endpoint Auth.js menolak permintaan dengan status 503. Provider Supabase dan Prisma Postgres menggunakan URL PostgreSQL langsung dari sisi server. Jangan gunakan publishable/anon key Supabase untuk koneksi database. Jangan menaruh `AUTH_SECRET`, password database, atau SMTP password pada variabel `NEXT_PUBLIC_*`, file yang di-commit, atau bundle browser. Batas per alamat dan IP ada di database; aktifkan juga kuota/batas pengiriman pada SMTP dan Vercel Firewall untuk mengendalikan traffic terdistribusi.
+Buat secret lokal dengan `openssl rand -base64 32`. Untuk menjalankan web tanpa database, atur `DATABASE_PROVIDER=none`; halaman dan fitur publik tetap tersedia, sedangkan endpoint Auth.js menolak permintaan dengan status 503. Provider Supabase dan Prisma Postgres menggunakan URL PostgreSQL langsung dari sisi server. Jangan gunakan publishable/anon key Supabase untuk koneksi database. Jangan menaruh `AUTH_SECRET`, password database, atau SMTP password pada variabel `NEXT_PUBLIC_*`, file yang di-commit, atau bundle browser. Batas per alamat dan IP ada di database; aktifkan juga kuota/batas pengiriman pada SMTP dan Vercel Firewall untuk mengendalikan traffic terdistribusi.
 
 Adapter `pg` ini hanya mendukung PostgreSQL dan layanan yang kompatibel dengannya. Prisma Postgres adalah layanan PostgreSQL sehingga dapat dipakai langsung. Untuk MySQL, SQLite, SQL Server, atau MongoDB, tambahkan adapter Auth.js yang sesuai dan sesuaikan skema; jangan mengubah hanya URL database karena tabel/Auth adapter dan limiter berbeda antar-engine.
 
@@ -41,11 +41,13 @@ Auth.js menyediakan route `/api/auth/*`; `/api/auth/status` hanya mengembalikan 
 
 ## Deployment dan pemeriksaan
 
-1. Pilih `AUTH_DATABASE_PROVIDER` dan jalankan `apps/web/db/001_auth.sql` pada database PostgreSQL production. Lewati langkah ini jika auth belum akan diaktifkan.
-2. Tambahkan `AUTH_SECRET`, `AUTH_URL`, `AUTH_DATABASE_PROVIDER`, `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, dan `FILE_API_SIGNING_SECRET` ke environment server Vercel. `FILE_API_SIGNING_SECRET` harus secret acak minimal 32 byte yang juga tersedia pada API service; jangan publikasikan rahasia ke browser.
+1. Pilih `DATABASE_PROVIDER`; jalankan `apps/web/db/001_auth.sql`, lalu `apps/web/db/002_sticky_notes.sql` pada database PostgreSQL production yang sama.
+2. Tambahkan `AUTH_SECRET`, `AUTH_URL`, `DATABASE_PROVIDER`, `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, dan `FILE_API_SIGNING_SECRET` ke environment server Vercel. `FILE_API_SIGNING_SECRET` harus secret acak minimal 32 byte yang juga tersedia pada API service; jangan publikasikan rahasia ke browser.
 3. Pastikan domain pengirim sudah diverifikasi pada penyedia SMTP, dan redirect domain web melalui `AUTH_URL` menggunakan HTTPS.
 4. Deploy ulang web. Endpoint `/api/auth/status` harus mengembalikan HTTP 200 dengan `available: true`.
 5. Kirim link ke mailbox yang dikuasai, buka link sebelum 10 menit, lalu periksa sesi dan logout. Jangan mengklaim email live berfungsi sebelum melakukan pemeriksaan ini.
+
+Sticky Note memakai sesi Auth.js dan query server-side yang selalu dibatasi ke ID pengguna dari sesi; `user_id` tidak diterima dari klien. Pengingat browser berjalan saat halaman Sticky Note terbuka dan izin notifikasi aktif, bukan melalui push service saat browser ditutup.
 
 Jalankan pembersihan terjadwal harian pada database agar sesi/token kedaluwarsa dan catatan limiter lama tidak menumpuk:
 

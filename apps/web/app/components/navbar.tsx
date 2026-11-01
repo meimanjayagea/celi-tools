@@ -4,7 +4,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { signOut } from "next-auth/react";
-import { CodeXml, Home, LockKeyhole, Settings2, FileInput, FileArchive, Menu, X, ChevronRight, LogOut, LogIn } from "lucide-react";
+import { CodeXml, Home, LockKeyhole, Settings2, FileInput, FileArchive, Menu, X, ChevronRight, LogOut, LogIn, StickyNote } from "lucide-react";
 import { useAuth } from "./auth-provider";
 import { ThemeToggle } from "./theme-provider";
 const links = [
@@ -13,6 +13,7 @@ const links = [
     { href: "/compress", label: "File Compress", icon: FileArchive },
     { href: "/json", label: "JSON Workspace", icon: CodeXml },
     { href: "/crypto", label: "Crypto Tools", icon: LockKeyhole },
+    { href: "/sticky-notes", label: "Sticky Note", icon: StickyNote },
     { href: "/preferences", label: "Preferensi", icon: Settings2 },
 ];
 export default function Navbar({ children }: {
