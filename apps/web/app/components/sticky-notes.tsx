@@ -2,18 +2,12 @@
 
 import { Bell, BellRing, LoaderCircle, Plus, Search, StickyNote as StickyIcon, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import StickyDateTimePicker from "./sticky-date-time-picker";
 
 type Note = { id: string; content: string; positionX: number; positionY: number; color: string; tags: string[]; reminderAt: string | null; createdAt: string; updatedAt: string };
 const colors = ["yellow", "blue", "pink", "green", "purple"] as const;
 const colorNames: Record<string, string> = { yellow: "Kuning", blue: "Biru", pink: "Merah muda", green: "Hijau", purple: "Ungu" };
 const errorMessage = (data: unknown) => data && typeof data === "object" && "error" in data && typeof data.error === "string" ? data.error : "Terjadi kesalahan. Coba lagi.";
-
-function localDateTime(value: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 16);
-}
 
 export default function StickyNotes() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -190,7 +184,7 @@ export default function StickyNotes() {
         <header className="sticky-note-header"><button className="sticky-drag-handle" aria-label="Geser catatan" title="Geser catatan" onPointerDown={event => startDrag(event, note)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}><StickyIcon size={15}/><span>Geser</span></button><div className="sticky-color-picker" aria-label="Warna catatan">{colors.map(color => <button type="button" key={color} aria-label={`Warna ${colorNames[color]}`} aria-pressed={note.color === color} className={`sticky-color-dot sticky-dot-${color}`} onClick={() => scheduleSave(note.id, { color })}/>)}</div><button className="sticky-icon-action" aria-label="Hapus catatan" title="Hapus catatan" onClick={() => void deleteNote(note.id)}><Trash2 size={16}/></button></header>
         <textarea className="sticky-note-text" value={note.content} maxLength={5000} placeholder="Tulis ide Anda…" aria-label="Isi catatan" onChange={event => scheduleSave(note.id, { content: event.target.value })} onBlur={event => flushSave(note.id, { content: event.target.value })}/>
         <label className="sticky-field"><span>Tag, pisahkan dengan koma</span><input key={`${note.id}:${note.tags.join(",")}`} defaultValue={note.tags.join(", ")} maxLength={250} aria-label="Tag catatan" placeholder="Kerja, Pribadi" onBlur={event => { const value = event.target.value.split(",").map(tag => tag.trim()).filter(Boolean).slice(0, 10); if (value.join("\0") !== note.tags.join("\0")) scheduleSave(note.id, { tags: value }); }}/></label>
-        <label className="sticky-field"><span>Pengingat</span><input type="datetime-local" value={localDateTime(note.reminderAt)} aria-label="Waktu pengingat" onChange={event => { const reminderAt = event.target.value ? new Date(event.target.value).toISOString() : null; scheduleSave(note.id, { reminderAt }); }}/></label>
+        <StickyDateTimePicker value={note.reminderAt} onChange={reminderAt => scheduleSave(note.id, { reminderAt })} />
         <footer className="sticky-note-footer"><span>Dibuat {new Date(note.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>{note.reminderAt && <Bell size={13} aria-label="Pengingat aktif"/>}</footer>
       </article>)}
     </div></div> : <div className="sticky-empty"><StickyIcon size={32}/><h2>{search || activeTag ? "Tidak ada catatan yang cocok" : "Belum ada catatan"}</h2><p>{search || activeTag ? "Ubah kata pencarian atau filter tag." : "Buat catatan pertama untuk mulai mengumpulkan ide."}</p>{!search && !activeTag && <button className="primary-button" onClick={addNote}><Plus size={18}/>Buat catatan pertama</button>}{(search || activeTag) && <button className="secondary-button" onClick={() => { setSearch(""); setActiveTag(""); }}><X size={16}/>Hapus filter</button>}</div>}
