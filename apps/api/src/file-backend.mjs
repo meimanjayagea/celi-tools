@@ -14,6 +14,13 @@ export class FileBackendError extends Error {
         this.status = status;
     }
 }
+export function responseOutputSize(response) {
+    const contentLength = response.headers.get("content-length");
+    const size = contentLength === null ? NaN : Number(contentLength);
+    if (!Number.isSafeInteger(size) || size < 1 || size > FILE_LIMITS.maxOutputBytes)
+        throw new FileBackendError("Ukuran hasil tidak valid.", 500);
+    return size;
+}
 const shared = globalThis;
 const apiRoot = fileURLToPath(new URL('../', import.meta.url));
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
@@ -256,6 +263,7 @@ export async function processBlobFileRequest(request, mode) {
         // Request/FormData supplies its own multipart boundary; content-length is only used for the backend's size guard.
         const result = await processFileRequest(internalRequest, mode);
         if (!result.ok) throw new FileBackendError(await result.text(), result.status);
+        const outputSize = responseOutputSize(result);
         const disposition = result.headers.get("content-disposition") || "";
         const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
         const name = encodedName ? decodeURIComponent(encodedName) : "celi-result.zip";
@@ -270,7 +278,7 @@ export async function processBlobFileRequest(request, mode) {
         const signedToken = await issueSignedToken({ pathname: uploaded.pathname, operations: ["get"], validUntil: expiresAt });
         const { presignedUrl } = await presignUrl(signedToken, { operation: "get", pathname: uploaded.pathname, access: "private", validUntil: expiresAt });
         const notes = JSON.parse(Buffer.from(result.headers.get("x-file-notes") || "", "base64").toString("utf8") || "[]");
-        return Response.json({ downloadUrl: presignedUrl, cleanupPath: uploaded.pathname, name, size: uploaded.size, notes, expiresAt }, { headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
+        return Response.json({ downloadUrl: presignedUrl, cleanupPath: uploaded.pathname, name, size: outputSize, notes, expiresAt }, { headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
     }
     catch (error) {
         if (outputPath) await del(outputPath).catch(() => {});
