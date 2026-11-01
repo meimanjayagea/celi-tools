@@ -21,6 +21,36 @@ export function responseOutputSize(response) {
         throw new FileBackendError("Ukuran hasil tidak valid.", 500);
     return size;
 }
+export async function readBlobContents(stream, expectedSize) {
+    if (!Number.isSafeInteger(expectedSize) || expectedSize < 1 || expectedSize > FILE_LIMITS.maxBytes)
+        throw new FileBackendError("Ukuran file unggahan tidak valid.", 400);
+    const reader = stream.getReader();
+    const chunks = [];
+    let actualSize = 0;
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            actualSize += value.byteLength;
+            if (actualSize > expectedSize) {
+                await reader.cancel();
+                throw new FileBackendError("Ukuran file unggahan berubah.", 400);
+            }
+            chunks.push(value);
+        }
+    }
+    catch (error) {
+        await reader.cancel().catch(() => {});
+        if (error instanceof FileBackendError) throw error;
+        throw new FileBackendError("File unggahan tidak dapat dibaca.", 400);
+    }
+    finally {
+        reader.releaseLock();
+    }
+    if (actualSize !== expectedSize)
+        throw new FileBackendError("Ukuran file unggahan berubah.", 400);
+    return new Blob(chunks);
+}
 const shared = globalThis;
 const apiRoot = fileURLToPath(new URL('../', import.meta.url));
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
@@ -245,8 +275,8 @@ export async function processBlobFileRequest(request, mode) {
             sizeTotal += entry.size;
             if (sizeTotal > FILE_LIMITS.maxBytes) throw new FileBackendError("Total file melebihi batas 100 MB.", 413);
             const stored = await get(entry.pathname, { access: "private", abortSignal: request.signal, useCache: false });
-            if (!stored || stored.blob.size !== entry.size) throw new FileBackendError("File unggahan tidak ditemukan atau ukurannya berubah.", 400);
-            const contents = await new Response(stored.stream).blob();
+            if (!stored || stored.statusCode !== 200 || !stored.stream) throw new FileBackendError("File unggahan tidak ditemukan.", 400);
+            const contents = await readBlobContents(stored.stream, entry.size);
             files.push(new File([contents], entry.name, { type: stored.blob.contentType || "application/octet-stream" }));
         }
         if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.VERCEL_OIDC_TOKEN) throw new FileBackendError("Penyimpanan file belum dikonfigurasi.", 503);
