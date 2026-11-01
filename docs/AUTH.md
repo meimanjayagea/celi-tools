@@ -32,7 +32,7 @@ Salin `apps/web/.env.example` ke `apps/web/.env.local`. Variabel berikut harus b
 | `DATABASE_URL` | Satu-satunya koneksi PostgreSQL server-side untuk Auth.js dan catatan aplikasi. Gunakan TLS di production. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Kredensial OAuth Client bertipe Web application dari Google Cloud Console. Client Secret hanya disimpan server-side. |
 
-Daftarkan Authorized redirect URI `${AUTH_URL}/api/auth/callback/google` di Google Cloud Console. Gunakan OAuth Client ID dan Client Secret, bukan API key. Supabase dan Prisma Postgres memakai koneksi PostgreSQL langsung; jangan gunakan Supabase publishable/anon key sebagai database URL. Engine selain PostgreSQL memerlukan adapter Auth.js dan skema khusus.
+Daftarkan Authorized redirect URI `${AUTH_URL}/api/auth/callback/google` di Google Cloud Console. Gunakan OAuth Client ID dan Client Secret, bukan API key. Buka aplikasi menggunakan origin `AUTH_URL`; aplikasi mengarahkan alias Vercel lain ke origin itu supaya cookie PKCE yang bersifat host-only tetap tersedia saat callback Google kembali. Supabase dan Prisma Postgres memakai koneksi PostgreSQL langsung; jangan gunakan Supabase publishable/anon key sebagai database URL. Engine selain PostgreSQL memerlukan adapter Auth.js dan skema khusus.
 
 Jangan menaruh `AUTH_SECRET`, `DATABASE_URL`, atau Google Client Secret pada variabel `NEXT_PUBLIC_*`, file yang di-commit, atau bundle browser. Auth status di `/api/auth/status` hanya mengembalikan boolean konfigurasi dan tidak membuka kredensial.
 
