@@ -9,18 +9,23 @@ apps/
   web/                  Next.js / React: UI dan autentikasi email Auth.js
     app/                Source aplikasi
     public/             Aset antarmuka
-    vercel.json         Konfigurasi Vercel Services dan rewrite web/API
+    db/
+      migrate.mjs       Runner migrasi PostgreSQL
+      migrations/       SQL berurutan; jangan edit setelah diterapkan
   api/                  HTTP API Node.js yang menjalankan worker Python
     src/                CORS, upload, pemrosesan, health check
     server/             Worker Python, dependency lock, pengujian engine
-    Dockerfile          Image backend; build context adalah root repository
 packages/
   file-tools/           Daftar format, batas file, validasi bersama web dan API
 scripts/                Runner lokal dan pengujian integrasi
 tests/                  Tes JavaScript dan batas layanan HTTP
-docs/                   Detail autentikasi dan format file
+docs/                   Panduan auth, environment, deployment, dan fitur
+deploy/                 Contoh environment per deployment provider
+Dockerfile.api          Image backend; build context adalah root repository
+vercel.json             Root service, build, dan rewrite Vercel
+railway.json            Root Dockerfile dan readiness Railway
 package-lock.json       Satu lockfile npm untuk semua workspaces
-compose.yaml            Menjalankan backend Docker secara lokal
+compose.yaml            Menjalankan backend Docker lokal
 ```
 
 Web dan API berjalan sebagai dua Vercel Services dalam satu deployment. Browser mengunggah file langsung ke Vercel Blob privat; API mengambil file tersebut, memprosesnya dalam container, lalu menyimpan hasil sementara privat dan mengembalikan tautan unduh berumur satu jam. File input dihapus setelah pemrosesan; hasil dihapus setelah diunduh. Hasil yang tertinggal dibersihkan ketika ada permintaan pemrosesan berikutnya jika usianya lebih dari 24 jam.
@@ -70,7 +75,17 @@ GOOGLE_CLIENT_SECRET=replace-with-google-oauth-client-secret
 | `EMAIL_FROM` | Alamat pengirim yang sudah diverifikasi penyedia email, misalnya `"Celi Tools <no-reply@domain-anda.com>"`. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Opsional untuk tombol login/registrasi Google. Buat OAuth Client bertipe Web application di Google Cloud Console; jangan gunakan API key. Redirect URI harus `${AUTH_URL}/api/auth/callback/google`. Simpan Client Secret hanya di environment server Vercel. |
 
-Jalankan skema `apps/web/db/001_auth.sql` satu kali pada database PostgreSQL tersebut sebelum mengaktifkan auth. Jika menjalankan migrasi via `psql`, gunakan `DATABASE_URL` yang sama seperti environment web. Auth.js memerlukan database, secret, dan origin yang valid, lalu setidaknya satu provider yang dikonfigurasi: SMTP untuk tautan email atau OAuth Google. Jangan menaruh `AUTH_SECRET`, `DATABASE_URL`, OAuth Client Secret, atau password SMTP pada variabel `NEXT_PUBLIC_*` atau file yang di-commit.
+Semua migrasi PostgreSQL berada di `apps/web/db/migrations/` dan dijalankan berurutan menggunakan satu `DATABASE_URL`:
+
+```sh
+npm run db:list      # Daftar file migrasi tanpa koneksi database
+npm run db:status    # Bandingkan file dengan ledger pada database
+npm run db:migrate   # Terapkan migrasi pending dalam transaksi
+npm run db:status:local   # Gunakan apps/web/.env.local secara eksplisit
+npm run db:migrate:local  # Terapkan ke DATABASE_URL dari apps/web/.env.local
+```
+
+Perintah tanpa suffix `:local` memakai `DATABASE_URL` dari environment shell. Suffix `:local` membaca `apps/web/.env.local`; pastikan file itu menunjuk ke database yang dimaksud sebelum menerapkan migrasi. Runner memverifikasi urutan dan checksum, mencatat versi dalam schema metadata terpisah `celi_meta.schema_migrations`, memakai advisory lock, dan tidak menghapus tabel atau baris. Jangan mengedit migrasi yang pernah diterapkan; tambahkan file berikutnya dengan nomor urut. Backup database sebelum menjalankan migrasi production. Migrasi tidak berjalan otomatis saat deploy. Skema tidak menyisipkan akun, catatan, atau data dummy: data tersebut milik pengguna dan seed bersama dapat mencemari production. Auth.js memerlukan database, secret, dan origin yang valid, lalu setidaknya satu provider yang dikonfigurasi: SMTP untuk tautan email atau OAuth Google. Jangan menaruh `AUTH_SECRET`, `DATABASE_URL`, OAuth Client Secret, atau password SMTP pada variabel `NEXT_PUBLIC_*` atau file yang di-commit.
 
 Untuk menjalankan web lokal tanpa database, set `DATABASE_PROVIDER=none` dan kosongkan `DATABASE_URL`/`POSTGRES_URL`. Untuk Supabase pilih `supabase` dan gunakan connection string PostgreSQL server-side (bukan publishable/anon key); untuk resource Prisma Postgres pilih `prisma-postgres`. Engine database selain PostgreSQL memerlukan adapter Auth.js yang sesuai dan skema khusus; driver itu belum termasuk dalam build ini.
 
@@ -124,13 +139,16 @@ Jalankan web di terminal lain melalui `npm run dev:web`. Jangan menjalankan dua 
 | `npm run test:api` | Menguji API nyata port 3001, dengan fixture dan API aktif |
 | `npm run test:auth` | Memeriksa route auth web pada port 3000 tanpa mengirim email |
 | `npm run check:css` | Diagnostik class CSS web |
+| `npm run check:layout` | Pastikan root service, entrypoint, shared install, dan file migrasi sesuai repo |
+| `npm run db:list` / `npm run db:status` / `npm run db:migrate` | Lihat, periksa, atau terapkan migrasi PostgreSQL menggunakan `DATABASE_URL` dari environment shell |
+| `npm run db:status:local` / `npm run db:migrate:local` | Periksa atau terapkan migrasi menggunakan `apps/web/.env.local` |
 | `npm run check:deployment -- --web https://web-anda.example.com` | Memeriksa web, auth, engine, unggah Blob privat, pemrosesan ZIP sintetis, dan unduhan |
 
 Tes API nyata menerima `FILE_TOOLS_TEST_URL` dan `FILE_TOOLS_WEB_ORIGIN` untuk origin lain. `AUTH_TEST_URL` mengubah target pemeriksaan UI/status auth web. Artefak sintetis tetap di direktori `test-output/` yang diabaikan Git.
 
 ## Deployment
 
-[Panduan deployment Vercel](./DEPLOY_VERCEL.md) menjelaskan Services, private Blob, PostgreSQL, SMTP, environment, dan pemeriksaan production. Vercel project harus memakai framework Services, Root Directory repository root, dan menghubungkan private Blob store.
+[Panduan deployment Vercel](./docs/DEPLOY_VERCEL.md) menjelaskan Services, private Blob, PostgreSQL, SMTP, environment, dan pemeriksaan production. Vercel project harus memakai framework Services, Root Directory repository root, dan menghubungkan private Blob store.
 
 ## Perilaku dan batas
 

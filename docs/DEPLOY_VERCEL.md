@@ -13,7 +13,7 @@ Hubungkan repository `celi-tools` ke project Vercel, lalu atur:
 | Node.js Version | **26.x** (Vercel mengelola patch keamanan terbaru secara otomatis) |
 | Include source files outside Root Directory | Aktif |
 
-Konfigurasi kedua service, build commands, Dockerfile, dan routing ada di [vercel.json](./vercel.json). Frontend memakai `apps/web`; backend membangun `Dockerfile.api` dari root repository agar Docker context mencakup semua package workspace. Vercel container menerima trafik HTTP pada port 80 secara default; Dockerfile juga menjalankan API pada port 80, kecuali platform memasok `PORT` lain.
+Konfigurasi kedua service, build commands, Dockerfile, dan routing ada di [vercel.json](../vercel.json). Frontend memakai root service `apps/web`; backend memakai root repository (`.`) dan Dockerfile `Dockerfile.api`, sehingga Docker context mencakup semua package workspace. Path service dan entrypoint ditetapkan relatif terhadap `vercel.json`. Vercel container menerima trafik HTTP pada port 80 secara default; Dockerfile juga menjalankan API pada port 80, kecuali platform memasok `PORT` lain.
 
 Project framework harus Services agar konfigurasi `services` dipakai. Jangan mengubah Root Directory ke `apps/web` atau `apps/api`, karena kedua service membutuhkan konfigurasi monorepo dan Docker context root.
 
@@ -25,7 +25,7 @@ Client upload dikunci ke prefix `celi-input`, tipe dan ukuran file divalidasi la
 
 ## 3. Environment Production
 
-Masukkan konfigurasi autentikasi di **Settings → Environment Variables**. Gunakan [contoh env Vercel](./deploy/vercel/.env.example) sebagai daftar nama tanpa nilai kredensial asli.
+Masukkan konfigurasi autentikasi di **Settings → Environment Variables**. Gunakan [contoh env Vercel](../deploy/vercel/.env.example) sebagai daftar nama tanpa nilai kredensial asli.
 
 Variabel penting:
 
@@ -40,11 +40,11 @@ Variabel penting:
 | `WEB_ORIGINS` | Daftar origin HTTPS yang diizinkan API, dipisahkan koma |
 | `FILE_TOOLS_TRUST_PROXY` | `true` untuk membaca IP klien dari `x-vercel-forwarded-for` |
 
-Tidak perlu mengatur `FILE_API_URL`: web dan API dilayani pada domain sama melalui rewrite. Gunakan satu database PostgreSQL dan jalankan kedua migrasi `apps/web/db/001_auth.sql` serta `apps/web/db/002_sticky_notes.sql`. Pertahankan variabel auth yang sudah terpasang. Jangan memasukkan nilai rahasia SMTP, DB, Auth.js, atau Blob ke konfigurasi frontend.
+Tidak perlu mengatur `FILE_API_URL`: web dan API dilayani pada domain sama melalui rewrite. Gunakan satu database PostgreSQL. Sebelum mengaktifkan auth, ekspor `DATABASE_URL` untuk database target ke environment shell, periksa `npm run db:status`, lalu jalankan `npm run db:migrate`. Migrasi tidak dijalankan otomatis saat deploy. Runner merekam versi dan checksum di schema metadata terpisah `celi_meta.schema_migrations`; backup database sebelum penerapan production. Tidak ada dummy user/note dalam migration karena catatan dan identitas adalah data privat. Pertahankan variabel auth yang sudah terpasang. Jangan memasukkan nilai rahasia SMTP, DB, Auth.js, atau Blob ke konfigurasi frontend.
 
 Untuk Google OAuth, buat OAuth Client bertipe Web application dan daftarkan Authorized redirect URI `${AUTH_URL}/api/auth/callback/google`. Nilai OAuth harus Client ID dan Client Secret, bukan API key. Vercel deployment protection pada domain `vercel.app` dapat menghalangi pengunjung publik mencapai halaman login/callback; gunakan domain khusus publik atau tinjau proteksi deployment sebelum membuka auth ke pengguna.
 
-Jika memakai database baru untuk Auth.js, jalankan [apps/web/db/001_auth.sql](./apps/web/db/001_auth.sql) satu kali pada schema target sebelum login dipakai. Koneksi production yang ada memakai schema terisolasi `celi_auth`.
+Jika memakai database baru untuk Auth.js, jalankan `npm run db:migrate` satu kali pada koneksi target sebelum login dipakai. Migrasi berada di [apps/web/db/migrations](../apps/web/db/migrations); data Auth.js terisolasi di schema `celi_auth`, sedangkan ledger migrasi berada di schema `celi_meta` yang tidak perlu bisa dibaca oleh role runtime.
 
 ## 4. Deploy dan verifikasi
 
@@ -71,7 +71,7 @@ npm ci
 npm run dev
 ```
 
-Web lokal berjalan pada port 3000 dan API pada 3001. Web lokal mengirim multipart langsung ke API lokal, jadi Blob Vercel tidak dibutuhkan. Gunakan `npm test`, `npm run lint`, dan `npm run typecheck` untuk pemeriksaan source. Dockerfile tetap dapat dijalankan terpisah melalui `docker compose up --build api`.
+Jalankan seluruh perintah dari root repository. Web lokal berjalan pada port 3000 dan API pada 3001. Web lokal mengirim multipart langsung ke API lokal, jadi Blob Vercel tidak dibutuhkan. Gunakan `npm test`, `npm run lint`, `npm run typecheck`, dan `npm run check:layout` untuk pemeriksaan source/path. Dockerfile tetap dapat dijalankan terpisah melalui `docker compose up --build api`.
 
 ## Referensi
 

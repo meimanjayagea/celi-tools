@@ -8,7 +8,7 @@ Pilih **New Project → Deploy from GitHub Repo** dan repository ini. Ini membua
 
 - Branch: `main` setelah perubahan konfigurasi ini di-push.
 - **Root Directory: `/` (root repository), bukan `apps/api`.** Backend membutuhkan lockfile root dan package bersama.
-- Config file: `/railway.json` (default). File ini memilih `apps/api/Dockerfile` dan readiness check `/ready`.
+- Config file: `/railway.json` (default). File ini memilih `Dockerfile.api` pada root repository dan readiness check `/ready`.
 - Start command: kosongkan override; gunakan `CMD` image Docker.
 - Jangan deploy worker Python `apps/api/server` sebagai layanan tersendiri. Node API menjalankan worker tersebut dari dalam image yang sama.
 
@@ -46,7 +46,7 @@ SMTP_PASSWORD=<password-smtp>
 EMAIL_FROM="Celi Tools <no-reply@domain-terverifikasi.example>"
 ```
 
-Jalankan `apps/web/db/001_auth.sql` pada PostgreSQL sebelum deployment. Isi rahasia hanya di Environment Variables proyek **web**, jangan pada API Railway atau prefix `NEXT_PUBLIC_`. Gunakan database khusus auth dan role database dengan hak minimal. SMTP sender/domain harus diverifikasi oleh penyedia email.
+Jalankan `npm run db:status` lalu `npm run db:migrate` dari root repository pada PostgreSQL sebelum mengaktifkan auth. Isi rahasia hanya di Environment Variables proyek **web**, jangan pada API Railway atau prefix `NEXT_PUBLIC_`. Gunakan database khusus auth dan role database dengan hak minimal. SMTP sender/domain harus diverifikasi oleh penyedia email.
 
 Lakukan **Redeploy web setelah environment tersimpan**. Hanya `FILE_API_URL` yang disisipkan ke bundle browser. Tidak diperlukan rewrite atau proxy file melalui Vercel: browser mengunggah langsung ke Railway agar file besar tidak melewati batas payload Vercel Functions.
 

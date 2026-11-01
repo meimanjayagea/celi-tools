@@ -4,11 +4,15 @@ Web menggunakan Auth.js passwordless dengan PostgreSQL adapter dan SMTP. Koneksi
 
 ## Siapkan database
 
-Gunakan PostgreSQL database khusus atau database PostgreSQL yang sudah dipakai aplikasi. Migrasi menempatkan semua tabel auth di schema terpisah `celi_auth`, sehingga tabel `users`/`sessions` milik aplikasi lain tidak berubah. Jalankan migrasi berikut sekali menggunakan kredensial yang boleh membuat schema:
+Gunakan PostgreSQL database khusus atau database PostgreSQL yang sudah dipakai aplikasi. Migrasi menempatkan semua tabel auth di schema terpisah `celi_auth`, sehingga tabel `users`/`sessions` milik aplikasi lain tidak berubah. Jalankan migrasi dari root repository menggunakan kredensial yang boleh membuat schema:
 
 ```sh
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/web/db/001_auth.sql
+npm run db:status
+npm run db:migrate
+npm run db:status
 ```
+
+Perintah di atas memakai `DATABASE_URL` dari environment shell. Untuk database lokal dalam `apps/web/.env.local`, gunakan `npm run db:status:local` dan `npm run db:migrate:local`; pastikan URL-nya menunjuk ke target yang benar. Runner menerapkan `apps/web/db/migrations/*.sql` berurutan, dalam transaksi, dan mencatat checksum serta versi di schema metadata terpisah `celi_meta.schema_migrations`. Jika schema dibuat sebelumnya dengan file SQL lama, migrasi `IF NOT EXISTS` diadopsi ke ledger tanpa menghapus tabel atau baris. Gunakan role migrasi yang boleh membuat schema `celi_meta`; role runtime tidak perlu akses ke schema metadata. Backup database sebelum penerapan production. Migrasi yang pernah dipakai tidak boleh diedit; perubahan berikutnya masuk sebagai file bernomor baru.
 
 Jangan jalankan aplikasi dengan kredensial superuser. Jika migrasi dijalankan dengan role terpisah, berikan role runtime hanya akses baca/tulis tabel auth dan sequence terkait setelah migrasi:
 
@@ -41,7 +45,7 @@ Auth.js menyediakan route `/api/auth/*`; `/api/auth/status` hanya mengembalikan 
 
 ## Deployment dan pemeriksaan
 
-1. Pilih `DATABASE_PROVIDER`; jalankan `apps/web/db/001_auth.sql`, lalu `apps/web/db/002_sticky_notes.sql` pada database PostgreSQL production yang sama.
+1. Pilih `DATABASE_PROVIDER`; periksa status lalu jalankan `npm run db:migrate` terhadap database PostgreSQL production yang sama. `DATABASE_URL` harus berada di environment aman yang dibaca perintah; runner tidak menyimpan atau mencetak URL tersebut.
 2. Tambahkan `AUTH_SECRET`, `AUTH_URL`, `DATABASE_PROVIDER`, `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, dan `FILE_API_SIGNING_SECRET` ke environment server Vercel. `FILE_API_SIGNING_SECRET` harus secret acak minimal 32 byte yang juga tersedia pada API service; jangan publikasikan rahasia ke browser.
 3. Pastikan domain pengirim sudah diverifikasi pada penyedia SMTP, dan redirect domain web melalui `AUTH_URL` menggunakan HTTPS.
 4. Deploy ulang web. Endpoint `/api/auth/status` harus mengembalikan HTTP 200 dengan `available: true`.
