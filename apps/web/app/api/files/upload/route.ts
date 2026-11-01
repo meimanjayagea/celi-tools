@@ -1,5 +1,6 @@
 import { handleUpload } from "@vercel/blob/client";
 import { NextResponse, type NextRequest } from "next/server";
+import { auth } from "../../../../auth";
 
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 const TOKEN_TTL_MS = 10 * 60 * 1000;
@@ -25,6 +26,16 @@ function rateLimited(address: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get("origin");
+  const configuredOrigins = process.env.WEB_ORIGINS || process.env.AUTH_URL || "http://localhost:3000";
+  const allowedOrigins = new Set(configuredOrigins.split(",").map(value => new URL(value.trim()).origin));
+  if (!origin || !allowedOrigins.has(origin)) {
+    return NextResponse.json({ error: "Origin tidak diizinkan." }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Silakan masuk untuk mengunggah file." }, { status: 401, headers: { "Cache-Control": "no-store" } });
+  }
   if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.VERCEL_OIDC_TOKEN) {
     return NextResponse.json({ error: "Penyimpanan file belum dikonfigurasi." }, { status: 503 });
   }

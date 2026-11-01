@@ -6,6 +6,13 @@ import { COMPRESS_METHODS, CONVERTER_GROUPS, FILE_LIMITS, conversionTargets, con
 import { fileApiEndpoint } from "../lib/file-api";
 
 type Result = { url: string; name: string; size: number; original: number; notes: string[]; cleanupPath: string };
+async function getFileAccessToken(signal?: AbortSignal) {
+  const response = await fetch("/api/files/access-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", cache: "no-store", credentials: "same-origin", signal });
+  const payload = await response.json();
+  if (!response.ok || typeof payload.token !== "string") throw new Error(payload.error || "Sesi file tidak tersedia. Silakan masuk kembali.");
+  return payload.token as string;
+}
+
 export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }) {
   const converting = mode === "convert";
   const [files, setFiles] = useState<File[]>([]);
@@ -24,7 +31,7 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
 
   useEffect(() => {
     const controller = new AbortController();
-    Promise.resolve().then(() => fetch(fileApiEndpoint("capabilities"), { signal: controller.signal, cache: "no-store", credentials: "omit" }))
+    Promise.resolve().then(() => fetch(fileApiEndpoint("capabilities"), { signal: controller.signal, cache: "no-store", credentials: "same-origin" }))
       .then(async response => { const value = await response.json(); if (!response.ok) throw new Error(value.error); return value; })
       .then(value => { setEngines(value.engines); setCapabilityError(""); })
       .catch(caught => { if (caught.name !== "AbortError") setCapabilityError("Server file belum siap. Coba periksa kembali beberapa saat lagi."); });
@@ -75,7 +82,7 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
         const body = new FormData();
         files.forEach(file => body.append("files", file));
         body.append("target", selected); body.append("preset", preset);
-        const response = await fetch(fileApiEndpoint(mode), { method: "POST", body, signal: controller.signal, credentials: "omit" });
+        const response = await fetch(fileApiEndpoint(mode), { method: "POST", body, signal: controller.signal, credentials: "same-origin" });
         if (!response.ok) { const payload = await response.json(); throw new Error(payload.error || "File tidak dapat diproses."); }
         const blob = await response.blob();
         let notes: string[] = [];
@@ -95,18 +102,24 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
         uploadedFiles.push(entry);
         return entry;
       }));
+      const accessToken = await getFileAccessToken(controller.signal);
       const response = await fetch(fileApiEndpoint(mode), {
-        method: "POST", signal: controller.signal, credentials: "omit",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", signal: controller.signal, credentials: "same-origin",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ files: uploaded, target: selected, preset }),
       });
       if (!response.ok) { const payload = await response.json(); throw new Error(payload.error || "File tidak dapat diproses."); }
       const payload = await response.json();
       if (!controller.signal.aborted) setResult({ url: payload.downloadUrl, cleanupPath: payload.cleanupPath, name: payload.name, size: payload.size, original: total, notes: payload.notes || [] });
     } catch (caught) {
-      await Promise.all(uploadedFiles.map(file => fetch(fileApiEndpoint("compress").replace("/compress", "/delete"), {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pathname: file.pathname }), credentials: "omit",
-      }).catch(() => {})));
+      if (uploadedFiles.length) {
+        try {
+          const accessToken = await getFileAccessToken();
+          await Promise.all(uploadedFiles.map(file => fetch(fileApiEndpoint("compress").replace("/compress", "/delete"), {
+            method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ pathname: file.pathname }), credentials: "same-origin",
+          }).catch(() => {})));
+        } catch {}
+      }
       if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : "Koneksi terputus. File belum dapat diproses.");
     } finally { if (!controller.signal.aborted) setPending(false); }
   };
@@ -141,7 +154,7 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
     </div>
     {pending && <div className="file-processing" role="status"><LoaderCircle size={23} className="spin"/><div><strong>Sedang menyiapkan hasil Anda</strong><p>Konversi video atau dokumen besar membutuhkan waktu lebih lama. Biarkan halaman ini tetap terbuka.</p></div></div>}
     {error && <div className="alert alert-error" role="alert"><CircleAlert size={18}/><span>{error}</span></div>}
-    {result && <section className="file-result" aria-label="Hasil pemrosesan"><div className="file-result-heading"><span className="file-result-check"><Check size={22}/></span><div><h2>File Anda sudah siap</h2><p>{result.name}{result.cleanupPath ? " · tautan unduh berlaku 1 jam" : ""}</p></div><a href={result.url} download={result.cleanupPath ? undefined : result.name} className="primary-button" onClick={() => { if (result.cleanupPath) window.setTimeout(() => { void fetch(fileApiEndpoint("compress").replace("/compress", "/delete"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pathname: result.cleanupPath }), credentials: "omit" }).catch(() => {}); }, 5 * 60 * 1000); }}><Download size={17}/>Unduh hasil</a></div><div className="file-result-stats"><div><span>Ukuran awal</span><strong>{formatBytes(result.original)}</strong></div><ArrowRight size={19}/><div><span>Ukuran hasil</span><strong>{formatBytes(result.size)}</strong></div><div className={savings > 0 ? "file-saved" : "file-larger"}><strong>{Math.abs(savings).toLocaleString("id-ID", { maximumFractionDigits:1 })}% {savings >= 0 ? "lebih kecil" : "lebih besar"}</strong><span>Ukuran berdasarkan hasil aktual</span></div></div>{result.notes.map((note, index) => <p key={index} className="file-result-note"><CircleAlert size={14}/>{note}</p>)}</section>}
+    {result && <section className="file-result" aria-label="Hasil pemrosesan"><div className="file-result-heading"><span className="file-result-check"><Check size={22}/></span><div><h2>File Anda sudah siap</h2><p>{result.name}{result.cleanupPath ? " · tautan unduh berlaku 1 jam" : ""}</p></div><a href={result.url} download={result.cleanupPath ? undefined : result.name} className="primary-button" onClick={() => { if (result.cleanupPath) window.setTimeout(() => { void (async () => { try { const accessToken = await getFileAccessToken(); await fetch(fileApiEndpoint("compress").replace("/compress", "/delete"), { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ pathname: result.cleanupPath }), credentials: "same-origin" }); } catch {} })(); }, 5 * 60 * 1000); }}><Download size={17}/>Unduh hasil</a></div><div className="file-result-stats"><div><span>Ukuran awal</span><strong>{formatBytes(result.original)}</strong></div><ArrowRight size={19}/><div><span>Ukuran hasil</span><strong>{formatBytes(result.size)}</strong></div><div className={savings > 0 ? "file-saved" : "file-larger"}><strong>{Math.abs(savings).toLocaleString("id-ID", { maximumFractionDigits:1 })}% {savings >= 0 ? "lebih kecil" : "lebih besar"}</strong><span>Ukuran berdasarkan hasil aktual</span></div></div>{result.notes.map((note, index) => <p key={index} className="file-result-note"><CircleAlert size={14}/>{note}</p>)}</section>}
     <section className="file-supported" aria-labelledby="supported-title">
       <div className="file-supported-heading"><div><h2 id="supported-title">Format yang didukung</h2><p>{converting ? "Pilihan tujuan mengikuti jenis file sumber dan engine yang tersedia." : "ZIP dan arsip lossless menerima semua jenis file; optimasi khusus mengikuti format sumber."}</p></div><label className="file-format-search"><Search size={16}/><input aria-label="Cari format file" value={search} onChange={event => setSearch(event.target.value)} placeholder="Cari PDF, MP4, DOCX…"/></label></div>
       <div className="file-format-table-wrap" role="region" aria-label="Tabel format yang didukung" tabIndex={0}>

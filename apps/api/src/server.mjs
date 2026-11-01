@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -76,6 +77,28 @@ function createClientLimiter() {
   };
 }
 
+function hasValidFileToken(header, secret) {
+  if (typeof header !== "string" || !header.startsWith("Bearer ") || !secret || Buffer.byteLength(secret) < 32) return false;
+  const token = header.slice(7);
+  const separator = token.indexOf(".");
+  if (separator < 1 || separator !== token.lastIndexOf(".")) return false;
+  const payload = token.slice(0, separator);
+  const supplied = Buffer.from(token.slice(separator + 1), "base64url");
+  const expected = createHmac("sha256", secret).update(payload).digest();
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return false;
+  try {
+    const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    const now = Math.floor(Date.now() / 1000);
+    return claims.aud === "celi-file-api"
+      && typeof claims.sub === "string" && claims.sub.length > 0 && claims.sub.length <= 200
+      && Number.isInteger(claims.iat) && Number.isInteger(claims.exp)
+      && claims.iat <= now + 30 && claims.exp > now && claims.exp > claims.iat
+      && claims.exp - claims.iat <= 5 * 60;
+  } catch {
+    return false;
+  }
+}
+
 export function createFileServer({
   origins = allowedWebOrigins(process.env.WEB_ORIGINS, process.env.NODE_ENV === "production"),
   capabilities = fileCapabilities,
@@ -84,6 +107,9 @@ export function createFileServer({
   trustedProxyHops = Number(process.env.FILE_TOOLS_TRUSTED_PROXY_HOPS || 1),
 } = {}) {
   if (!Number.isInteger(trustedProxyHops) || trustedProxyHops < 1 || trustedProxyHops > 8) throw new Error("FILE_TOOLS_TRUSTED_PROXY_HOPS harus berupa bilangan bulat 1-8.");
+  const fileApiSecret = process.env.FILE_API_SIGNING_SECRET;
+  const requireFileAuth = process.env.NODE_ENV === "production";
+  if (requireFileAuth && (!fileApiSecret || Buffer.byteLength(fileApiSecret) < 32)) throw new Error("FILE_API_SIGNING_SECRET wajib berisi minimal 32 byte di production.");
   const limitClient = createClientLimiter();
   return createServer({ maxHeaderSize: 16 * 1024, requestTimeout: 150000, headersTimeout: 30000 }, async (incoming, outgoing) => {
     const origin = incoming.headers.origin;
@@ -107,7 +133,7 @@ export function createFileServer({
       let response;
       if (incoming.method === "OPTIONS") {
         if (!origin) throw new FileBackendError("Origin diperlukan untuk preflight.", 403);
-        outgoing.writeHead(204, { "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "600" });
+        outgoing.writeHead(204, { "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Max-Age": "600" });
         outgoing.end();
         return;
       }
@@ -123,31 +149,41 @@ export function createFileServer({
           response = Response.json(result, { status: pathname === "/ready" && !ready ? 503 : 200 });
         }
       } else if (incoming.method === "POST" && ["/api/files/convert", "/api/files/compress"].includes(pathname)) {
-        const length = Number(incoming.headers["content-length"]);
-        const isJson = incoming.headers["content-type"]?.startsWith("application/json");
-        const isLocalMultipart = process.env.NODE_ENV !== "production" && incoming.headers["content-type"]?.startsWith("multipart/form-data");
-        if (!Number.isFinite(length) || length <= 0 || length > (isJson ? 64 * 1024 : FILE_LIMITS.maxBytes + 1024 * 1024)) throw new FileBackendError("Metadata file tidak valid atau terlalu besar.", 413);
-        if (!isJson && !isLocalMultipart) throw new FileBackendError("Metadata harus berupa JSON.", 415);
-        const limit = limitClient(getClientAddress(incoming, trustProxy, trustedProxyHops), "upload");
-        if (!limit.allowed) {
-          response = Response.json({ error: "Batas penggunaan file tercapai. Tunggu sebentar sebelum mencoba lagi." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
+        if (requireFileAuth && !hasValidFileToken(incoming.headers.authorization, fileApiSecret)) {
+          response = Response.json({ error: "Sesi file tidak valid atau kedaluwarsa. Muat ulang halaman dan coba lagi." }, { status: 401 });
           incoming.resume();
         } else {
-          releaseClientRequest = limit.release;
-          const request = new Request("http://file-api.internal" + pathname, { method: "POST", headers: incoming.headers, body: Readable.toWeb(incoming), duplex: "half", signal: controller.signal });
-          response = isLocalMultipart ? await processFiles(request, pathname.endsWith("/convert") ? "convert" : "compress") : await processBlobFileRequest(request, pathname.endsWith("/convert") ? "convert" : "compress");
+          const length = Number(incoming.headers["content-length"]);
+          const isJson = incoming.headers["content-type"]?.startsWith("application/json");
+          const isLocalMultipart = process.env.NODE_ENV !== "production" && incoming.headers["content-type"]?.startsWith("multipart/form-data");
+          if (!Number.isFinite(length) || length <= 0 || length > (isJson ? 64 * 1024 : FILE_LIMITS.maxBytes + 1024 * 1024)) throw new FileBackendError("Metadata file tidak valid atau terlalu besar.", 413);
+          if (!isJson && !isLocalMultipart) throw new FileBackendError("Metadata harus berupa JSON.", 415);
+          const limit = limitClient(getClientAddress(incoming, trustProxy, trustedProxyHops), "upload");
+          if (!limit.allowed) {
+            response = Response.json({ error: "Batas penggunaan file tercapai. Tunggu sebentar sebelum mencoba lagi." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
+            incoming.resume();
+          } else {
+            releaseClientRequest = limit.release;
+            const request = new Request("http://file-api.internal" + pathname, { method: "POST", headers: incoming.headers, body: Readable.toWeb(incoming), duplex: "half", signal: controller.signal });
+            response = isLocalMultipart ? await processFiles(request, pathname.endsWith("/convert") ? "convert" : "compress") : await processBlobFileRequest(request, pathname.endsWith("/convert") ? "convert" : "compress");
+          }
         }
       } else if (incoming.method === "POST" && pathname === "/api/files/delete") {
-        const length = Number(incoming.headers["content-length"]);
-        if (!Number.isFinite(length) || length <= 0 || length > 4096) throw new FileBackendError("Permintaan penghapusan tidak valid.", 413);
-        if (!incoming.headers["content-type"]?.startsWith("application/json")) throw new FileBackendError("Metadata harus berupa JSON.", 415);
-        const limit = limitClient(getClientAddress(incoming, trustProxy, trustedProxyHops), "probe");
-        if (!limit.allowed) {
-          response = Response.json({ error: "Terlalu banyak permintaan penghapusan." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
+        if (requireFileAuth && !hasValidFileToken(incoming.headers.authorization, fileApiSecret)) {
+          response = Response.json({ error: "Sesi file tidak valid atau kedaluwarsa." }, { status: 401 });
           incoming.resume();
         } else {
-          const request = new Request("http://file-api.internal" + pathname, { method: "POST", headers: incoming.headers, body: Readable.toWeb(incoming), duplex: "half", signal: controller.signal });
-          response = await deleteTemporaryFileRequest(request);
+          const length = Number(incoming.headers["content-length"]);
+          if (!Number.isFinite(length) || length <= 0 || length > 4096) throw new FileBackendError("Permintaan penghapusan tidak valid.", 413);
+          if (!incoming.headers["content-type"]?.startsWith("application/json")) throw new FileBackendError("Metadata harus berupa JSON.", 415);
+          const limit = limitClient(getClientAddress(incoming, trustProxy, trustedProxyHops), "probe");
+          if (!limit.allowed) {
+            response = Response.json({ error: "Terlalu banyak permintaan penghapusan." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
+            incoming.resume();
+          } else {
+            const request = new Request("http://file-api.internal" + pathname, { method: "POST", headers: incoming.headers, body: Readable.toWeb(incoming), duplex: "half", signal: controller.signal });
+            response = await deleteTemporaryFileRequest(request);
+          }
         }
       } else {
         response = Response.json({ error: "Endpoint tidak ditemukan." }, { status: 404 });

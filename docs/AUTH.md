@@ -42,7 +42,7 @@ Auth.js menyediakan route `/api/auth/*`; `/api/auth/status` hanya mengembalikan 
 ## Deployment dan pemeriksaan
 
 1. Pilih `AUTH_DATABASE_PROVIDER` dan jalankan `apps/web/db/001_auth.sql` pada database PostgreSQL production. Lewati langkah ini jika auth belum akan diaktifkan.
-2. Tambahkan `AUTH_SECRET`, `AUTH_URL`, `AUTH_DATABASE_PROVIDER`, `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, dan `EMAIL_FROM` ke environment server Vercel. Jangan publikasikan rahasia ke frontend atau container API.
+2. Tambahkan `AUTH_SECRET`, `AUTH_URL`, `AUTH_DATABASE_PROVIDER`, `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, dan `FILE_API_SIGNING_SECRET` ke environment server Vercel. `FILE_API_SIGNING_SECRET` harus secret acak minimal 32 byte yang juga tersedia pada API service; jangan publikasikan rahasia ke browser.
 3. Pastikan domain pengirim sudah diverifikasi pada penyedia SMTP, dan redirect domain web melalui `AUTH_URL` menggunakan HTTPS.
 4. Deploy ulang web. Endpoint `/api/auth/status` harus mengembalikan HTTP 200 dengan `available: true`.
 5. Kirim link ke mailbox yang dikuasai, buka link sebelum 10 menit, lalu periksa sesi dan logout. Jangan mengklaim email live berfungsi sebelum melakukan pemeriksaan ini.
@@ -56,7 +56,7 @@ DELETE FROM celi_auth.auth_email_rate_limits WHERE last_sent_at < now() - interv
 DELETE FROM celi_auth.auth_ip_rate_limits WHERE window_started_at < now() - interval '30 days';
 ```
 
-Fitur file tetap bisa dibuka tanpa login sesuai perilaku aplikasi sebelumnya. `AuthProvider` mengatur UI; ia bukan pembatas akses untuk route/API file. Jika nanti ada data atau operasi yang membutuhkan akun, route server wajib memanggil `auth()` dan memeriksa otorisasi di server.
+Route converter, compress, dashboard, JSON, dan crypto mensyaratkan sesi Auth.js. Route upload memeriksa sesi dan Origin. API file production memverifikasi token HMAC lima menit yang hanya diterbitkan web untuk pengguna dengan sesi aktif; UI/AuthProvider sendiri bukan kontrol keamanan.
 
 ## Peralihan dari sesi sebelumnya
 
