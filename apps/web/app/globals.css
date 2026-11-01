@@ -1781,6 +1781,9 @@ kbd {
 .auth-provider-notice { display:flex;align-items:flex-start;gap:9px;padding:13px;margin-bottom:18px;border:1px solid var(--border);border-radius:9px;background:var(--surface-secondary);color:var(--text-secondary);font-size:12px;line-height:1.7; }
 .auth-provider-notice > svg { margin-top:3px;flex-shrink:0; }
 .auth-provider-notice button { margin-top:6px;font-size:12px; }
+.google-auth-button { width:100%;min-height:46px;display:flex;align-items:center;justify-content:center;gap:11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-primary);font-size:13px;font-weight:600;transition:background .15s,border-color .15s; }
+.google-auth-button:hover:not(:disabled) { background:var(--surface-secondary);border-color:var(--text-muted); }
+.google-auth-button:disabled { opacity:.65;cursor:wait; }
 .auth-email-explanation { font-size:11px;line-height:1.8;color:var(--text-muted);margin-top:12px; }
 .auth-email-success { display:flex;align-items:flex-start;gap:11px;padding:15px;margin-bottom:20px;border:1px solid color-mix(in srgb,var(--success) 25%,var(--border));background:var(--success-soft);border-radius:9px; }
 .auth-email-success > span { color:var(--success);padding-top:2px; }

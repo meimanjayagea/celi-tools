@@ -55,6 +55,9 @@ SMTP_PORT=587
 SMTP_USER=replace-with-smtp-username
 SMTP_PASSWORD=replace-with-smtp-password
 EMAIL_FROM="Celi Tools <no-reply@example.com>"
+# Optional Google OAuth credentials (OAuth Client ID and Client Secret, not an API key).
+GOOGLE_CLIENT_ID=replace-with-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=replace-with-google-oauth-client-secret
 ```
 
 | Variabel | Kegunaan |
@@ -65,8 +68,9 @@ EMAIL_FROM="Celi Tools <no-reply@example.com>"
 | `DATABASE_URL` | Opsional saat provider `none`; URL PostgreSQL untuk akun, token sekali pakai, sesi, dan rate limit. Untuk kompatibilitas, `POSTGRES_URL` juga bisa digunakan. Pakai koneksi TLS di production. Supabase dan Prisma Postgres memakai URL koneksi PostgreSQL server-side. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | Kredensial server SMTP untuk mengirim tautan email. Port 465 memakai TLS implisit; 587 memakai STARTTLS. |
 | `EMAIL_FROM` | Alamat pengirim yang sudah diverifikasi penyedia email, misalnya `"Celi Tools <no-reply@domain-anda.com>"`. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Opsional untuk tombol login/registrasi Google. Buat OAuth Client bertipe Web application di Google Cloud Console; jangan gunakan API key. Redirect URI harus `${AUTH_URL}/api/auth/callback/google`. Simpan Client Secret hanya di environment server Vercel. |
 
-Jalankan skema `apps/web/db/001_auth.sql` satu kali pada database PostgreSQL tersebut sebelum mengaktifkan auth. Jika menjalankan migrasi via `psql`, gunakan `DATABASE_URL` yang sama seperti environment web. Auth.js memerlukan database, SMTP, secret, dan origin yang valid; jika belum lengkap, login email tetap nonaktif sementara fitur web lain tetap bisa dipakai. Jangan menaruh `AUTH_SECRET`, `DATABASE_URL`, atau password SMTP pada variabel `NEXT_PUBLIC_*` atau file yang di-commit.
+Jalankan skema `apps/web/db/001_auth.sql` satu kali pada database PostgreSQL tersebut sebelum mengaktifkan auth. Jika menjalankan migrasi via `psql`, gunakan `DATABASE_URL` yang sama seperti environment web. Auth.js memerlukan database, secret, dan origin yang valid, lalu setidaknya satu provider yang dikonfigurasi: SMTP untuk tautan email atau OAuth Google. Jangan menaruh `AUTH_SECRET`, `DATABASE_URL`, OAuth Client Secret, atau password SMTP pada variabel `NEXT_PUBLIC_*` atau file yang di-commit.
 
 Untuk menjalankan web lokal tanpa database, set `AUTH_DATABASE_PROVIDER=none` dan kosongkan `DATABASE_URL`/`POSTGRES_URL`. Untuk Supabase pilih `supabase` dan gunakan connection string PostgreSQL server-side (bukan publishable/anon key); untuk resource Prisma Postgres pilih `prisma-postgres`. Engine database selain PostgreSQL memerlukan adapter Auth.js yang sesuai dan skema khusus; driver itu belum termasuk dalam build ini.
 

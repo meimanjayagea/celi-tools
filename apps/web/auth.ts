@@ -4,6 +4,7 @@ import { createTransport } from "nodemailer";
 import PostgresAdapter from "@auth/pg-adapter";
 import { Pool } from "pg";
 import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
 import type { EmailConfig } from "next-auth/providers/email";
 import type { Adapter } from "next-auth/adapters";
 import { authConfigurationStatus } from "./app/lib/auth-environment.mjs";
@@ -113,8 +114,21 @@ const emailProvider: EmailConfig = {
   },
 };
 
+const authProviders = authConfigurationStatus();
+const googleProvider = authProviders.google
+  ? Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    })
+  : undefined;
+
 const configuredAdapter: Adapter | undefined = pool ? PostgresAdapter(pool) : undefined;
-const providers = configuredAdapter ? [emailProvider] : [];
+const providers = configuredAdapter
+  ? [
+      ...(authProviders.email ? [emailProvider] : []),
+      ...(googleProvider ? [googleProvider] : []),
+    ]
+  : [];
 const authTables = ["users", "accounts", "sessions", "verification_token", "auth_email_rate_limits", "auth_ip_rate_limits"];
 let authSchemaReady = false;
 let authSchemaCheckedAt = 0;

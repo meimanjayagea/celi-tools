@@ -36,10 +36,13 @@ Variabel penting:
 | `AUTH_DATABASE_PROVIDER` | `prisma-postgres`, `supabase`, atau driver PostgreSQL yang didukung |
 | `DATABASE_URL` | Koneksi PostgreSQL TLS untuk schema Auth.js `celi_auth` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` | Provider email untuk magic link |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Opsional untuk login/registrasi Google OAuth; simpan Client Secret sebagai secret server-side |
 | `WEB_ORIGINS` | Daftar origin HTTPS yang diizinkan API, dipisahkan koma |
 | `FILE_TOOLS_TRUST_PROXY` | `true` untuk membaca IP klien dari `x-vercel-forwarded-for` |
 
 Tidak perlu mengatur `FILE_API_URL`: web dan API dilayani pada domain sama melalui rewrite. Tidak ada migrasi database file baru; skema auth yang telah dibuat di schema `celi_auth` tetap digunakan. Pertahankan variabel auth yang sudah terpasang. Jangan memasukkan nilai rahasia SMTP, DB, Auth.js, atau Blob ke konfigurasi frontend.
+
+Untuk Google OAuth, buat OAuth Client bertipe Web application dan daftarkan Authorized redirect URI `${AUTH_URL}/api/auth/callback/google`. Nilai OAuth harus Client ID dan Client Secret, bukan API key. Vercel deployment protection pada domain `vercel.app` dapat menghalangi pengunjung publik mencapai halaman login/callback; gunakan domain khusus publik atau tinjau proteksi deployment sebelum membuka auth ke pengguna.
 
 Jika memakai database baru untuk Auth.js, jalankan [apps/web/db/001_auth.sql](./apps/web/db/001_auth.sql) satu kali pada schema target sebelum login dipakai. Koneksi production yang ada memakai schema terisolasi `celi_auth`.
 
