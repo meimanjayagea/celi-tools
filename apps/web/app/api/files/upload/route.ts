@@ -1,9 +1,8 @@
 import { handleUpload } from "@vercel/blob/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "../../../../auth";
+import { fileUploadTokenOptions } from "../../../lib/file-upload-token.mjs";
 
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
-const TOKEN_TTL_MS = 10 * 60 * 1000;
 const tokenRequests = new Map<string, number[]>();
 
 function clientAddress(request: NextRequest) {
@@ -47,19 +46,7 @@ export async function POST(request: NextRequest) {
     const result = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async pathname => {
-        if (!/^celi-input\/[0-9a-f-]{36}\/(?!\.{1,2}$)[A-Za-z0-9._-]{1,200}$/i.test(pathname)) {
-          throw new Error("Lokasi unggah tidak valid.");
-        }
-        return {
-          maximumSizeInBytes: MAX_UPLOAD_BYTES,
-          allowedContentTypes: ["*/*"],
-          validUntil: Date.now() + TOKEN_TTL_MS,
-          addRandomSuffix: true,
-          allowOverwrite: false,
-          cacheControlMaxAge: 60,
-        };
-      },
+      onBeforeGenerateToken: async pathname => fileUploadTokenOptions(pathname),
     });
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
   } catch {
