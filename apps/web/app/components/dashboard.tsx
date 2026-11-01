@@ -11,7 +11,7 @@ export default function Dashboard() {
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState("");
     return <main className="dashboard">
-    <section className="dashboard-hero"><div><h1>Satu workspace. Banyak yang beres.</h1><p>Konversi file, ringankan ukuran, rapikan JSON, kumpulkan catatan, dan olah teks. Pilih tools yang Anda butuhkan, selesaikan pekerjaan tanpa berpindah aplikasi.</p><Link href="/converter" className="primary-button hero-action">Mulai konversi file <ArrowRight size={19}/></Link></div><Image src="/images/workspace-hero.png" width={390} height={260} alt="Ilustrasi workspace kode dan keamanan data" priority className="hero-illustration"/></section>
+    <section className="dashboard-hero"><div><h1>Satu workspace. Banyak yang beres.</h1><p>Konversi file, ringankan ukuran, rapikan JSON, kumpulkan catatan, dan olah teks. Pilih tools yang Anda butuhkan, selesaikan pekerjaan tanpa berpindah aplikasi.</p><Link href="/converter" className="primary-button hero-action">Mulai konversi file <ArrowRight size={19}/></Link></div><Image src="/images/workspace-hero.webp" width={390} height={260} alt="Ilustrasi workspace kode dan keamanan data" priority className="hero-illustration" unoptimized/></section>
     <section className="workspace-directory" aria-labelledby="workspace-title"><h2 id="workspace-title">Pilih ruang kerja yang Anda butuhkan</h2><p className="section-description">Lima ruang kerja untuk menyiapkan file, data, dan catatan, dari upload hingga siap digunakan.</p>
       <div className="workspace-accordion">{workspaces.map(({ title, href, icon: Icon, description, features, tools }) => {
         const expanded = openWorkspace === href;

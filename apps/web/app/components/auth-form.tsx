@@ -96,7 +96,7 @@ export default function AuthForm({ variant, callbackUrl: requestedCallbackUrl }:
     <section className="auth-introduction" aria-labelledby="auth-intro-title">
       <Link href="/" className="auth-back"><ArrowLeft size={16} />Kembali ke beranda</Link>
       <div className="auth-intro-copy"><span className="eyebrow">CELI TOOLS WORKSPACE</span><h2 id="auth-intro-title">Lebih rapi datanya.<br /><span>Lebih ringan kerjanya.</span></h2><p>Konversi dan kompres file, rapikan JSON, serta olah teks. Empat workspace untuk membawa file dan data Anda dari berantakan menjadi siap digunakan.</p></div>
-      <Image src="/images/workspace-hero.png" width={500} height={333} alt="" className="auth-illustration" />
+      <Image src="/images/workspace-hero.webp" width={500} height={333} alt="" className="auth-illustration" unoptimized />
       <div className="auth-intro-note"><CodeXml size={19} /><span>Satu akun untuk semua workspace.<br /><strong>Masuk lebih mudah, tanpa kata sandi.</strong></span></div>
     </section>
     <section className="auth-form-section" aria-label={registering ? "Registrasi akun" : "Login akun"}>

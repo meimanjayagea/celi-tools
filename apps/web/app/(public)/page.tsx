@@ -17,7 +17,7 @@ export default function LandingPage() {
         <div className="landing-actions"><Link href="/register" className="primary-button">Buat akun gratis <ArrowRight size={18}/></Link><Link href="/login" className="secondary-button">Masuk ke akun</Link></div>
         <div className="landing-reassurance"><span><Check size={15}/>Tanpa instalasi</span><span><Check size={15}/>Empat workspace dalam satu portal</span></div>
       </div>
-      <div className="landing-visual"><Image src="/images/workspace-hero.png" width={620} height={413} alt="Ilustrasi workspace untuk mengolah kode dan melindungi data" priority/><div className="landing-visual-caption"><CodeXml size={19}/><span>Lebih sedikit berpindah tools.<br /><strong>Lebih banyak pekerjaan selesai.</strong></span></div></div>
+      <div className="landing-visual"><Image src="/images/workspace-hero.webp" width={620} height={413} alt="Ilustrasi workspace untuk mengolah kode dan melindungi data" priority unoptimized/><div className="landing-visual-caption"><CodeXml size={19}/><span>Lebih sedikit berpindah tools.<br /><strong>Lebih banyak pekerjaan selesai.</strong></span></div></div>
     </section>
     <section className="landing-tools" id="tools" aria-labelledby="landing-tools-title">
       <div className="landing-section-heading"><span className="eyebrow">KENALI WORKSPACE ANDA</span><h2 id="landing-tools-title">Tools yang tepat, saat Anda membutuhkannya.</h2><p>Konversi, kompresi, JSON, dan Crypto. Pilih yang Anda butuhkan, ikuti alurnya, unduh hasilnya.</p></div>
