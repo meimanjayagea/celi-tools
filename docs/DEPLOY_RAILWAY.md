@@ -26,7 +26,7 @@ Rate limit aplikasi membatasi satu upload aktif dan enam upload per menit per al
 
 Biarkan Railway memasok `PORT`. Jika mengaturnya sendiri, gunakan `3001` dan samakan target port domain. Python, LibreOffice, direktori runtime, dan ClamAV sudah diatur di Dockerfile; backend tidak memerlukan konfigurasi autentikasi.
 
-Image API mengunduh signature ClamAV sebelum membuka port, lalu memperbaruinya berkala dengan `freshclam`. File ditolak jika terdeteksi, tidak dapat dipindai, terenkripsi, atau melewati batas scan. Pastikan layanan memiliki RAM memadai serta akses keluar DNS/HTTPS untuk mengambil signature.
+Image API membuka port segera dan mengunduh signature ClamAV di latar belakang, lalu memperbaruinya berkala dengan `freshclam`. `/ready` dan pemrosesan file menolak permintaan sampai scanner siap. File ditolak jika terdeteksi, tidak dapat dipindai, terenkripsi, atau melewati batas scan. Pastikan layanan memiliki RAM memadai serta akses keluar DNS/HTTPS untuk mengambil signature.
 
 Di **Networking → Public Networking → Generate Domain**, buat domain HTTPS untuk layanan API. Gunakan port yang didengarkan proses dari log `File API ready`. Catat URL aktual, misalnya `https://<domain-api>.up.railway.app`. Placeholder ini tidak boleh disalin sebagai nilai environment.
 

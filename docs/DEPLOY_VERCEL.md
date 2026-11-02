@@ -23,7 +23,7 @@ Pada project yang sama, buka **Storage → Create → Blob** dan pilih akses **P
 
 Client upload dikunci ke prefix `celi-input`, tipe dan ukuran file divalidasi lagi oleh API, dan pathname tidak pernah dipakai sebagai URL fetch bebas. Input Blob tetap privat. Callback Vercel memulai pemindaian setelah upload secara terpisah dari respons browser; API juga wajib memindai file sebelum konversi atau kompresi. File terdeteksi, terenkripsi, melewati batas pemindaian, atau tidak dapat dipindai ditolak serta dihapus bila scan gagal. Hasil disimpan pada `celi-output` dan diberikan lewat signed GET URL privat selama satu jam. API menghapus file input setelah proses, dan menghapus hasil ketika download dimulai. Hasil yang tertinggal karena tab ditutup dihapus saat permintaan file berikutnya jika usianya lebih dari 24 jam.
 
-Image API memasang ClamAV, memperbarui signature saat startup, dan menjalankan `freshclam` untuk pembaruan berkala. Startup API menunggu signature serta daemon siap; cold start pertama dapat lebih lama saat database signature diunduh. Worker file tidak mewarisi rahasia API/Blob dari environment proses utama. ClamAV tetap merupakan pemindai signature; ini mengurangi risiko, tetapi tidak menjamin deteksi semua malware.
+Image API memasang ClamAV dan menjalankan `freshclam` untuk pembaruan signature. Port API dibuka segera; `/ready` dan pemrosesan file tetap menolak permintaan sampai scanner siap. Cold start pertama dapat memerlukan waktu saat database signature diunduh. Worker file tidak mewarisi rahasia API/Blob dari environment proses utama. ClamAV tetap merupakan pemindai signature; ini mengurangi risiko, tetapi tidak menjamin deteksi semua malware.
 
 ## 3. Environment Production
 
