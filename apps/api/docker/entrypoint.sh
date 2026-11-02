@@ -24,7 +24,7 @@ trap shutdown TERM INT EXIT
 
 # Bind the API port immediately: /ready and file scans stay fail-closed while
 # signatures download and clamd loads its database in the background.
-runuser -u app -- "$@" &
+"$@" &
 API_PID=$!
 
 (

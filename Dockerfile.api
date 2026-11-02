@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends clamdscan \
 ENV FILE_TOOLS_PYTHON=/opt/file-tools/bin/python
 ENV FILE_TOOLS_OFFICE=/usr/bin/libreoffice
 ENV FILE_TOOLS_RUNTIME_ROOT=/app/.file-tools
+ENV FILE_TOOLS_DROP_PRIVILEGES=app
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=80

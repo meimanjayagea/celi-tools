@@ -232,7 +232,21 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("PORT tidak valid.");
   const host = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
   const server = createFileServer();
-  server.listen(port, host, () => console.log(`File API ready on http://${host}:${port}`));
+  server.listen(port, host, () => {
+    const targetUser = process.env.FILE_TOOLS_DROP_PRIVILEGES;
+    if (targetUser && process.getuid?.() === 0) {
+      try {
+        process.setgroups([]);
+        process.setgid(targetUser);
+        process.setuid(targetUser);
+      } catch (error) {
+        console.error("Could not drop file API privileges:", error instanceof Error ? error.message : "unknown error");
+        server.close(() => process.exit(1));
+        return;
+      }
+    }
+    console.log(`File API ready on http://${host}:${port}`);
+  });
   server.on("error", error => { console.error(error.message); process.exitCode = 1; });
   let stopping = false;
   const stop = () => {
