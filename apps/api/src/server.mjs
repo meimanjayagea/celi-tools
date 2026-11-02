@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { FILE_LIMITS } from "@celi/file-tools";
 import { FileBackendError, fileCapabilities, fileErrorResponse, processBlobFileRequest, processFileRequest, scanBlobUploadRequest, deleteTemporaryFileRequest, stopWorkers } from "./file-backend.mjs";
-import { isMalwareScannerReady } from "./malware-scanner.mjs";
+import { waitForMalwareScanner } from "./malware-scanner.mjs";
 
 export function allowedWebOrigins(value, production = false) {
   if (!value && production) throw new Error("WEB_ORIGINS wajib diisi dengan origin frontend production.");
@@ -105,7 +105,7 @@ export function createFileServer({
   origins = allowedWebOrigins(process.env.WEB_ORIGINS, process.env.NODE_ENV === "production"),
   capabilities = fileCapabilities,
   processFiles = processFileRequest,
-  scannerReady = isMalwareScannerReady,
+  scannerReady = waitForMalwareScanner,
   trustProxy = process.env.FILE_TOOLS_TRUST_PROXY === "true",
   trustedProxyHops = Number(process.env.FILE_TOOLS_TRUSTED_PROXY_HOPS || 1),
 } = {}) {
@@ -148,7 +148,7 @@ export function createFileServer({
           response = Response.json({ error: "Terlalu banyak pemeriksaan status. Coba kembali sebentar lagi." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
         } else {
           const result = await capabilities();
-          const scanner = pathname === "/ready" ? await scannerReady() : true;
+          const scanner = pathname === "/ready" ? await scannerReady(controller.signal) : true;
           const ready = Object.values(result.engines || {}).every(Boolean) && scanner;
           response = Response.json(pathname === "/ready" ? { ...result, scanner: scanner ? "ready" : "unavailable" } : result, { status: pathname === "/ready" && !ready ? 503 : 200 });
         }

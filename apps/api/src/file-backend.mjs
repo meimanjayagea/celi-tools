@@ -7,7 +7,7 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { del, get, issueSignedToken, list, presignUrl, put } from "@vercel/blob";
 import { FILE_LIMITS, converterGroup, validateSelection } from "@celi/file-tools";
-import { MalwareScannerError, scanUploadedFile, scanUploadedStream } from "./malware-scanner.mjs";
+import { MalwareScannerError, scanUploadedFile, scanUploadedStream, waitForMalwareScanner } from "./malware-scanner.mjs";
 export class FileBackendError extends Error {
     status;
     constructor(message, status = 400) {
@@ -349,6 +349,9 @@ export async function scanBlobUploadRequest(request, expectedPathname) {
     }
 
     try {
+        if (!await waitForMalwareScanner(request.signal)) {
+            throw new MalwareScannerError("Pemindai keamanan belum siap. File ditolak.", 503);
+        }
         const stored = await get(payload.pathname, { access: "private", abortSignal: request.signal, useCache: false });
         // The processing request may already have removed the input before the webhook arrives.
         if (!stored) return Response.json({ scanned: false, missing: true }, { headers: { "Cache-Control": "no-store" } });
