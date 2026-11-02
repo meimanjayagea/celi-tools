@@ -24,7 +24,9 @@ FILE_TOOLS_TRUSTED_PROXY_HOPS=1
 
 Rate limit aplikasi membatasi satu upload aktif dan enam upload per menit per alamat klien, serta 30 pemeriksaan `/ready` atau capabilities per menit. `FILE_TOOLS_TRUST_PROXY=true` membuat alamat itu dibaca dari `X-Forwarded-For`; gunakan hanya saat semua traffic datang melalui ingress Railway yang tepercaya. Jika ada beberapa proxy, sesuaikan `FILE_TOOLS_TRUSTED_PROXY_HOPS`. Terapkan juga limit request dan rate limit pada ingress agar batas berlaku lintas instance dan terhadap klien yang berganti alamat.
 
-Biarkan Railway memasok `PORT`. Jika mengaturnya sendiri, gunakan `3001` dan samakan target port domain. Python, LibreOffice, dan direktori runtime sudah diatur di Dockerfile; backend tidak memerlukan konfigurasi autentikasi.
+Biarkan Railway memasok `PORT`. Jika mengaturnya sendiri, gunakan `3001` dan samakan target port domain. Python, LibreOffice, direktori runtime, dan ClamAV sudah diatur di Dockerfile; backend tidak memerlukan konfigurasi autentikasi.
+
+Image API mengunduh signature ClamAV sebelum membuka port, lalu memperbaruinya berkala dengan `freshclam`. File ditolak jika terdeteksi, tidak dapat dipindai, terenkripsi, atau melewati batas scan. Pastikan layanan memiliki RAM memadai serta akses keluar DNS/HTTPS untuk mengambil signature.
 
 Di **Networking → Public Networking → Generate Domain**, buat domain HTTPS untuk layanan API. Gunakan port yang didengarkan proses dari log `File API ready`. Catat URL aktual, misalnya `https://<domain-api>.up.railway.app`. Placeholder ini tidak boleh disalin sebagai nilai environment.
 

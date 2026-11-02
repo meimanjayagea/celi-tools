@@ -7,6 +7,7 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { del, get, issueSignedToken, list, presignUrl, put } from "@vercel/blob";
 import { FILE_LIMITS, converterGroup, validateSelection } from "@celi/file-tools";
+import { MalwareScannerError, scanUploadedFile, scanUploadedStream } from "./malware-scanner.mjs";
 export class FileBackendError extends Error {
     status;
     constructor(message, status = 400) {
@@ -73,10 +74,28 @@ function pythonPath() {
     const local = path.join(runtimeRoot, "venv", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
     return existsSync(local) ? local : process.platform === "win32" ? "python" : "python3";
 }
+
+function workerEnvironment() {
+    const environment = {
+        FILE_TOOLS_RUNTIME_ROOT: runtimeRoot,
+        PYTHONUTF8: "1",
+        PYTHONDONTWRITEBYTECODE: "1",
+        PATH: process.env.PATH || "/usr/local/bin:/usr/bin:/bin",
+        HOME: os.tmpdir(),
+        TMPDIR: os.tmpdir(),
+        TMP: os.tmpdir(),
+        TEMP: os.tmpdir(),
+    };
+    for (const key of ["FILE_TOOLS_OFFICE", "FILE_TOOLS_FFMPEG", "LANG", "LC_ALL", "SYSTEMROOT", "WINDIR", "PATHEXT"]) {
+        if (process.env[key]) environment[key] = process.env[key];
+    }
+    return environment;
+}
+
 function runWorker(args, timeout = 240_000, signal) {
     return new Promise((resolve, reject) => {
         const child = spawn(pythonPath(), [path.join(apiRoot, "server/file_worker.py"), ...args], {
-            shell: false, windowsHide: true, env: { ...process.env, FILE_TOOLS_RUNTIME_ROOT: runtimeRoot, PYTHONUTF8: "1", PYTHONDONTWRITEBYTECODE: "1" },
+            shell: false, windowsHide: true, env: workerEnvironment(),
             stdio: ["ignore", "pipe", "pipe"],
         });
         activeWorkers.add(child);
@@ -204,6 +223,7 @@ export async function processFileRequest(request, mode) {
         directory = await mkdtemp(path.join(root, "job-"));
         const uploaded = [];
         for (const [index, file] of files.entries()) {
+            await scanUploadedFile(file, request.signal);
             const name = safeName(file.name, index);
             const destination = path.join(directory, name);
             await writeFile(destination, new Uint8Array(await file.arrayBuffer()));
@@ -319,6 +339,28 @@ export async function processBlobFileRequest(request, mode) {
     }
 }
 
+export async function scanBlobUploadRequest(request, expectedPathname) {
+    const payload = await request.json();
+    if (!payload || typeof payload.pathname !== "string" || payload.pathname !== expectedPathname || !/^celi-input\/[0-9a-f-]{36}\/(?!\.{1,2}$)[A-Za-z0-9._-]{1,200}$/i.test(payload.pathname)) {
+        throw new FileBackendError("Lokasi file unggahan tidak valid.");
+    }
+    if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.VERCEL_OIDC_TOKEN) {
+        throw new FileBackendError("Penyimpanan file belum dikonfigurasi.", 503);
+    }
+
+    try {
+        const stored = await get(payload.pathname, { access: "private", abortSignal: request.signal, useCache: false });
+        // The processing request may already have removed the input before the webhook arrives.
+        if (!stored) return Response.json({ scanned: false, missing: true }, { headers: { "Cache-Control": "no-store" } });
+        if (stored.statusCode !== 200 || !stored.stream) throw new FileBackendError("File unggahan tidak dapat dibaca.", 503);
+        await scanUploadedStream(stored.stream, stored.blob.size, request.signal);
+        return Response.json({ scanned: true }, { headers: { "Cache-Control": "no-store" } });
+    } catch (error) {
+        await del(payload.pathname).catch(() => {});
+        throw error;
+    }
+}
+
 export async function deleteTemporaryFileRequest(request) {
     const payload = await request.json();
     if (!payload || typeof payload.pathname !== "string" || !/^celi-(?:input|output)\/[0-9a-f-]{36}\/(?!\.{1,2}$)[A-Za-z0-9._-]{1,200}$/i.test(payload.pathname)) {
@@ -328,6 +370,6 @@ export async function deleteTemporaryFileRequest(request) {
     return Response.json({ deleted: true }, { headers: { "Cache-Control": "no-store" } });
 }
 export function fileErrorResponse(error) {
-    const known = error instanceof FileBackendError;
+    const known = error instanceof FileBackendError || error instanceof MalwareScannerError;
     return Response.json({ error: known ? error.message : "File belum dapat diproses. Coba kembali atau gunakan file yang lebih kecil." }, { status: known ? error.status : 500, headers: { "Cache-Control": "no-store" } });
 }

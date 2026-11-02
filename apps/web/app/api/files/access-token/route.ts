@@ -1,7 +1,5 @@
-import { createHmac } from "node:crypto";
 import { auth } from "../../../../auth";
-
-const TOKEN_TTL_SECONDS = 5 * 60;
+import { createFileApiToken } from "../../../lib/file-api-token.mjs";
 
 function allowedOrigins() {
   const configured = process.env.WEB_ORIGINS || process.env.AUTH_URL || "http://localhost:3000";
@@ -25,8 +23,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "Silakan masuk untuk menggunakan layanan file." }, { status: 401, headers: { "Cache-Control": "no-store" } });
   }
 
-  const now = Math.floor(Date.now() / 1000);
-  const payload = Buffer.from(JSON.stringify({ aud: "celi-file-api", sub: userId, iat: now, exp: now + TOKEN_TTL_SECONDS })).toString("base64url");
-  const signature = createHmac("sha256", secret).update(payload).digest("base64url");
-  return Response.json({ token: `${payload}.${signature}`, expiresIn: TOKEN_TTL_SECONDS }, { headers: { "Cache-Control": "no-store", "Pragma": "no-cache" } });
+  const token = createFileApiToken(userId, secret);
+  return Response.json({ token, expiresIn: 5 * 60 }, { headers: { "Cache-Control": "no-store", "Pragma": "no-cache" } });
 }

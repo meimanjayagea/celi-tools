@@ -15,7 +15,7 @@ Untuk lokal, ubah `DATABASE_PROVIDER=none` dan kosongkan URL database bila auth 
 
 ## API lokal
 
-API lokal berjalan pada `http://localhost:3001`, menggunakan `WEB_ORIGINS=http://localhost:3000`, dan menerima upload multipart langsung agar fixture lokal mudah diuji. `FILE_TOOLS_TRUST_PROXY` sebaiknya `false` kecuali seluruh trafik melewati reverse proxy tepercaya. Docker Compose mengatur port lokal 3001.
+API lokal berjalan pada `http://localhost:3001`, menggunakan `WEB_ORIGINS=http://localhost:3000`, dan menerima upload multipart langsung agar fixture lokal mudah diuji. API yang dijalankan langsung di host melewati antivirus hanya jika `FILE_TOOLS_CLAMAV_REQUIRED=true` dan ClamAV tersedia di socket `FILE_TOOLS_CLAMAV_SOCKET`. Docker Compose/API image menjalankan ClamAV sendiri. `FILE_TOOLS_TRUST_PROXY` sebaiknya `false` kecuali seluruh trafik melewati reverse proxy tepercaya. Docker Compose mengatur port lokal 3001.
 
 ## Production di Vercel
 
@@ -24,6 +24,8 @@ API lokal berjalan pada `http://localhost:3001`, menggunakan `WEB_ORIGINS=http:/
 Hubungkan **private Vercel Blob store** ke project. Vercel memasok akses storage ke runtime server; tidak menambahkan token Blob ke browser atau file `.env`. File klien diunggah langsung ke Blob, API mengambil dan menghapus input setelah proses. Hasil berada di private Blob dengan tautan unduh bertanda tangan selama satu jam. Hasil dihapus beberapa menit setelah unduhan dimulai; jika tab ditutup sebelum download, API menghapus hasil yang lebih tua dari 24 jam pada permintaan pemrosesan berikutnya.
 
 `WEB_ORIGINS` harus berisi origin HTTPS web yang digunakan. Set `FILE_API_SIGNING_SECRET` yang sama pada frontend dan API service; production API menolak start jika secret kosong atau kurang dari 32 byte. Endpoint konversi, kompresi, dan penghapusan hanya menerima token bertanda tangan yang diterbitkan setelah sesi Auth.js tervalidasi. Route upload Blob juga mewajibkan sesi dan Origin yang diizinkan. Set `FILE_TOOLS_TRUST_PROXY=true` untuk membaca IP klien dari `x-vercel-forwarded-for` yang disetel platform. `x-forwarded-for` hanya menjadi fallback sesuai jumlah hop tepercaya.
+
+API container juga menjalankan ClamAV. Entrypoint memperbarui signature sebelum membuka port, memulai pembaruan berkala dengan `freshclam`, dan menunggu daemon siap. Callback upload Blob memindai file setelah tersimpan privat secara terpisah dari respons upload; API mewajibkan scan berhasil sebelum pemrosesan. File terenkripsi dan konten yang melewati batas pemindaian juga ditolak agar tidak dianggap bersih. Worker pemroses file berjalan dengan environment minimum tanpa token Blob atau signing secret.
 
 ## Alur sistem
 

@@ -1,4 +1,4 @@
-import { CodeXml, FileArchive, FileInput, LockKeyhole, StickyNote } from "lucide-react";
+import { CodeXml, FileArchive, FileInput, LockKeyhole, StickyNote, Waypoints } from "lucide-react";
 
 export const WORKSPACES = [
   { title: "File Converter", href: "/converter", icon: FileInput,
@@ -21,4 +21,8 @@ export const WORKSPACES = [
     description: "Kumpulkan ide dalam catatan pribadi yang bisa dipindah, diberi warna, tag, dan pengingat.",
     features: ["Catatan privat tersimpan di akun", "Cari dan filter dengan tag", "Pengingat melalui notifikasi browser"],
     tools: [{ label: "Catatan pribadi", href: "/sticky-notes" }, { label: "Tag dan pencarian", href: "/sticky-notes" }, { label: "Pengingat", href: "/sticky-notes" }] },
+  { title: "API Client", href: "/api-client", icon: Waypoints,
+    description: "Kirim request HTTP, atur parameter dan header, lalu baca respons langsung di browser.",
+    features: ["GET, POST, PUT, DELETE & PATCH", "Impor cURL dan JSON", "Status, waktu dan body respons"],
+    tools: [{ label: "Kirim request", href: "/api-client" }, { label: "Impor cURL / JSON", href: "/api-client" }] },
 ];

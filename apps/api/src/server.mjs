@@ -6,7 +6,8 @@ import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { FILE_LIMITS } from "@celi/file-tools";
-import { FileBackendError, fileCapabilities, fileErrorResponse, processBlobFileRequest, processFileRequest, deleteTemporaryFileRequest, stopWorkers } from "./file-backend.mjs";
+import { FileBackendError, fileCapabilities, fileErrorResponse, processBlobFileRequest, processFileRequest, scanBlobUploadRequest, deleteTemporaryFileRequest, stopWorkers } from "./file-backend.mjs";
+import { isMalwareScannerReady } from "./malware-scanner.mjs";
 
 export function allowedWebOrigins(value, production = false) {
   if (!value && production) throw new Error("WEB_ORIGINS wajib diisi dengan origin frontend production.");
@@ -77,25 +78,26 @@ function createClientLimiter() {
   };
 }
 
-function hasValidFileToken(header, secret) {
-  if (typeof header !== "string" || !header.startsWith("Bearer ") || !secret || Buffer.byteLength(secret) < 32) return false;
+function getValidFileClaims(header, secret) {
+  if (typeof header !== "string" || !header.startsWith("Bearer ") || !secret || Buffer.byteLength(secret) < 32) return null;
   const token = header.slice(7);
   const separator = token.indexOf(".");
-  if (separator < 1 || separator !== token.lastIndexOf(".")) return false;
+  if (separator < 1 || separator !== token.lastIndexOf(".")) return null;
   const payload = token.slice(0, separator);
   const supplied = Buffer.from(token.slice(separator + 1), "base64url");
   const expected = createHmac("sha256", secret).update(payload).digest();
-  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return false;
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return null;
   try {
     const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
     const now = Math.floor(Date.now() / 1000);
-    return claims.aud === "celi-file-api"
+    const valid = claims.aud === "celi-file-api"
       && typeof claims.sub === "string" && claims.sub.length > 0 && claims.sub.length <= 200
       && Number.isInteger(claims.iat) && Number.isInteger(claims.exp)
       && claims.iat <= now + 30 && claims.exp > now && claims.exp > claims.iat
       && claims.exp - claims.iat <= 5 * 60;
+    return valid ? claims : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -103,6 +105,7 @@ export function createFileServer({
   origins = allowedWebOrigins(process.env.WEB_ORIGINS, process.env.NODE_ENV === "production"),
   capabilities = fileCapabilities,
   processFiles = processFileRequest,
+  scannerReady = isMalwareScannerReady,
   trustProxy = process.env.FILE_TOOLS_TRUST_PROXY === "true",
   trustedProxyHops = Number(process.env.FILE_TOOLS_TRUSTED_PROXY_HOPS || 1),
 } = {}) {
@@ -145,11 +148,25 @@ export function createFileServer({
           response = Response.json({ error: "Terlalu banyak pemeriksaan status. Coba kembali sebentar lagi." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
         } else {
           const result = await capabilities();
-          const ready = Object.values(result.engines || {}).every(Boolean);
-          response = Response.json(result, { status: pathname === "/ready" && !ready ? 503 : 200 });
+          const scanner = pathname === "/ready" ? await scannerReady() : true;
+          const ready = Object.values(result.engines || {}).every(Boolean) && scanner;
+          response = Response.json(pathname === "/ready" ? { ...result, scanner: scanner ? "ready" : "unavailable" } : result, { status: pathname === "/ready" && !ready ? 503 : 200 });
+        }
+      } else if (incoming.method === "POST" && pathname === "/api/files/scan") {
+        const claims = getValidFileClaims(incoming.headers.authorization, fileApiSecret);
+        if (!claims || claims.scope !== "blob-scan" || typeof claims.pathname !== "string") {
+          response = Response.json({ error: "Sesi pemindaian file tidak valid atau kedaluwarsa." }, { status: 401 });
+          incoming.resume();
+        } else {
+          const length = Number(incoming.headers["content-length"]);
+          if (!Number.isFinite(length) || length <= 0 || length > 4096) throw new FileBackendError("Permintaan pemindaian tidak valid.", 413);
+          if (!incoming.headers["content-type"]?.startsWith("application/json")) throw new FileBackendError("Metadata harus berupa JSON.", 415);
+          const request = new Request("http://file-api.internal" + pathname, { method: "POST", headers: incoming.headers, body: Readable.toWeb(incoming), duplex: "half", signal: controller.signal });
+          response = await scanBlobUploadRequest(request, claims.pathname);
         }
       } else if (incoming.method === "POST" && ["/api/files/convert", "/api/files/compress"].includes(pathname)) {
-        if (requireFileAuth && !hasValidFileToken(incoming.headers.authorization, fileApiSecret)) {
+        const claims = getValidFileClaims(incoming.headers.authorization, fileApiSecret);
+        if (requireFileAuth && (!claims || claims.scope !== undefined)) {
           response = Response.json({ error: "Sesi file tidak valid atau kedaluwarsa. Muat ulang halaman dan coba lagi." }, { status: 401 });
           incoming.resume();
         } else {
@@ -169,7 +186,8 @@ export function createFileServer({
           }
         }
       } else if (incoming.method === "POST" && pathname === "/api/files/delete") {
-        if (requireFileAuth && !hasValidFileToken(incoming.headers.authorization, fileApiSecret)) {
+        const claims = getValidFileClaims(incoming.headers.authorization, fileApiSecret);
+        if (requireFileAuth && (!claims || claims.scope !== undefined)) {
           response = Response.json({ error: "Sesi file tidak valid atau kedaluwarsa." }, { status: 401 });
           incoming.resume();
         } else {

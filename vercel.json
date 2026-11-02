@@ -15,6 +15,7 @@
   },
   "rewrites": [
     { "source": "/api/files/capabilities", "destination": { "service": "backend" } },
+    { "source": "/api/files/scan", "destination": { "service": "backend" } },
     { "source": "/api/files/convert", "destination": { "service": "backend" } },
     { "source": "/api/files/compress", "destination": { "service": "backend" } },
     { "source": "/api/files/delete", "destination": { "service": "backend" } },

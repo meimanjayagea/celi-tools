@@ -21,7 +21,9 @@ Project framework harus Services agar konfigurasi `services` dipakai. Jangan men
 
 Pada project yang sama, buka **Storage → Create → Blob** dan pilih akses **Private**, lalu hubungkan store ke project. Runtime server menggunakan integrasi Vercel; jangan menyalin token Blob ke `NEXT_PUBLIC_*` atau menyimpannya dalam repository. Bila store private sudah ada, cukup hubungkan ke project ini.
 
-Client upload dikunci ke prefix `celi-input`, tipe dan ukuran file divalidasi lagi oleh API, dan pathname tidak pernah dipakai sebagai URL fetch bebas. Hasil disimpan pada `celi-output` dan diberikan lewat signed GET URL privat selama satu jam. API menghapus file input setelah proses, dan menghapus hasil ketika download dimulai. Hasil yang tertinggal karena tab ditutup dihapus saat permintaan file berikutnya jika usianya lebih dari 24 jam.
+Client upload dikunci ke prefix `celi-input`, tipe dan ukuran file divalidasi lagi oleh API, dan pathname tidak pernah dipakai sebagai URL fetch bebas. Input Blob tetap privat. Callback Vercel memulai pemindaian setelah upload secara terpisah dari respons browser; API juga wajib memindai file sebelum konversi atau kompresi. File terdeteksi, terenkripsi, melewati batas pemindaian, atau tidak dapat dipindai ditolak serta dihapus bila scan gagal. Hasil disimpan pada `celi-output` dan diberikan lewat signed GET URL privat selama satu jam. API menghapus file input setelah proses, dan menghapus hasil ketika download dimulai. Hasil yang tertinggal karena tab ditutup dihapus saat permintaan file berikutnya jika usianya lebih dari 24 jam.
+
+Image API memasang ClamAV, memperbarui signature saat startup, dan menjalankan `freshclam` untuk pembaruan berkala. Startup API menunggu signature serta daemon siap; cold start pertama dapat lebih lama saat database signature diunduh. Worker file tidak mewarisi rahasia API/Blob dari environment proses utama. ClamAV tetap merupakan pemindai signature; ini mengurangi risiko, tetapi tidak menjamin deteksi semua malware.
 
 ## 3. Environment Production
 
@@ -51,14 +53,14 @@ Commit dan push perubahan ke branch Production yang terhubung. Tunggu deployment
 
 1. `/`, `/login`, dan `/api/auth/status` memberi HTTP 200; `/register` mengarahkan kembali ke `/login`.
 2. `/api/auth/status` memberi `available: true` dan `google: true`; `/api/auth/providers` hanya menampilkan provider Google.
-3. `/health`, `/ready`, dan `/api/files/capabilities` berhasil; semua engine yang diumumkan bernilai `true`.
-4. Jalankan pemeriksaan sintetis tanpa mengirim email:
+3. `/health`, `/ready`, dan `/api/files/capabilities` berhasil; semua engine yang diumumkan bernilai `true` dan `/ready` menampilkan `scanner: "ready"`.
+4. Jalankan pemeriksaan endpoint publik:
 
    ```sh
    npm run check:deployment -- --web https://domain-production-anda
    ```
 
-   Ini mengunggah file sintetis melalui private Blob, meminta API membuat ZIP, mengunduh hasil dengan URL bertanda tangan, memeriksa byte ZIP, lalu menghapus hasilnya.
+   Ini memeriksa halaman, status Google OAuth, engine, CORS, dan perlindungan endpoint tanpa sesi. Pengujian upload dan unduhan memerlukan akun uji yang login di browser.
 
 5. Uji manual file lebih dari 4,5 MB dan hasil besar dari browser. Buka DevTools Network dan pastikan konten file diunggah ke Blob dan API hanya menerima metadata file.
 6. Uji login Google dengan akun uji yang diizinkan; pastikan login pertama membuat akun dan login berikutnya membuka akun yang sama.

@@ -1,6 +1,6 @@
 # Celi Tools
 
-Portal untuk konversi dan kompresi file, JSON Workspace, serta Crypto Tools. Login memakai Google OAuth melalui Auth.js dan PostgreSQL; akun Celi Tools dibuat otomatis saat login Google pertama.
+Portal untuk konversi dan kompresi file, JSON Workspace, Crypto Tools, Sticky Note, dan API Client. Login memakai Google OAuth melalui Auth.js dan PostgreSQL; akun Celi Tools dibuat otomatis saat login Google pertama.
 
 ## Struktur monorepo
 
@@ -29,6 +29,18 @@ compose.yaml            Menjalankan backend Docker lokal
 ```
 
 Web dan API berjalan sebagai dua Vercel Services dalam satu deployment. Browser mengunggah file langsung ke Vercel Blob privat; API mengambil file tersebut, memprosesnya dalam container, lalu menyimpan hasil sementara privat dan mengembalikan tautan unduh berumur satu jam. File input dihapus setelah pemrosesan; hasil dihapus setelah diunduh. Hasil yang tertinggal dibersihkan ketika ada permintaan pemrosesan berikutnya jika usianya lebih dari 24 jam.
+
+## API Client
+
+Setelah login, buka **API Client** di sidebar. Masukkan URL HTTP(S), pilih metode, lalu atur query, header, dan body JSON sebelum menekan **Send**. Request dikirim langsung dari browser tanpa cookie; API tujuan harus mengizinkan CORS, dan browser dapat memblokir request HTTP dari halaman HTTPS. Header yang dilarang browser seperti `Cookie` dan `Host` tidak dapat dikirim. Request dan kredensial tidak disimpan sebagai riwayat.
+
+Menu impor menerima cURL, request JSON, dan koleksi Postman. Opsi cURL yang tidak didukung ditolak. Hapus konfigurasi autentikasi bawaan Postman dari JSON sebelum impor, lalu isi header `Authorization` secara manual; ganti juga variabel environment dengan nilainya. Contoh JSON request:
+
+```json
+{"method":"POST","url":"https://example.com/api","headers":{"Authorization":"Bearer example"},"body":{"name":"Celi"}}
+```
+
+Impor dibatasi 1 MiB dan tampilan respons 2 MiB. Waktu respons mencakup pembacaan body yang ditampilkan.
 
 ## Menjalankan secara lokal
 
@@ -137,7 +149,7 @@ Jalankan web di terminal lain melalui `npm run dev:web`. Jangan menjalankan dua 
 | `npm run check:layout` | Pastikan root service, entrypoint, shared install, dan file migrasi sesuai repo |
 | `npm run db:list` / `npm run db:status` / `npm run db:migrate` | Lihat, periksa, atau terapkan migrasi PostgreSQL menggunakan `DATABASE_URL` dari environment shell |
 | `npm run db:status:local` / `npm run db:migrate:local` | Periksa atau terapkan migrasi menggunakan `apps/web/.env.local` |
-| `npm run check:deployment -- --web https://web-anda.example.com` | Memeriksa web, auth, engine, unggah Blob privat, pemrosesan ZIP sintetis, dan unduhan |
+| `npm run check:deployment -- --web https://web-anda.example.com` | Memeriksa web, status Google OAuth, engine, CORS, dan perlindungan endpoint tanpa sesi |
 
 Tes API nyata menerima `FILE_TOOLS_TEST_URL` dan `FILE_TOOLS_WEB_ORIGIN` untuk origin lain. `AUTH_TEST_URL` mengubah target pemeriksaan UI/status auth web. Artefak sintetis tetap di direktori `test-output/` yang diabaikan Git.
 
@@ -150,6 +162,8 @@ Tes API nyata menerima `FILE_TOOLS_TEST_URL` dan `FILE_TOOLS_WEB_ORIGIN` untuk o
 - Maksimum 10 file, total 100 MiB input dan 200 MiB hasil. Dua job bersamaan per proses API; setiap alamat klien dibatasi satu pekerjaan aktif dan enam job per menit. Readiness/capabilities dibatasi 30 pemeriksaan per menit per alamat. Rate limit dalam memori hanya berlaku per container instance.
 - CORS menerima origin eksplisit dari `WEB_ORIGINS`, dipisahkan koma; wildcard tidak diterima. `/converter` dan `/compress` mensyaratkan sesi Auth.js. Upload Blob mensyaratkan sesi serta Origin same-site yang diizinkan. Di Vercel, frontend menerbitkan token API HMAC berumur lima menit setelah memvalidasi sesi; API production menolak operasi konversi, kompresi, dan penghapusan tanpa token tersebut. `FILE_API_SIGNING_SECRET` minimal 32 byte dan harus sama pada frontend dan API service. CORS bukan autentikasi API. API memakai alamat peer secara default. Aktifkan `FILE_TOOLS_TRUST_PROXY=true` hanya jika semua traffic masuk melalui proxy tepercaya yang mengatur IP klien; atur `FILE_TOOLS_TRUSTED_PROXY_HOPS` sesuai jumlah proxy. Terapkan juga rate limit ingress untuk membatasi klien yang menyebar ke beberapa alamat atau instance.
 - File diproses dalam folder job terpisah dan dihapus setelah hasil selesai dikirim atau saat kegagalan yang tertangani. Hasil dialirkan ke klien agar arsip tidak disalin penuh ke memori server. Pembatalan koneksi menghentikan worker terkait. Hard crash host/proses dapat meninggalkan folder job; bersihkan hanya folder yang sudah tidak aktif.
+- API container menjalankan ClamAV dengan signature yang diperbarui oleh `freshclam`. Upload Blob privat dipindai saat upload selesai dan dipindai ulang sebelum diteruskan ke konverter atau kompresor. File terdeteksi, terenkripsi, melewati batas pemindaian, atau gagal dipindai ditolak dan dihapus bila pemindaian gagal. Deteksi berbasis signature tidak menjamin semua malware dikenali.
+- Worker Python hanya menerima environment minimum untuk runtime dan engine file; rahasia API/Blob tidak diwariskan ke parser Office atau media. API production gagal mulai jika ClamAV/signature tidak siap, dan request file gagal tertutup jika scanner tidak tersedia.
 - Cookie sesi Auth.js hanya dikirim ke origin web melalui request same-origin. API container tidak menerima cookie sesi; ia memverifikasi token HMAC singkat yang diterbitkan web. Database dan Google OAuth hanya diperlukan oleh web.
 - Semua jenis file dapat diarsipkan. Konversi mengikuti matriks format dan codec yang dapat dibaca engine; ukuran tidak selalu berkurang setelah kompresi.
 - [Daftar format, batas, dan perilaku pemrosesan](./docs/FILE_TOOLS.md).

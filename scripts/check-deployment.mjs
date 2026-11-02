@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { upload } from "@vercel/blob/client";
 
 const args = process.argv.slice(2);
 const index = args.indexOf("--web");
@@ -8,21 +7,29 @@ const web = new URL(args[index + 1]);
 assert.ok(web.protocol === "https:" && !web.username && !web.password && !web.search && !web.hash && web.pathname === "/", "--web harus berupa origin HTTPS production.");
 const origin = web.origin;
 
-async function request(path, options = {}) {
+function request(path, options = {}) {
   return fetch(new URL(path, origin), { redirect: "manual", signal: AbortSignal.timeout(300_000), ...options });
 }
 
 async function checkDeployment() {
-  for (const path of ["/", "/login", "/register"]) {
-    const response = await request(path, path === "/api/files/capabilities" ? { headers: { Origin: origin } } : {});
+  for (const path of ["/", "/login"]) {
+    const response = await request(path);
     assert.equal(response.status, 200, `${path}: status ${response.status}`);
     console.log(`PASS ${path}`);
   }
 
+  const registration = await request("/register");
+  const registrationTarget = registration.headers.get("location") || await registration.text();
+  assert.ok([200, 303, 307, 308].includes(registration.status) && /(?:\/login|%2Flogin)/i.test(registrationTarget), "/register tidak meneruskan ke login.");
+  console.log("PASS registrasi mengarah ke login");
+
   const authResponse = await request("/api/auth/status");
   assert.equal(authResponse.status, 200, "Auth.js belum dikonfigurasi sepenuhnya.");
-  assert.deepEqual(await authResponse.json(), { available: true, email: true, google: false, registration: true });
-  console.log("PASS konfigurasi Auth.js email");
+  const auth = await authResponse.json();
+  assert.equal(auth.available, true, "Autentikasi tidak tersedia.");
+  assert.equal(auth.google, true, "Google OAuth tidak tersedia.");
+  assert.equal(auth.email, false, "Provider email tidak seharusnya aktif.");
+  console.log("PASS konfigurasi Google OAuth");
 
   for (const path of ["/health", "/ready", "/api/files/capabilities"]) {
     const response = await request(path);
@@ -38,37 +45,12 @@ async function checkDeployment() {
   assert.equal(denied.status, 403, "Origin asing seharusnya ditolak.");
   console.log("PASS origin asing ditolak");
 
-  const bytes = new TextEncoder().encode("Celi Tools synthetic deployment connection check.\n");
-  const pathname = `celi-input/${crypto.randomUUID()}/deployment-check.txt`;
-  let inputPath;
-  let outputPath;
-  try {
-    const uploaded = await upload(pathname, new File([bytes], "deployment-check.txt", { type: "text/plain" }), {
-      access: "private", contentType: "text/plain", handleUploadUrl: new URL("/api/files/upload", origin).href,
-    });
-    inputPath = uploaded.pathname;
-    const processed = await request("/api/files/compress", {
-      method: "POST", headers: { "Content-Type": "application/json", Origin: origin },
-      body: JSON.stringify({ files: [{ pathname: uploaded.pathname, name: "deployment-check.txt", size: bytes.byteLength }], target: "zip", preset: "balanced" }),
-    });
-    assert.equal(processed.status, 200, `File API: ${processed.status} ${await processed.clone().text()}`);
-    const result = await processed.json();
-    assert.equal(typeof result.downloadUrl, "string");
-    assert.equal(result.size > 0, true);
-    outputPath = result.cleanupPath;
-    const download = await fetch(result.downloadUrl, { signal: AbortSignal.timeout(60_000) });
-    assert.equal(download.status, 200, "Private Blob signed download gagal.");
-    const archive = new Uint8Array(await download.arrayBuffer());
-    assert.equal(String.fromCharCode(...archive.slice(0, 2)), "PK", "Hasil pemrosesan bukan ZIP.");
-    console.log(`PASS unggah Blob privat, kompresi ZIP sintetis, dan unduhan (${archive.length} bytes)`);
-  } finally {
-    for (const pathnameToDelete of [inputPath, outputPath].filter(Boolean)) {
-      await request("/api/files/delete", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pathname: pathnameToDelete }),
-      }).catch(() => {});
-    }
+  for (const path of ["/api/files/access-token", "/api/files/scan"]) {
+    const response = await request(path, { method: "POST", headers: { Origin: origin, "Content-Type": "application/json" }, body: "{}" });
+    assert.equal(response.status, 401, `${path}: request tanpa autentikasi seharusnya ditolak.`);
+    console.log(`PASS ${path} memerlukan autentikasi`);
   }
-  console.log("Deployment check passed. Pemeriksaan ini tidak mengirim email.");
+  console.log("Pemeriksaan publik selesai. Login Google dan upload privat memerlukan pengujian browser dengan akun uji.");
 }
 
 checkDeployment().catch(error => { console.error(`FAIL ${error.message}`); process.exitCode = 1; });

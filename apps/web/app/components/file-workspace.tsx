@@ -92,7 +92,7 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
         if (!controller.signal.aborted) setResult({ url: URL.createObjectURL(blob), cleanupPath: "", name, size: blob.size, original: total, notes });
         return;
       }
-      const uploaded = await Promise.all(files.map(async file => {
+      const uploadResults = await Promise.allSettled(files.map(async file => {
         const safeName = (file.name.replaceAll("\\", "/").split("/").at(-1)?.replace(/[^A-Za-z0-9._-]/g, "_").slice(-180) || "file").replace(/^\.{1,2}$/, "file");
         const stored = await upload(`celi-input/${crypto.randomUUID()}/${safeName}`, file, {
           access: "private", handleUploadUrl: "/api/files/upload", multipart: file.size > 5 * 1024 * 1024,
@@ -102,6 +102,9 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
         uploadedFiles.push(entry);
         return entry;
       }));
+      const failedUpload = uploadResults.find(result => result.status === "rejected");
+      if (failedUpload?.status === "rejected") throw failedUpload.reason;
+      const uploaded = uploadResults.flatMap(result => result.status === "fulfilled" ? [result.value] : []);
       const accessToken = await getFileAccessToken(controller.signal);
       const response = await fetch(fileApiEndpoint(mode), {
         method: "POST", signal: controller.signal, credentials: "same-origin",

@@ -2079,3 +2079,74 @@ kbd {
  .file-supported-heading { flex-direction:column;gap:16px; }.file-format-search { width:100%; }.file-format-search input { flex:1;width:100%;font-size:16px; }.file-table-scroll-hint { display:block; }
  .file-processing { align-items:flex-start;padding:17px; }.file-processing p { font-size:10px; }
 }
+
+/* API Client */
+.api-client-page { max-width: 1120px; }
+.api-client-heading { display:flex; justify-content:space-between; align-items:flex-end; gap:20px; }
+.api-client-heading > .secondary-button { flex-shrink:0; }
+.api-request,.api-response,.api-import { margin-bottom:18px; }
+.api-section-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:21px 24px; }
+.api-section-heading h2 { margin-top:3px; font-size:17px; }
+.api-section-heading p { margin-top:5px; color:var(--text-secondary); font-size:12px; }
+.api-kicker { color:var(--text-muted); font:600 10px var(--font-mono); letter-spacing:.1em; }
+.api-private { display:flex; align-items:center; gap:6px; color:var(--success); font-size:11px; white-space:nowrap; }
+.api-send-bar { display:flex; gap:9px; padding:0 24px 20px; }
+.api-send-bar input,.api-send-bar select,.api-table-row input,.api-import-input,.api-body-editor textarea { color:var(--text-primary); border:1px solid var(--border); background:var(--surface-secondary); border-radius:8px; }
+.api-send-bar input { flex:1; width:0; min-width:0; padding:11px 14px; font:12px var(--font-mono); }
+.api-send-bar select { padding:10px 12px; color:var(--accent); font:700 12px var(--font-mono); }
+.api-send-bar .primary-button,.api-send-bar .secondary-button { min-width:110px; }
+.api-tabs { display:flex; gap:25px; border-bottom:1px solid var(--border); padding:0 24px; overflow-x:auto; }
+.api-tabs button { display:flex; align-items:center; gap:7px; white-space:nowrap; padding:12px 1px; border-bottom:2px solid transparent; color:var(--text-muted); font-size:12px; font-weight:700; }
+.api-tabs button.active { color:var(--accent); border-bottom-color:var(--accent); }
+.api-tabs button span { display:inline-grid; place-items:center; min-width:19px; height:19px; padding:0 4px; border-radius:5px; background:var(--accent-soft); color:var(--accent); font-size:10px; }
+.api-request-content { padding:18px 24px 22px; min-height:160px; }
+.api-table-head,.api-table-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 36px; gap:10px; align-items:center; }
+.api-table-head { padding:0 3px 8px; color:var(--text-muted); font:600 10px var(--font-mono); letter-spacing:.05em; }
+.api-table-row { margin-bottom:8px; }
+.api-table-row input { width:100%; min-width:0; padding:10px 11px; font:12px var(--font-mono); }
+.api-remove { color:var(--text-muted); }
+.api-add-row { display:inline-flex; align-items:center; gap:6px; color:var(--accent); font-size:12px; font-weight:700; padding:8px 0 0; }
+.api-body-editor > div { display:flex; justify-content:space-between; gap:12px; margin-bottom:9px; font-size:12px; }
+.api-body-editor > div span,.api-body-editor p { color:var(--text-muted); font-size:11px; }
+.api-body-editor textarea,.api-import-input { width:100%; resize:vertical; padding:14px; font:12px/1.7 var(--font-mono); }
+.api-body-editor textarea { min-height:160px; }
+.api-body-editor p { margin-top:7px; }
+.api-response .api-section-heading { border-bottom:1px solid var(--border-light); }
+.api-response-meta { display:flex; flex-wrap:wrap; align-items:center; gap:14px; font:11px var(--font-mono); color:var(--text-secondary); }
+.api-status { border-radius:6px; padding:5px 8px; font-weight:700; }
+.api-status.is-success { background:var(--success-soft); color:var(--success); }
+.api-status.is-error { background:var(--danger-soft); color:var(--danger); }
+.api-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; min-height:190px; text-align:center; color:var(--text-muted); padding:24px; }
+.api-empty svg { color:var(--accent); }
+.api-empty strong { color:var(--text-secondary); font-size:13px; }
+.api-empty p { max-width:540px; font-size:12px; }
+.api-error svg,.api-inline-error { color:var(--danger); }
+.api-response-body { min-width:0; }
+.api-response-caption { padding:14px 24px 10px; font:600 10px var(--font-mono); color:var(--text-muted); letter-spacing:.08em; }
+.api-response-caption span { color:var(--warning); letter-spacing:0; }
+.api-response-body pre { margin:0; max-height:520px; overflow:auto; padding:5px 24px 24px; font:12px/1.7 var(--font-mono); white-space:pre-wrap; overflow-wrap:anywhere; }
+.api-import { padding-bottom:20px; }
+.api-import-input { width:calc(100% - 48px); margin:0 24px; min-height:120px; }
+.api-import-actions { display:flex; gap:10px; align-items:center; padding:12px 24px 0; }
+.api-import-actions span { color:var(--text-muted); font-size:11px; }
+.api-inline-error { margin:10px 24px 0; font-size:12px; }
+.api-import-list { margin:16px 24px 0; display:grid; gap:6px; max-height:240px; overflow:auto; }
+.api-import-list p { color:var(--text-secondary); font-size:12px; }
+.api-import-list button { display:flex; align-items:center; gap:12px; width:100%; padding:9px 11px; text-align:left; border:1px solid var(--border); border-radius:7px; }
+.api-import-list button:hover { background:var(--accent-soft); }
+.api-import-list button strong { color:var(--accent); font:700 11px var(--font-mono); }
+.api-import-list button span { flex:1; overflow-wrap:anywhere; }
+@media(max-width:760px) {
+  .api-client-heading { align-items:flex-start; flex-direction:column; }
+  .api-section-heading { align-items:flex-start; padding:18px; }
+  .api-send-bar { padding:0 18px 18px; flex-wrap:wrap; }
+  .api-send-bar input { width:100%; flex:1 1 calc(100% - 100px); font-size:14px; }
+  .api-send-bar .primary-button,.api-send-bar .secondary-button { width:100%; }
+  .api-tabs { padding:0 18px; gap:20px; }
+  .api-request-content { padding:16px 18px 20px; }
+  .api-response .api-section-heading { flex-direction:column; }
+  .api-body-editor > div { flex-direction:column; gap:2px; }
+  .api-import-input { width:calc(100% - 36px); margin:0 18px; }
+  .api-import-actions { padding:12px 18px 0; flex-wrap:wrap; }
+  .api-inline-error,.api-import-list { margin-left:18px; margin-right:18px; }
+}

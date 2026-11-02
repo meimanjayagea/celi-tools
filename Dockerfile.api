@@ -5,6 +5,7 @@ COPY --from=node-runtime /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && apt-get update && apt-get install -y --no-install-recommends \
     libreoffice-writer libreoffice-calc libreoffice-impress fonts-dejavu-core libgomp1 \
+    clamav-daemon clamav-freshclam util-linux \
     && rm -rf /var/lib/apt/lists/*
 RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
     && rm -rf /var/lib/apt/lists/*
@@ -18,6 +19,11 @@ COPY packages/file-tools packages/file-tools
 RUN npm ci --omit=dev --workspace=@celi/api --include-workspace-root=false --ignore-scripts
 COPY apps/api/src apps/api/src
 COPY apps/api/server apps/api/server
+COPY apps/api/docker/clamd.conf /etc/clamav/clamd.conf
+COPY apps/api/docker/freshclam.conf /etc/clamav/freshclam.conf
+COPY apps/api/docker/entrypoint.sh /usr/local/bin/celi-api-entrypoint
+RUN apt-get update && apt-get install -y --no-install-recommends clamdscan \
+    && rm -rf /var/lib/apt/lists/*
 ENV FILE_TOOLS_PYTHON=/opt/file-tools/bin/python
 ENV FILE_TOOLS_OFFICE=/usr/bin/libreoffice
 ENV FILE_TOOLS_RUNTIME_ROOT=/app/.file-tools
@@ -26,7 +32,12 @@ ENV HOST=0.0.0.0
 ENV PORT=80
 RUN /opt/file-tools/bin/python apps/api/server/file_worker.py --prepare-office \
     && groupadd --gid 10001 app && useradd --uid 10001 --gid app --create-home app \
-    && mkdir -p /app/.file-tools/jobs && chown -R app:app /app/.file-tools
-USER app
+    && usermod -a -G app clamav \
+    && mkdir -p /app/.file-tools/jobs /var/lib/clamav \
+    && chown -R app:app /app/.file-tools \
+    && chown -R clamav:clamav /var/lib/clamav \
+    && chmod 0755 /usr/local/bin/celi-api-entrypoint
+USER root
 EXPOSE 80
+ENTRYPOINT ["/usr/local/bin/celi-api-entrypoint"]
 CMD ["node", "apps/api/src/server.mjs"]
