@@ -6,6 +6,11 @@ FRESHCLAM_CONFIG=/etc/clamav/freshclam.conf
 API_PID=
 SCANNER_SUPERVISOR_PID=
 
+# Some container hosts invoke ENTRYPOINT without Docker's CMD arguments.
+if [ "$#" -eq 0 ]; then
+  set -- node /app/apps/api/src/server.mjs
+fi
+
 shutdown() {
   trap - TERM INT EXIT
   for pid in "$API_PID" "$SCANNER_SUPERVISOR_PID"; do
