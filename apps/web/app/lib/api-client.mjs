@@ -93,6 +93,8 @@ export function parseCurl(text) {
   const args = tokenizeCurl(text.trim());
   if (args.shift() !== "curl") throw new Error("Perintah harus dimulai dengan curl.");
   const result = { name: "cURL", method: "GET", url: "", headers: [], body: "" };
+  const ignoredHeaders = new Map();
+  const ignoreHeader = name => ignoredHeaders.set(name.toLowerCase(), name.toLowerCase() === "cookie" ? "Cookie" : name);
   let explicitMethod = false, hasBody = false;
   const next = (i, option) => { if (i + 1 >= args.length) throw new Error(`Nilai ${option} tidak tersedia.`); return args[i + 1]; };
   for (let i = 0; i < args.length; i++) {
@@ -102,7 +104,13 @@ export function parseCurl(text) {
     else if (["-H", "--header"].includes(arg)) {
       const header = next(i++, arg), separator = header.indexOf(":");
       if (separator <= 0) throw new Error("Format header cURL tidak valid.");
-      result.headers.push({ key: header.slice(0, separator).trim(), value: header.slice(separator + 1).trim() });
+      const key = header.slice(0, separator).trim(), lower = key.toLowerCase();
+      if (FORBIDDEN_HEADERS.has(lower) || lower === "user-agent" || /^(sec-|proxy-)/i.test(key)) ignoreHeader(key);
+      else result.headers.push({ key, value: header.slice(separator + 1).trim() });
+    } else if (["-b", "--cookie"].includes(arg)) {
+      next(i++, arg); ignoreHeader("Cookie");
+    } else if ((arg.startsWith("-b") && arg.length > 2) || arg.startsWith("--cookie=")) {
+      ignoreHeader("Cookie");
     } else if (["-d", "--data", "--data-raw", "--data-binary", "--json"].includes(arg)) {
       if (hasBody) throw new Error("Beberapa opsi body cURL tidak didukung.");
       result.body = next(i++, arg); hasBody = true;
@@ -116,6 +124,7 @@ export function parseCurl(text) {
   if (!result.url) throw new Error("URL cURL tidak tersedia.");
   if (hasBody && !explicitMethod) result.method = "POST";
   if (!METHODS.has(result.method)) throw new Error("Metode cURL tidak didukung.");
+  if (ignoredHeaders.size) result.ignoredHeaders = [...ignoredHeaders.values()];
   return result;
 }
 

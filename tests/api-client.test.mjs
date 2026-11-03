@@ -31,6 +31,26 @@ test("rejects unsupported curl switches and shell operators", () => {
   assert.throws(() => parseCurl("curl https://example.com | cat"), /tidak didukung/);
 });
 
+test("imports browser copy as curl while reporting cookies and browser-controlled headers", () => {
+  const text = `curl --url 'https://example.com/api?action=suggest&name=test&n=5' \\\n  -H 'accept: */*' -H 'accept-language: id,en;q=0.8' \\\n  -b 'SESSION=private-value' -H 'cookie: other=private-value' \\\n  -H 'dnt: 1' -H 'referer: https://example.com/' \\\n  -H 'sec-ch-ua: browser' -H 'sec-fetch-mode: cors' \\\n  -H 'user-agent: browser' -H 'X-Api-Key: test-key'`;
+  for (const request of [parseCurl(text), parseCurlPaste(text)]) {
+    assert.equal(new URL(request.url).searchParams.get("name"), "test");
+    assert.deepEqual(request.headers, [{ key: "accept", value: "*/*" }, { key: "accept-language", value: "id,en;q=0.8" }, { key: "X-Api-Key", value: "test-key" }]);
+    assert.deepEqual(request.ignoredHeaders, ["Cookie", "dnt", "referer", "sec-ch-ua", "sec-fetch-mode", "user-agent"]);
+    assert.doesNotMatch(JSON.stringify(request), /private-value/);
+    assert.doesNotThrow(() => validateRequest(request));
+  }
+});
+
+test("recognizes cookie option variants without reading cookie files or retaining values", () => {
+  for (const option of ["-b session=secret", "-bsession=secret", "--cookie session=secret", "--cookie=session=secret", "--cookie cookies.txt"]) {
+    const request = parseCurl(`curl https://example.com ${option}`);
+    assert.deepEqual(request.ignoredHeaders, ["Cookie"]);
+    assert.doesNotMatch(JSON.stringify(request), /secret|cookies\.txt/);
+  }
+  assert.throws(() => parseCurl("curl https://example.com -b"), /tidak tersedia/);
+});
+
 test("imports Postman collections and ignores disabled rows", () => {
   const imported = parseRequestJson(JSON.stringify({ item: [{ name: "Get user", request: { method: "GET", url: { raw: "https://example.com/u?id=1" }, header: [{ key: "X-Test", value: "yes" }, { key: "X-Skip", value: "no", disabled: true }] } }, { name: "Create", request: { method: "POST", url: "https://example.com/u", body: { mode: "raw", raw: '{"ok":true}' } } }] }));
   assert.equal(imported.length, 2);

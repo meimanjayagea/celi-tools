@@ -1,6 +1,8 @@
 // Source strings are Indonesian. Unknown strings remain unchanged so user data
 // and technical labels are never sent to a translation service.
 const english = {
+  "cURL diimpor. Data berikut tidak disalin karena dikendalikan browser:": "cURL imported. The following data was not copied because it is controlled by the browser:",
+  "Respons dapat berbeda. Periksa CORS pada server tujuan.": "The response may differ. Check the target server's CORS settings.",
   "cURL berhasil diimpor. Periksa request sebelum mengirim.": "cURL imported. Review the request before sending.",
   "Lewati ke konten": "Skip to content", "Tutup navigasi": "Close navigation", "Buka navigasi": "Open navigation", "Navigasi utama": "Main navigation", "Tutup menu": "Close menu", "Preferensi": "Preferences", "Keluar": "Sign out", "Masuk": "Sign in", "Memuat…": "Loading…", "File & data, satu tempat": "Files and data, one place", "Ubah. Ringankan. Rapikan.": "Convert. Compress. Organize.",
   "Tema": "Theme", "Tema terang": "Light theme", "Tema gelap": "Dark theme", "Celi Tools beranda": "Celi Tools home", "Navigasi publik": "Public navigation", "Beranda": "Home", "Buka portal": "Open portal", "Ubah file. Ringankan ukuran. Rapikan data.": "Convert files. Reduce size. Organize data.", "Kembali ke beranda": "Back to home",
