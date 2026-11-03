@@ -2275,3 +2275,46 @@ kbd {
 .app-dialog :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 @media(max-width:480px) { .app-dialog { padding:18px; } .app-dialog-actions > button { flex:1; } }
 @media(max-height:520px) { .sticky-calendar-overlay { overflow-y:auto; align-items:start; } .sticky-calendar-dialog { margin:auto 0; } }
+
+.race-panel { margin-bottom:18px; }
+.race-panel .api-section-heading h2 { display:flex; align-items:center; gap:8px; }
+.race-panel .api-section-heading h2 svg { color:var(--accent); }
+.race-content { padding:0 24px 22px; }
+.race-hint { color:var(--text-secondary); font-size:12px; line-height:1.65; margin-bottom:12px; }
+.race-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:18px 0; }
+.race-fields label { display:grid; gap:6px; font-size:12px; font-weight:700; color:var(--text-primary); min-width:0; }
+.race-fields input { width:100%; min-width:0; min-height:44px; padding:9px 11px; border:1px solid var(--border); border-radius:8px; background:var(--surface-secondary); color:var(--text-primary); font-size:13px; }
+.race-fields small { color:var(--text-secondary); font-size:11px; font-weight:400; }
+.race-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:16px; }
+.race-actions span { display:inline-flex; align-items:center; gap:6px; color:var(--text-secondary); font-size:12px; }
+.race-error { margin:14px 0 0; }
+.race-results { margin-top:18px; padding:16px; border:1px solid var(--border); border-radius:10px; background:var(--surface-secondary); }
+.race-results h3 { font-size:14px; font-weight:700; }
+.race-results p { color:var(--text-secondary); font-size:12px; line-height:1.6; margin-top:8px; }
+.race-result-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; margin:16px 0; }
+.race-result-grid div { display:grid; gap:3px; }
+.race-result-grid strong { font-size:15px; }
+.race-result-grid span,.race-statuses { font-size:11px; color:var(--text-secondary); }
+.race-statuses { display:flex; flex-wrap:wrap; gap:8px 14px; }
+@media(max-width:760px) { .race-panel .api-section-heading { flex-wrap:wrap; } .race-content { padding:0 18px 18px; } .race-fields { grid-template-columns:1fr; } }
+
+
+/* Motion is brief feedback; it never blocks input or alters document layout. */
+.hydration-progress { position:fixed; inset:0 0 auto; z-index:2000; height:3px; overflow:hidden; pointer-events:none; background:var(--accent-soft); }
+.hydration-progress[hidden] { display:none; }
+.hydration-progress span { display:block; width:36%; height:100%; background:var(--accent); animation:app-loading-track 1s ease-in-out infinite; }
+.page-loading { display:flex; align-items:center; gap:10px; min-height:100px; padding:24px 0; color:var(--text-secondary); font-size:13px; }
+.page-loading-mark { width:18px; height:18px; flex:none; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:app-loading-spin .75s linear infinite; }
+@keyframes app-loading-track { from { transform:translateX(-110%); } to { transform:translateX(300%); } }
+@keyframes app-loading-spin { to { transform:rotate(360deg); } }
+@keyframes app-page-arrive { from { opacity:.76; } to { opacity:1; } }
+.portal-content > *, #public-content > * { animation:app-page-arrive .2s ease-out; }
+@media (prefers-reduced-motion:no-preference) {
+  :is(.primary-button,.secondary-button,.icon-button,.google-auth-button,.portal-nav-link,.language-switch button,.theme-switch button) { transition-property:background-color,border-color,color,transform; transition-duration:.15s; transition-timing-function:ease-out; }
+  :is(.primary-button,.secondary-button,.icon-button,.google-auth-button,.portal-nav-link,.language-switch button,.theme-switch button):active:not(:disabled) { transform:scale(.98); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .portal-content > *, #public-content > *,.hydration-progress span,.page-loading-mark { animation:none; }
+  .hydration-progress span { width:100%; }
+  .page-loading-mark { border-color:var(--accent); }
+}

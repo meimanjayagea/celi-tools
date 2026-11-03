@@ -1,6 +1,7 @@
 "use client";
 import { useLanguage } from "./language-provider";
 import { useAppDialog } from "./app-dialog";
+import RacePanel from "./race-panel";
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowUpRight, Braces, CircleAlert, Plus, Send, ShieldCheck, Trash2, Upload, X } from "lucide-react";
@@ -128,21 +129,25 @@ export default function ApiClient() {
     catch { setImportError("File tidak dapat dibaca."); }
   }
 
-  async function send(event: FormEvent) {
-    event.preventDefault();
-    setError(""); setResponse(null); setTestResults([]);
-    let runVariables = variables;
-    let request: ReturnType<typeof validateRequest>;
-    try {
-      runVariables = runApiScript(preScript, variables, null).variables;
+  function prepareRequest() {
+      const runVariables = runApiScript(preScript, variables, null).variables;
       setVariables(runVariables);
       const sourceUrl = resolveApiVariables(url, runVariables);
       const resolvedParams = params.map(row => ({ key: resolveApiVariables(row.key, runVariables), value: resolveApiVariables(row.value, runVariables) }));
       const composedUrl = resolvedParams.some(row => row.key.trim()) ? replaceQuery(sourceUrl, resolvedParams) : sourceUrl;
       const resolvedHeaders = headers.map(row => ({ key: resolveApiVariables(row.key, runVariables), value: resolveApiVariables(row.value, runVariables) }));
       const resolvedAuth = { ...auth, token: resolveApiVariables(auth.token || "", runVariables), username: resolveApiVariables(auth.username || "", runVariables), password: resolveApiVariables(auth.password || "", runVariables), key: resolveApiVariables(auth.key || "", runVariables), value: resolveApiVariables(auth.value || "", runVariables) };
-      request = validateRequest(applyAuthorization({ name: "Request", method, url: composedUrl, headers: resolvedHeaders, body: resolveApiVariables(body, runVariables) }, resolvedAuth));
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Request tidak valid."); return; }
+      const request = validateRequest(applyAuthorization({ name: "Request", method, url: composedUrl, headers: resolvedHeaders, body: resolveApiVariables(body, runVariables) }, resolvedAuth));
+      return { request, runVariables };
+  }
+
+  async function send(event: FormEvent) {
+    event.preventDefault();
+    setError(""); setResponse(null); setTestResults([]);
+    let prepared: ReturnType<typeof prepareRequest>;
+    try { prepared = prepareRequest(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Request tidak valid."); return; }
+    const { request, runVariables } = prepared;
     const abortController = new AbortController();
     controller.current = abortController;
     const timer = setTimeout(() => abortController.abort("timeout"), 60_000);
@@ -184,6 +189,7 @@ export default function ApiClient() {
       <div className="api-tabs" role="tablist" aria-label={t("Pengaturan request")} onKeyDown={event => { if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return; event.preventDefault(); const index = tabs.findIndex(tab => tab.id === activeTab); const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length; setActiveTab(tabs[next].id); document.getElementById(`api-tab-${tabs[next].id}`)?.focus(); }}>{tabs.map(tab => <button type="button" role="tab" id={`api-tab-${tab.id}`} key={tab.id} aria-controls="api-request-panel" aria-selected={tab.id === activeTab} tabIndex={tab.id === activeTab ? 0 : -1} className={tab.id === activeTab ? "active" : ""} onClick={() => setActiveTab(tab.id)}>{t(tab.label)}{!!tab.count && <span>{tab.count}</span>}</button>)}</div>
       <div id="api-request-panel" role="tabpanel" aria-labelledby={`api-tab-${activeTab}`} className="api-request-content">{activeTab === "params" ? <KeyValueEditor label="parameter" rows={params} onChange={updateParams} /> : activeTab === "headers" ? <KeyValueEditor label="header" rows={headers} onChange={setHeaders} /> : activeTab === "authorization" ? <div className="api-auth-editor"><label>{t("Jenis authorization")}<select value={auth.type} onChange={event => setAuth({ type: event.target.value as ApiAuthorization["type"] })}><option value="none">{t("Tanpa authorization")}</option><option value="bearer">Bearer Token</option><option value="basic">Basic Auth</option><option value="api-key">API Key</option></select></label>{auth.type === "bearer" && <label>Token<input type="password" autoComplete="off" value={auth.token || ""} onChange={event => setAuth({ ...auth, token: event.target.value })}/></label>}{auth.type === "basic" && <><label>Username<input autoComplete="off" value={auth.username || ""} onChange={event => setAuth({ ...auth, username: event.target.value })}/></label><label>Password<input type="password" autoComplete="new-password" value={auth.password || ""} onChange={event => setAuth({ ...auth, password: event.target.value })}/></label></>}{auth.type === "api-key" && <><label>{t("Key")}<input value={auth.key || ""} onChange={event => setAuth({ ...auth, key: event.target.value })}/></label><label>{t("Value")}<input type="password" autoComplete="off" value={auth.value || ""} onChange={event => setAuth({ ...auth, value: event.target.value })}/></label><label>{t("Tambahkan ke")}<select value={auth.placement || "header"} onChange={event => setAuth({ ...auth, placement: event.target.value as "header" | "query" })}><option value="header">Header</option><option value="query">Query Params</option></select></label></>}</div> : activeTab === "pre-script" || activeTab === "tests" ? <div className="api-body-editor"><div><strong>{activeTab === "pre-script" ? "Pre-request Script" : "Tests"}</strong></div><p>{t("Subset aman: satu perintah per baris. JavaScript bebas, jaringan, dan akses DOM tidak didukung.")}</p><textarea aria-label={activeTab === "pre-script" ? "Pre-request Script" : "Tests"} value={activeTab === "pre-script" ? preScript : testScript} onChange={event => activeTab === "pre-script" ? setPreScript(event.target.value) : setTestScript(event.target.value)} placeholder={activeTab === "pre-script" ? 'pm.environment.set("id", "42");' : 'pm.test("Status 200", () => pm.response.to.have.status(200));'} spellCheck={false}/><p>{t("Gunakan variabel sebagai {{nama}} di URL, header, atau body. Variabel hanya disimpan selama halaman terbuka.")}</p></div> : <div className="api-body-editor"><div><strong>JSON body</strong><span>{t("Untuk POST, PUT, PATCH, dan DELETE")}</span></div><textarea aria-label="Request body JSON" placeholder={'{\n  "name": "Celi"\n}'} value={body} onChange={event => setBody(event.target.value)} spellCheck={false} /><p>{t("Jika Content-Type kosong, application/json ditambahkan saat body dikirim.")}</p></div>}</div>
     </section>
+    <RacePanel prepareRequest={() => prepareRequest().request} />
     <section className="panel api-response" aria-labelledby="api-response-title"><div className="api-section-heading"><div><span className="api-kicker">02 / RESPONSE</span><h2 id="api-response-title">{t("Respons")}</h2></div>{response && <div className="api-response-meta"><span className={`api-status ${response.status >= 200 && response.status < 300 ? "is-success" : "is-error"}`}>{response.status} {response.statusText}</span><span>{response.milliseconds.toLocaleString("id-ID")} ms</span><span>{response.truncated ? "≥ " : ""}{response.bytes.toLocaleString("id-ID")} byte</span></div>}</div>
       {error ? <div className="api-empty api-error" role="alert"><CircleAlert size={26} /><strong>{t("Request belum berhasil")}</strong><p>{t(error)}</p></div> : response ? <div className="api-response-body"><div className="api-response-caption">BODY {response.truncated && <span>{t("· Respons dipotong pada 2 MiB")}</span>}</div><pre><code>{response.text || t("(Respons kosong)")}</code></pre></div> : <div className="api-empty"><Braces size={28} /><strong>{sending ? t("Menunggu respons…") : t("Respons akan tampil di sini")}</strong><p>{sending ? t("Request sedang diproses oleh API tujuan.") : t("Masukkan URL dan tekan Send untuk memulai.")}</p></div>}
     </section>
