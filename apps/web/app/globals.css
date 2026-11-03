@@ -2251,3 +2251,27 @@ kbd {
   .api-collection-list details { padding:10px; }
   .api-saved-row { gap:4px 8px; }
 }
+
+/* Shared dialogs follow the same surfaces and controls as the calendar. */
+.app-dialog { width:min(440px,calc(100% - 32px)); max-height:calc(100dvh - 32px); overflow:auto; margin:auto; padding:22px; border:1px solid var(--border); border-radius:18px; background:var(--surface); color:var(--text-primary); box-shadow:0 26px 80px #08142640; }
+.app-dialog::backdrop { background:color-mix(in srgb,#0c1728 46%,transparent); backdrop-filter:blur(5px); }
+.app-dialog-header { display:flex; align-items:flex-start; gap:12px; }
+.app-dialog-header > div { flex:1; min-width:0; }
+.app-dialog-header h2 { margin:0; font-size:16px; line-height:1.4; letter-spacing:-.02em; }
+.app-dialog-header p { margin:5px 0 0; color:var(--text-secondary); font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+.app-dialog-icon { display:grid; flex:none; place-items:center; width:40px; height:40px; border-radius:12px; color:var(--accent); background:var(--accent-soft); }
+.app-dialog-icon.is-danger { color:var(--danger); background:var(--danger-soft); }
+.app-dialog-close { display:grid; flex:none; place-items:center; width:36px; height:36px; border:1px solid var(--border-light); border-radius:10px; background:var(--surface-secondary); color:var(--text-secondary); }
+.app-dialog-close:hover { color:var(--accent); background:var(--accent-soft); }
+.app-dialog-field { display:grid; gap:7px; margin-top:20px; }
+.app-dialog-field label { color:var(--text-secondary); font-size:12px; font-weight:700; }
+.app-dialog-field input { width:100%; min-width:0; min-height:44px; padding:10px 12px; border:1px solid var(--border); border-radius:9px; background:var(--surface-secondary); color:var(--text-primary); font-size:14px; }
+.app-dialog-field input[aria-invalid="true"] { border-color:var(--danger); }
+.app-dialog-field p { color:var(--danger); font-size:12px; }
+.app-dialog-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:22px; }
+.app-dialog-actions button { min-height:42px; }
+.app-dialog-danger { display:inline-flex; align-items:center; justify-content:center; padding:10px 17px; border-radius:9px; background:var(--danger); color:#fff; font-size:12px; font-weight:700; }
+.app-dialog-danger:hover { filter:brightness(.9); }
+.app-dialog :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+@media(max-width:480px) { .app-dialog { padding:18px; } .app-dialog-actions > button { flex:1; } }
+@media(max-height:520px) { .sticky-calendar-overlay { overflow-y:auto; align-items:start; } .sticky-calendar-dialog { margin:auto 0; } }
