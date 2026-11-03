@@ -163,3 +163,50 @@ export function parseRequestJson(text) {
   if (!requests.length) throw new Error("Tidak ada request dalam JSON.");
   return requests;
 }
+
+/** Apply explicit authentication to a request without persisting credentials. */
+export function applyAuthorization(request, auth) {
+  const output = { ...request, headers: request.headers.map(row => ({ ...row })) };
+  if (!auth || auth.type === 'none') return output;
+  if (auth.type === 'api-key' && auth.placement === 'query') {
+    if (!auth.key?.trim() || !auth.value) throw new Error('Isi nama dan nilai API key.');
+    const url = new URL(output.url); url.searchParams.set(auth.key, auth.value); output.url = url.toString(); return output;
+  }
+  const name = auth.type === 'api-key' ? auth.key?.trim() : 'Authorization';
+  const value = auth.type === 'bearer' ? `Bearer ${auth.token || ''}` : auth.type === 'basic' ? `Basic ${btoa(String.fromCharCode(...new TextEncoder().encode(`${auth.username || ''}:${auth.password || ''}`)))}` : auth.value;
+  if (!name || !value || (auth.type === 'bearer' && !auth.token)) throw new Error('Lengkapi data authorization.');
+  if (output.headers.some(row => row.key.trim().toLowerCase() === name.toLowerCase())) throw new Error(`Header ${name} sudah ada. Hapus duplikat sebelum mengirim.`);
+  output.headers.push({ key: name, value }); return output;
+}
+
+/** Remove common secrets from a request before saving it to browser storage. */
+export function sanitizeSavedRequest(request) {
+  const sensitive = /^(authorization|proxy-authorization|cookie|set-cookie|x-api-key|api[-_]?key|access[-_]?token|token|secret|password)$/i;
+  let url = request.url;
+  try { const parsed = new URL(url); parsed.username = ''; parsed.password = ''; for (const key of [...parsed.searchParams.keys()]) if (sensitive.test(key)) parsed.searchParams.delete(key); url = parsed.toString().replace(/%7B%7B([\w.-]+)%7D%7D/gi, "{{$1}}"); } catch { /* Preserve incomplete URLs without userinfo. */ url = url.replace(/^(https?:\/\/)[^/@]+@/i, '$1'); }
+  return { name: String(request.name || 'Request'), method: request.method, url, headers: request.headers.filter(row => !sensitive.test(row.key.trim())).map(row => ({ key: row.key, value: row.value })), body: request.body || '' };
+}
+
+/** Replace named in-memory variables; unknown names remain visible for correction. */
+export function resolveApiVariables(text, variables) {
+  return text.replace(/\{\{([\w.-]+)\}\}/g, (whole, key) => Object.hasOwn(variables, key) ? variables[key] : whole);
+}
+
+/** Execute a deliberately small Postman-style statement subset, never JavaScript. */
+export function runApiScript(script, variables, response) {
+  const next = { ...variables }, tests = [];
+  for (const statement of script.split(/\n/).map(line => line.trim()).filter(Boolean)) {
+    let match = statement.match(/^pm\.environment\.set\(\s*(["'])([\w.-]+)\1\s*,\s*(["'])(.*?)\3\s*\);?$/);
+    if (match) { next[match[2]] = match[4]; continue; }
+    match = statement.match(/^pm\.test\(\s*(["'])(.*?)\1\s*,\s*\(\)\s*=>\s*pm\.response\.to\.have\.status\((\d{3})\)\s*\);?$/);
+    if (match && response) { tests.push({ name: match[2], passed: response.status === Number(match[3]) }); continue; }
+    match = statement.match(/^pm\.test\(\s*(["'])(.*?)\1\s*,\s*\(\)\s*=>\s*pm\.expect\(pm\.response\.json\(\)((?:\.[\w-]+)+)\)\.to\.eql\((.*?)\)\s*\);?$/);
+    if (match && response) {
+      let actual; try { actual = JSON.parse(response.text); for (const key of match[3].slice(1).split('.')) actual = actual?.[key]; } catch { actual = undefined; }
+      let expected; try { expected = JSON.parse(match[4]); } catch { throw new Error('Nilai ekspektasi harus berupa JSON.'); }
+      tests.push({ name: match[2], passed: JSON.stringify(actual) === JSON.stringify(expected) }); continue;
+    }
+    throw new Error('Baris skrip tidak didukung. Gunakan contoh yang tersedia.');
+  }
+  return { variables: next, tests };
+}

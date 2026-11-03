@@ -5,3 +5,8 @@ export function validateRequest(request: Pick<ImportedRequest, "method" | "url" 
 export function executeApiRequest(request: ReturnType<typeof validateRequest>, signal?: AbortSignal): Promise<{ status: number; statusText: string; milliseconds: number; bytes: number; text: string; truncated: boolean }>;
 export function parseCurl(text: string): ImportedRequest;
 export function parseRequestJson(text: string): ImportedRequest[];
+export type ApiAuthorization = { type: 'none' | 'bearer' | 'basic' | 'api-key'; token?: string; username?: string; password?: string; key?: string; value?: string; placement?: 'header' | 'query' };
+export function applyAuthorization(request: ImportedRequest, auth: ApiAuthorization): ImportedRequest;
+export function sanitizeSavedRequest(request: ImportedRequest): ImportedRequest;
+export function resolveApiVariables(text: string, variables: Record<string, string>): string;
+export function runApiScript(script: string, variables: Record<string, string>, response: {status: number; text: string} | null): { variables: Record<string, string>; tests: { name: string; passed: boolean }[] };

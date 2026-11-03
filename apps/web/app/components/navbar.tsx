@@ -64,16 +64,17 @@ export default function Navbar({ children }: {
     <div className="portal-main" inert={open || undefined}>
       <header className="portal-header">
         <button id="navigation-toggle" className="icon-button mobile-menu" aria-label={open ? t("Tutup navigasi") : t("Buka navigasi")} aria-expanded={open} aria-controls="portal-navigation" onClick={() => setOpen(!open)}>{open ? <X /> : <Menu />}</button>
+        <Link href="/dashboard" className="mobile-portal-brand" aria-label="Dashboard"><Image src="/brand.svg" width={30} height={30} alt=""/><span>CELI TOOLS</span></Link>
         <nav className="breadcrumbs" aria-label="Breadcrumb"><Link href="/dashboard" aria-label="Dashboard"><Home size={17}/></Link><ChevronRight size={14}/><span>{t(title)}</span></nav>
         <div className="header-actions"><LanguageToggle /><ThemeToggle />
-          {user ? <details className="account-menu"><summary><span className="avatar">{(user.email || "A")[0].toUpperCase()}</span><span className="account-label">{user.email?.split("@")[0] || "Akun"}</span><ChevronRight size={14}/></summary><div className="account-dropdown"><span>{user.email}</span><button onClick={async () => {
+          {user ? <details className="account-menu"><summary aria-label={user.email || t("Akun")}><span className="avatar">{(user.email || "A")[0].toUpperCase()}</span><span className="account-label">{user.email?.split("@")[0] || "Akun"}</span><ChevronRight size={14}/></summary><div className="account-dropdown"><span>{user.email}</span><button onClick={async () => {
                 try {
                     await signOut({ redirect: false });
                     router.replace("/");
                 } catch {
                     setAuthError("Gagal keluar. Silakan coba lagi.");
                 }
-            }}><LogOut size={16}/>{t("Keluar")}</button></div></details> : <Link href="/login" className="account-login"><span className="avatar"><LogIn size={18}/></span><span>{loading ? t("Memuat…") : t("Masuk")}</span></Link>}
+            }}><LogOut size={16}/>{t("Keluar")}</button></div></details> : <Link href="/login" className="account-login" aria-label={t("Masuk")}><span className="avatar"><LogIn size={18}/></span><span>{loading ? t("Memuat…") : t("Masuk")}</span></Link>}
         </div>
       </header>
       {authError && <p className="alert alert-error" role="alert">{t(authError)}</p>}

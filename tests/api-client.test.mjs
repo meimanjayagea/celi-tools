@@ -84,3 +84,36 @@ test("sends each supported HTTP method to the server", async () => {
     }
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
+
+test("authorization supports bearer, basic and API key without overwriting manual credentials", async () => {
+  const { applyAuthorization } = await import('../apps/web/app/lib/api-client.mjs');
+  const base = { method: 'GET', url: 'https://example.com/', headers: [], body: '' };
+  assert.equal(applyAuthorization(base, { type: 'bearer', token: 'secret' }).headers[0].value, 'Bearer secret');
+  assert.equal(applyAuthorization(base, { type: 'basic', username: 'ada', password: 'pw' }).headers[0].value, 'Basic YWRhOnB3');
+  assert.equal(new URL(applyAuthorization(base, { type: 'api-key', key: 'api_key', value: 'abc', placement: 'query' }).url).searchParams.get('api_key'), 'abc');
+  assert.throws(() => applyAuthorization({ ...base, headers: [{ key: 'authorization', value: 'x' }] }, { type: 'bearer', token: 'secret' }), /Authorization/i);
+});
+
+test('saved requests remove authorization, sensitive headers and URL credentials', async () => {
+  const { sanitizeSavedRequest } = await import('../apps/web/app/lib/api-client.mjs');
+  const saved = sanitizeSavedRequest({ method: 'GET', url: 'https://example.com/?api_key=abc&q=ok', headers: [{key:'Authorization',value:'Bearer secret'}, {key:'X-API-Key',value:'secret'}, {key:'Accept',value:'application/json'}], body:'', name:'Example' });
+  assert.deepEqual(saved.headers, [{key:'Accept',value:'application/json'}]);
+  assert.equal(new URL(saved.url).searchParams.get('api_key'), null);
+  assert.equal(new URL(saved.url).searchParams.get('q'), 'ok');
+});
+
+test('limited scripts set variables and run status and body checks without executing JavaScript', async () => {
+  const { runApiScript, resolveApiVariables } = await import('../apps/web/app/lib/api-client.mjs');
+  const pre = runApiScript('pm.environment.set("id", "42");', {}, null);
+  assert.equal(resolveApiVariables('https://example.com/{{id}}', pre.variables), 'https://example.com/42');
+  const result = runApiScript('pm.test("status", () => pm.response.to.have.status(200));\npm.test("body", () => pm.expect(pm.response.json().ok).to.eql(true));', {}, { status: 200, text: '{"ok":true}' });
+  assert.deepEqual(result.tests.map(item => item.passed), [true, true]);
+  assert.throws(() => runApiScript('fetch("https://evil.example")', {}, null), /tidak didukung/i);
+});
+
+test('saving preserves request variables in URL paths and query strings', async () => {
+  const { sanitizeSavedRequest } = await import('../apps/web/app/lib/api-client.mjs');
+  const request = sanitizeSavedRequest({ name:'Variable', method:'GET', url:'https://example.com/users/{{id}}?q={{query}}', headers:[], body:'' });
+  assert.match(request.url, /\{\{id\}\}/);
+  assert.match(request.url, /\{\{query\}\}/);
+});
