@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "./components/auth-provider";
 import { ThemeProvider } from "./components/theme-provider";
+import { LanguageProvider } from "./components/language-provider";
 
 export const metadata: Metadata = {
   title: "Celi Tools — Portal Admin Tools",
@@ -15,9 +16,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className="h-full antialiased"
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        <ThemeProvider>
+        <LanguageProvider><ThemeProvider>
           <AuthProvider>{children}</AuthProvider>
-        </ThemeProvider>
+        </ThemeProvider></LanguageProvider>
       </body>
     </html>
   );

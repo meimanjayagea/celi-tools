@@ -2150,3 +2150,8 @@ kbd {
   .api-import-actions { padding:12px 18px 0; flex-wrap:wrap; }
   .api-inline-error,.api-import-list { margin-left:18px; margin-right:18px; }
 }
+
+.language-switch { display:inline-flex; align-items:center; gap:2px; padding:3px; border:1px solid var(--border); border-radius:9px; background:var(--surface-secondary); }
+.language-switch button { display:inline-flex; align-items:center; justify-content:center; gap:4px; min-height:30px; padding:4px 7px; border-radius:6px; color:var(--text-muted); font-size:10px; font-weight:700; }
+.language-switch button[aria-pressed="true"] { background:var(--surface); color:var(--text-primary); box-shadow:0 1px 4px #00000012; }
+.language-switch button span:first-child { font-size:15px; line-height:1; }

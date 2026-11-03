@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "./language-provider";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -13,12 +14,14 @@ type AuthStatus = { available: boolean; google: boolean };
 const unavailable: AuthStatus = { available: false, google: false };
 
 function AuthFeedback() {
+  const { t } = useLanguage();
   const error = useSearchParams().get("error");
   if (!error) return null;
-  return <div className="alert alert-error" role="alert"><CircleAlert size={18} /><span>Proses autentikasi tidak selesai. Coba masuk kembali.</span></div>;
+  return <div className="alert alert-error" role="alert"><CircleAlert size={18} /><span>{t("Proses autentikasi tidak selesai. Coba masuk kembali.")}</span></div>;
 }
 
 export default function AuthForm({ callbackUrl: requestedCallbackUrl }: { callbackUrl?: string | string[] }) {
+  const { t } = useLanguage();
   const callbackUrl = safeCallbackUrl(requestedCallbackUrl);
   const router = useRouter();
   const { user, loading } = useAuth();
@@ -56,26 +59,26 @@ export default function AuthForm({ callbackUrl: requestedCallbackUrl }: { callba
 
   return <main className="public-auth-page">
     <section className="auth-introduction" aria-labelledby="auth-intro-title">
-      <Link href="/" className="auth-back"><ArrowLeft size={16} />Kembali ke beranda</Link>
-      <div className="auth-intro-copy"><span className="eyebrow">CELI TOOLS WORKSPACE</span><h2 id="auth-intro-title">Lebih rapi datanya.<br /><span>Lebih ringan kerjanya.</span></h2><p>Konversi dan kompres file, rapikan JSON, serta olah teks. Empat workspace untuk membawa file dan data Anda dari berantakan menjadi siap digunakan.</p></div>
+      <Link href="/" className="auth-back"><ArrowLeft size={16} />{t("Kembali ke beranda")}</Link>
+      <div className="auth-intro-copy"><span className="eyebrow">CELI TOOLS WORKSPACE</span><h2 id="auth-intro-title">{t("Lebih rapi datanya.")}<br /><span>{t("Lebih ringan kerjanya.")}</span></h2><p>{t("Konversi dan kompres file, rapikan JSON, serta olah teks. Empat workspace untuk membawa file dan data Anda dari berantakan menjadi siap digunakan.")}</p></div>
       <Image src="/images/workspace-hero.webp" width={500} height={333} alt="" className="auth-illustration" unoptimized />
-      <div className="auth-intro-note"><CodeXml size={19} /><span>Satu akun untuk semua workspace.<br /><strong>Masuk aman dengan akun Google Anda.</strong></span></div>
+      <div className="auth-intro-note"><CodeXml size={19} /><span>{t("Satu akun untuk semua workspace.")}<br /><strong>{t("Masuk aman dengan akun Google Anda.")}</strong></span></div>
     </section>
-    <section className="auth-form-section" aria-label="Login akun">
+    <section className="auth-form-section" aria-label={t("Login akun")}>
       <div className="auth-form-card">
         <span className="auth-form-icon"><LockKeyhole size={24} /></span>
-        <div className="auth-form-heading"><h1>Masuk ke Celi Tools</h1><p>Gunakan akun Google Anda. Jika ini pertama kalinya, akun Celi Tools akan dibuat otomatis.</p></div>
-        {loading || user ? <div className="auth-session-status" role="status"><LoaderCircle size={19} className="spin" /><p>{user ? "Membuka workspace Anda…" : "Memeriksa sesi Anda…"}</p>{user && <Link href={callbackUrl} className="auth-link">Lanjut ke workspace</Link>}</div> : <>
+        <div className="auth-form-heading"><h1>{t("Masuk ke Celi Tools")}</h1><p>{t("Gunakan akun Google Anda. Jika ini pertama kalinya, akun Celi Tools akan dibuat otomatis.")}</p></div>
+        {loading || user ? <div className="auth-session-status" role="status"><LoaderCircle size={19} className="spin" /><p>{user ? t("Membuka workspace Anda…") : t("Memeriksa sesi Anda…")}</p>{user && <Link href={callbackUrl} className="auth-link">{t("Lanjut ke workspace")}</Link>}</div> : <>
           <Suspense fallback={null}><AuthFeedback /></Suspense>
-          {status && !status.available && <div className="auth-provider-notice" role="status"><CircleAlert size={17} /><div><p>Login Google belum tersedia saat ini. Hubungi administrator atau coba lagi nanti.</p><button type="button" className="auth-link" onClick={() => { setStatus(null); setRefresh(value => value + 1); }}>Periksa lagi</button></div></div>}
-          {!status && <p className="auth-provider-hint" role="status">Memeriksa layanan autentikasi…</p>}
+          {status && !status.available && <div className="auth-provider-notice" role="status"><CircleAlert size={17} /><div><p>{t("Login Google belum tersedia saat ini. Hubungi administrator atau coba lagi nanti.")}</p><button type="button" className="auth-link" onClick={() => { setStatus(null); setRefresh(value => value + 1); }}>{t("Periksa lagi")}</button></div></div>}
+          {!status && <p className="auth-provider-hint" role="status">{t("Memeriksa layanan autentikasi…")}</p>}
           {status?.google && <button type="button" className="google-auth-button" onClick={signInWithGoogle} disabled={pending} aria-busy={pending}>
             {pending ? <LoaderCircle size={18} className="spin" /> : <svg aria-hidden="true" viewBox="0 0 48 48" width="19" height="19"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.8 6.1-15Z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.8l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.3A20 20 0 0 0 24 44Z"/><path fill="#FBBC05" d="M12.6 27.7a12 12 0 0 1 0-7.5v-5.3H5.8a20 20 0 0 0 0 18.1l6.8-5.3Z"/><path fill="#EA4335" d="M24 11.8c3 0 5.7 1 7.8 3.1l5.9-5.9A19.7 19.7 0 0 0 24 4 20 20 0 0 0 5.8 14.9l6.8 5.3c1.6-4.8 6.1-8.4 11.4-8.4Z"/></svg>}
-            {pending ? "Menghubungkan ke Google…" : "Lanjutkan dengan Google"}
+            {pending ? t("Menghubungkan ke Google…") : t("Lanjutkan dengan Google")}
           </button>}
-          {status?.available && <p className="auth-provider-hint">Akun baru dibuat otomatis setelah Anda menyetujui login Google.</p>}
+          {status?.available && <p className="auth-provider-hint">{t("Akun baru dibuat otomatis setelah Anda menyetujui login Google.")}</p>}
         </>}
-        <div className="account-form-note"><LockKeyhole size={14} /><p>Celi Tools tidak menyimpan kata sandi Google Anda. Autentikasi dilakukan langsung oleh Google.</p></div>
+        <div className="account-form-note"><LockKeyhole size={14} /><p>{t("Celi Tools tidak menyimpan kata sandi Google Anda. Autentikasi dilakukan langsung oleh Google.")}</p></div>
       </div>
     </section>
   </main>;

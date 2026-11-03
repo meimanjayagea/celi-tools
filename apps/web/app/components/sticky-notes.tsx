@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "./language-provider";
 
 import { Bell, BellRing, LoaderCircle, Plus, Search, StickyNote as StickyIcon, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -10,6 +11,7 @@ const colorNames: Record<string, string> = { yellow: "Kuning", blue: "Biru", pin
 const errorMessage = (data: unknown) => data && typeof data === "object" && "error" in data && typeof data.error === "string" ? data.error : "Terjadi kesalahan. Coba lagi.";
 
 export default function StickyNotes() {
+  const { t, language } = useLanguage();
   const [notes, setNotes] = useState<Note[]>([]);
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState("");
@@ -129,7 +131,7 @@ export default function StickyNotes() {
         if (!response.ok || stopped) return;
         const data = await response.json();
         for (const reminder of data.reminders as { id: string; content: string }[]) {
-          if (!stopped) new Notification("Pengingat Celi Tools", { body: reminder.content.trim().slice(0, 180) || "Catatan yang Anda jadwalkan sudah waktunya." });
+          if (!stopped) new Notification(t("Pengingat Celi Tools"), { body: reminder.content.trim().slice(0, 180) || t("Catatan yang Anda jadwalkan sudah waktunya.") });
         }
       } catch { /* Retry on the next interval; notification polling is best effort. */ }
     };
@@ -138,7 +140,7 @@ export default function StickyNotes() {
     const onVisible = () => { if (document.visibilityState === "visible") void check(); };
     document.addEventListener("visibilitychange", onVisible);
     return () => { stopped = true; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
-  }, [permission]);
+  }, [permission, t]);
 
   const tags = useMemo(() => [...new Set(notes.flatMap(note => note.tags))].sort((a, b) => a.localeCompare(b, "id")), [notes]);
   const shown = useMemo(() => notes.filter(note => note.content.toLocaleLowerCase("id-ID").includes(search.toLocaleLowerCase("id-ID")) && (!activeTag || note.tags.includes(activeTag))), [notes, search, activeTag]);
@@ -173,21 +175,21 @@ export default function StickyNotes() {
   };
 
   return <main className="sticky-page">
-    <section className="sticky-heading"><div><span className="eyebrow">RUANG KERJA PRIBADI</span><h1>Sticky Note</h1><p>Simpan ide, atur posisi, dan beri pengingat pada catatan Anda.</p></div>
-      <div className="sticky-heading-actions"><button className="secondary-button" onClick={requestNotifications} disabled={permission === "unsupported"} title={permission === "granted" ? "Notifikasi aktif" : "Aktifkan notifikasi browser"}>{permission === "granted" ? <BellRing size={17}/> : <Bell size={17}/>}<span>{permission === "granted" ? "Notifikasi aktif" : permission === "unsupported" ? "Notifikasi tidak didukung" : "Aktifkan notifikasi"}</span></button><button className="primary-button" onClick={addNote} disabled={busy}><Plus size={18}/>{busy ? "Menyimpan…" : "Catatan baru"}</button></div>
+    <section className="sticky-heading"><div><span className="eyebrow">{t("RUANG KERJA PRIBADI")}</span><h1>Sticky Note</h1><p>{t("Simpan ide, atur posisi, dan beri pengingat pada catatan Anda.")}</p></div>
+      <div className="sticky-heading-actions"><button className="secondary-button" onClick={requestNotifications} disabled={permission === "unsupported"} title={permission === "granted" ? t("Notifikasi aktif") : t("Aktifkan notifikasi browser")}>{permission === "granted" ? <BellRing size={17}/> : <Bell size={17}/>}<span>{permission === "granted" ? t("Notifikasi aktif") : permission === "unsupported" ? t("Notifikasi tidak didukung") : t("Aktifkan notifikasi")}</span></button><button className="primary-button" onClick={addNote} disabled={busy}><Plus size={18}/>{busy ? t("Menyimpan…") : t("Catatan baru")}</button></div>
     </section>
-    <section className="sticky-toolbar" aria-label="Pencarian dan filter catatan"><label className="sticky-search"><Search size={18}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Cari isi catatan…" aria-label="Cari isi catatan" /></label><label className="sticky-tag-filter"><span>Tag</span><select value={activeTag} onChange={event => setActiveTag(event.target.value)} aria-label="Filter berdasarkan tag"><option value="">Semua tag</option>{tags.map(tag => <option key={tag}>{tag}</option>)}</select></label><span className="sticky-count">{shown.length} catatan</span></section>
-    {error && <p role="alert" className="alert alert-error sticky-alert">{error}</p>}{notice && <p role="status" className="alert alert-success sticky-alert">{notice}</p>}
-    {permission !== "granted" && permission !== "unsupported" && <p className="sticky-reminder-hint">Pengingat browser berjalan saat halaman ini terbuka. Aktifkan notifikasi agar catatan dapat memberi tahu Anda.</p>}
-    {loading ? <div className="sticky-loading"><LoaderCircle className="spin" size={20}/> Memuat catatan…</div> : shown.length ? <div className="sticky-board-scroll"><div ref={canvasRef} className="sticky-canvas" style={{ minHeight: canvasHeight, width: `max(100%, ${canvasWidth}px)` }}>
+    <section className="sticky-toolbar" aria-label={t("Pencarian dan filter catatan")}><label className="sticky-search"><Search size={18}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder={t("Cari isi catatan…")} aria-label={t("Cari isi catatan")} /></label><label className="sticky-tag-filter"><span>Tag</span><select value={activeTag} onChange={event => setActiveTag(event.target.value)} aria-label={t("Filter berdasarkan tag")}><option value="">{t("Semua tag")}</option>{tags.map(tag => <option key={tag}>{tag}</option>)}</select></label><span className="sticky-count">{shown.length} {t("catatan")}</span></section>
+    {error && <p role="alert" className="alert alert-error sticky-alert">{t(error)}</p>}{notice && <p role="status" className="alert alert-success sticky-alert">{t(notice)}</p>}
+    {permission !== "granted" && permission !== "unsupported" && <p className="sticky-reminder-hint">{t("Pengingat browser berjalan saat halaman ini terbuka. Aktifkan notifikasi agar catatan dapat memberi tahu Anda.")}</p>}
+    {loading ? <div className="sticky-loading"><LoaderCircle className="spin" size={20}/> {t("Memuat catatan…")}</div> : shown.length ? <div className="sticky-board-scroll"><div ref={canvasRef} className="sticky-canvas" style={{ minHeight: canvasHeight, width: `max(100%, ${canvasWidth}px)` }}>
       {shown.map(note => <article key={note.id} className={`sticky-note sticky-note-${note.color}${removing.includes(note.id) ? " is-removing" : ""}`} style={{ left: note.positionX, top: note.positionY }}>
-        <header className="sticky-note-header"><button className="sticky-drag-handle" aria-label="Geser catatan" title="Geser catatan" onPointerDown={event => startDrag(event, note)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}><StickyIcon size={15}/><span>Geser</span></button><div className="sticky-color-picker" aria-label="Warna catatan">{colors.map(color => <button type="button" key={color} aria-label={`Warna ${colorNames[color]}`} aria-pressed={note.color === color} className={`sticky-color-dot sticky-dot-${color}`} onClick={() => scheduleSave(note.id, { color })}/>)}</div><button className="sticky-icon-action" aria-label="Hapus catatan" title="Hapus catatan" onClick={() => void deleteNote(note.id)}><Trash2 size={16}/></button></header>
-        <textarea className="sticky-note-text" value={note.content} maxLength={5000} placeholder="Tulis ide Anda…" aria-label="Isi catatan" onChange={event => scheduleSave(note.id, { content: event.target.value })} onBlur={event => flushSave(note.id, { content: event.target.value })}/>
-        <label className="sticky-field"><span>Tag, pisahkan dengan koma</span><input key={`${note.id}:${note.tags.join(",")}`} defaultValue={note.tags.join(", ")} maxLength={250} aria-label="Tag catatan" placeholder="Kerja, Pribadi" onBlur={event => { const value = event.target.value.split(",").map(tag => tag.trim()).filter(Boolean).slice(0, 10); if (value.join("\0") !== note.tags.join("\0")) scheduleSave(note.id, { tags: value }); }}/></label>
+        <header className="sticky-note-header"><button className="sticky-drag-handle" aria-label={t("Geser catatan")} title={t("Geser catatan")} onPointerDown={event => startDrag(event, note)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}><StickyIcon size={15}/><span>{t("Geser")}</span></button><div className="sticky-color-picker" aria-label={t("Warna catatan")}>{colors.map(color => <button type="button" key={color} aria-label={`${t("Warna")} ${t(colorNames[color])}`} aria-pressed={note.color === color} className={`sticky-color-dot sticky-dot-${color}`} onClick={() => scheduleSave(note.id, { color })}/>)}</div><button className="sticky-icon-action" aria-label={t("Hapus catatan")} title={t("Hapus catatan")} onClick={() => void deleteNote(note.id)}><Trash2 size={16}/></button></header>
+        <textarea className="sticky-note-text" value={note.content} maxLength={5000} placeholder={t("Tulis ide Anda…")} aria-label={t("Isi catatan")} onChange={event => scheduleSave(note.id, { content: event.target.value })} onBlur={event => flushSave(note.id, { content: event.target.value })}/>
+        <label className="sticky-field"><span>{t("Tag, pisahkan dengan koma")}</span><input key={`${note.id}:${note.tags.join(",")}`} defaultValue={note.tags.join(", ")} maxLength={250} aria-label={t("Tag catatan")} placeholder={t("Kerja, Pribadi")} onBlur={event => { const value = event.target.value.split(",").map(tag => tag.trim()).filter(Boolean).slice(0, 10); if (value.join("\0") !== note.tags.join("\0")) scheduleSave(note.id, { tags: value }); }}/></label>
         <StickyDateTimePicker value={note.reminderAt} onChange={reminderAt => scheduleSave(note.id, { reminderAt })} />
-        <footer className="sticky-note-footer"><span>Dibuat {new Date(note.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>{note.reminderAt && <Bell size={13} aria-label="Pengingat aktif"/>}</footer>
+        <footer className="sticky-note-footer"><span>{t("Dibuat ")}{new Date(note.createdAt).toLocaleDateString(language === "en" ? "en-US" : "id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>{note.reminderAt && <Bell size={13} aria-label={t("Pengingat aktif")}/>}</footer>
       </article>)}
-    </div></div> : <div className="sticky-empty"><StickyIcon size={32}/><h2>{search || activeTag ? "Tidak ada catatan yang cocok" : "Belum ada catatan"}</h2><p>{search || activeTag ? "Ubah kata pencarian atau filter tag." : "Buat catatan pertama untuk mulai mengumpulkan ide."}</p>{!search && !activeTag && <button className="primary-button" onClick={addNote}><Plus size={18}/>Buat catatan pertama</button>}{(search || activeTag) && <button className="secondary-button" onClick={() => { setSearch(""); setActiveTag(""); }}><X size={16}/>Hapus filter</button>}</div>}
-    <p className="sticky-privacy"><span>Catatan pribadi</span> · Tersimpan aman di akun Anda dan hanya dapat diakses setelah masuk.</p>
+    </div></div> : <div className="sticky-empty"><StickyIcon size={32}/><h2>{search || activeTag ? t("Tidak ada catatan yang cocok") : t("Belum ada catatan")}</h2><p>{search || activeTag ? t("Ubah kata pencarian atau filter tag.") : t("Buat catatan pertama untuk mulai mengumpulkan ide.")}</p>{!search && !activeTag && <button className="primary-button" onClick={addNote}><Plus size={18}/>{t("Buat catatan pertama")}</button>}{(search || activeTag) && <button className="secondary-button" onClick={() => { setSearch(""); setActiveTag(""); }}><X size={16}/>{t("Hapus filter")}</button>}</div>}
+    <p className="sticky-privacy"><span>{t("Catatan pribadi")}</span> {t("· Tersimpan aman di akun Anda dan hanya dapat diakses setelah masuk.")}</p>
   </main>;
 }

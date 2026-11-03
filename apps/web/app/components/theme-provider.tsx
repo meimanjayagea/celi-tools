@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "./language-provider";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Sun, Moon } from "lucide-react";
 import { THEMES } from "../lib/themes.mjs";
@@ -41,9 +42,10 @@ export function ThemeProvider({ children }: {
 }
 export const useTheme = () => useContext(ThemeContext);
 export function ThemeToggle() {
+  const { t } = useLanguage();
     const { theme, changeTheme } = useTheme();
-    return <div className="theme-switch" role="group" aria-label="Tema">
-    <button type="button" onClick={() => changeTheme("light")} aria-label="Tema terang" aria-pressed={theme === "light"}><Sun size={17}/></button>
-    <button type="button" onClick={() => changeTheme("dark")} aria-label="Tema gelap" aria-pressed={theme === "dark"}><Moon size={17}/></button>
+    return <div className="theme-switch" role="group" aria-label={t("Tema")}>
+    <button type="button" onClick={() => changeTheme("light")} aria-label={t("Tema terang")} aria-pressed={theme === "light"}><Sun size={17}/></button>
+    <button type="button" onClick={() => changeTheme("dark")} aria-label={t("Tema gelap")} aria-pressed={theme === "dark"}><Moon size={17}/></button>
   </div>;
 }

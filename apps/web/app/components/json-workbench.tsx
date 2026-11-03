@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "./language-provider";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { stringify as stringifyYaml } from "yaml";
 import { AlignLeft, Upload, Download, Copy, Printer, Wrench, Trash2, ChevronDown, Check, CircleAlert, CodeXml, Sparkles, Minimize2, ArrowDownAZ } from "lucide-react";
@@ -70,6 +71,7 @@ function GraphView({ value }: {
     return <div className="graph-view"><GraphNode name="root" value={value} path="root"/></div>;
 }
 export default function JsonWorkbench() {
+  const { t } = useLanguage();
     const [input, setInput] = useState(SAMPLE_JSON);
     const [committed, setCommitted] = useState(SAMPLE_JSON);
     const [activeTab, setActiveTab] = useState<OutputTab>("tree");
@@ -171,24 +173,24 @@ export default function JsonWorkbench() {
     };
     const valid = !parsed.error && !!committed.trim();
     return <main className="tool-page">
-    <div className="page-heading"><span className="eyebrow">JSON WORKSPACE</span><h1>Format, validasi, pahami.</h1><p>Rapikan data, jelajahi strukturnya, dan konversi ke format yang Anda butuhkan.</p></div>
-    <div className="tool-heading-meta"><span className={`validation-pill ${valid ? "is-valid" : committed.trim() ? "is-invalid" : ""}`}>{valid ? <Check size={15}/> : <CircleAlert size={15}/>}{!committed.trim() ? "Menunggu JSON" : valid ? "JSON valid" : "JSON tidak valid"}</span><span className="privacy-note">Input terakhir disimpan di browser ini</span></div>
-    <section className="workbench" aria-label="Workspace JSON">
+    <div className="page-heading"><span className="eyebrow">JSON WORKSPACE</span><h1>{t("Format, validasi, pahami.")}</h1><p>{t("Rapikan data, jelajahi strukturnya, dan konversi ke format yang Anda butuhkan.")}</p></div>
+    <div className="tool-heading-meta"><span className={`validation-pill ${valid ? "is-valid" : committed.trim() ? "is-invalid" : ""}`}>{valid ? <Check size={15}/> : <CircleAlert size={15}/>}{!committed.trim() ? t("Menunggu JSON") : valid ? t("JSON valid") : t("JSON tidak valid")}</span><span className="privacy-note">{t("Input terakhir disimpan di browser ini")}</span></div>
+    <section className="workbench" aria-label={t("Workspace JSON")}>
       <div className="panel editor-panel">
-        <div className="panel-heading"><div className="panel-title-wrap"><span className="panel-index">01</span><div><h2>Input</h2><p>Tempel JSON atau buka file</p></div></div><button className="subtle-button" onClick={() => { setInput(SAMPLE_JSON); setCommitted(SAMPLE_JSON); setNotice("Contoh JSON dimuat."); }}>Contoh</button></div>
-        <div className="editor-toolbar"><div className="toolbar-group"><button className="toolbar-button" onClick={() => fileInput.current?.click()}><Upload size={16}/>Upload</button><input ref={fileInput} hidden type="file" accept=".json,.txt,application/json,text/plain" onChange={upload}/><button className="toolbar-button" onClick={() => transform("fix")}><Wrench size={16}/>Fix JSON</button></div><label className="select-label">Indentasi<select aria-label="Indentasi JSON" value={indent} onChange={event => setIndent(Number(event.target.value))}><option value={2}>2 spasi</option><option value={3}>3 spasi</option><option value={4}>4 spasi</option></select></label></div>
-        <textarea className="json-editor" aria-label="Editor JSON" value={input} onChange={e => update(e.target.value)} spellCheck={false} placeholder="Tempel JSON Anda di sini…" onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        <div className="panel-heading"><div className="panel-title-wrap"><span className="panel-index">01</span><div><h2>Input</h2><p>{t("Tempel JSON atau buka file")}</p></div></div><button className="subtle-button" onClick={() => { setInput(SAMPLE_JSON); setCommitted(SAMPLE_JSON); setNotice("Contoh JSON dimuat."); }}>{t("Contoh")}</button></div>
+        <div className="editor-toolbar"><div className="toolbar-group"><button className="toolbar-button" onClick={() => fileInput.current?.click()}><Upload size={16}/>Upload</button><input ref={fileInput} hidden type="file" accept=".json,.txt,application/json,text/plain" onChange={upload}/><button className="toolbar-button" onClick={() => transform("fix")}><Wrench size={16}/>Fix JSON</button></div><label className="select-label">{t("Indentasi")}<select aria-label={t("Indentasi JSON")} value={indent} onChange={event => setIndent(Number(event.target.value))}><option value={2}>{t("2 spasi")}</option><option value={3}>{t("3 spasi")}</option><option value={4}>{t("4 spasi")}</option></select></label></div>
+        <textarea className="json-editor" aria-label={t("Editor JSON")} value={input} onChange={e => update(e.target.value)} spellCheck={false} placeholder={t("Tempel JSON Anda di sini…")} onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         transform("format");
     } }}/>
-        <div className="editor-footer"><span>{input.split("\n").length} baris · {input.length.toLocaleString("id-ID")} karakter</span><button className="text-button" onClick={() => { setInput(""); setCommitted(""); setNotice("Editor dikosongkan."); }}><Trash2 size={14}/>Kosongkan</button></div>
-        <div className="editor-actions"><button className="primary-button" onClick={() => transform("format")}><AlignLeft size={17}/>Format JSON <kbd>Ctrl ↵</kbd></button><button className="secondary-button" onClick={validate}><Check size={16}/>Validasi</button><button className="secondary-button" onClick={() => transform("clean")}><Sparkles size={16}/>Clean</button></div>
-        <div className="editor-extras"><button className="toolbar-button" onClick={() => transform("minify")}><Minimize2 size={15}/>Minify</button><button className="toolbar-button" onClick={() => transform("sort")}><ArrowDownAZ size={15}/>Urutkan key</button><label className="auto-row"><input type="checkbox" checked={auto} onChange={e => { setAuto(e.target.checked); if (e.target.checked)
-        setCommitted(input); }}/>Update otomatis</label></div>
+        <div className="editor-footer"><span>{input.split("\n").length} {t("baris · ")}{input.length.toLocaleString("id-ID")} {t("karakter")}</span><button className="text-button" onClick={() => { setInput(""); setCommitted(""); setNotice("Editor dikosongkan."); }}><Trash2 size={14}/>{t("Kosongkan")}</button></div>
+        <div className="editor-actions"><button className="primary-button" onClick={() => transform("format")}><AlignLeft size={17}/>Format JSON <kbd>Ctrl ↵</kbd></button><button className="secondary-button" onClick={validate}><Check size={16}/>{t("Validasi")}</button><button className="secondary-button" onClick={() => transform("clean")}><Sparkles size={16}/>Clean</button></div>
+        <div className="editor-extras"><button className="toolbar-button" onClick={() => transform("minify")}><Minimize2 size={15}/>Minify</button><button className="toolbar-button" onClick={() => transform("sort")}><ArrowDownAZ size={15}/>{t("Urutkan key")}</button><label className="auto-row"><input type="checkbox" checked={auto} onChange={e => { setAuto(e.target.checked); if (e.target.checked)
+        setCommitted(input); }}/>{t("Update otomatis")}</label></div>
       </div>
       <div className="panel output-panel">
-        <div className="panel-heading"><div className="panel-title-wrap"><span className="panel-index">02</span><div><h2>Hasil</h2><p>Jelajahi dan ekspor data</p></div></div><button className="icon-button" aria-label="Cetak hasil JSON" disabled={!valid || stale || !!converted.error} onClick={() => window.print()}><Printer size={17}/></button></div>
-        <div className="output-tabs" role="tablist" aria-label="Format output" onKeyDown={e => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
+        <div className="panel-heading"><div className="panel-title-wrap"><span className="panel-index">02</span><div><h2>{t("Hasil")}</h2><p>{t("Jelajahi dan ekspor data")}</p></div></div><button className="icon-button" aria-label={t("Cetak hasil JSON")} disabled={!valid || stale || !!converted.error} onClick={() => window.print()}><Printer size={17}/></button></div>
+        <div className="output-tabs" role="tablist" aria-label={t("Format output")} onKeyDown={e => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
         e.preventDefault();
         const i = tabs.findIndex(tab => tab.id === activeTab);
         const next = e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : (i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length;
@@ -202,15 +204,15 @@ export default function JsonWorkbench() {
     }
     catch {
         setNotice("Clipboard tidak tersedia.");
-    } }}>{copied ? <Check size={15}/> : <Copy size={15}/>} {copied ? "Tersalin" : "Salin"}</button><button className="toolbar-button" disabled={!converted.text || stale} onClick={download}><Download size={15}/>Simpan</button></div></div>
+    } }}>{copied ? <Check size={15}/> : <Copy size={15}/>} {copied ? t("Tersalin") : t("Salin")}</button><button className="toolbar-button" disabled={!converted.text || stale} onClick={download}><Download size={15}/>{t("Simpan")}</button></div></div>
         <div id="json-output" role="tabpanel" aria-labelledby={"tab-" + activeTab} tabIndex={0} className={`output-content ${activeTab === "graph" ? "graph-content" : ""}`}>
-          {parsed.error && committed.trim() ? <div className="empty-state error-state"><CircleAlert size={30}/><h3>JSON belum dapat dibaca</h3><p>{parsed.error.message}</p><span>Baris {parsed.error.line}, kolom {parsed.error.column}</span><button className="secondary-button" onClick={() => transform("fix")}>Coba Fix JSON</button></div> : !committed.trim() ? <div className="empty-state"><CodeXml size={30}/><h3>Preview tampil di sini</h3><p>Tempel JSON atau muat contoh untuk memulai.</p></div> : converted.error ? <div className="empty-state error-state" role="alert"><CircleAlert size={30}/><h3>Konversi tidak tersedia</h3><p>{converted.error}</p></div> : activeTab === "tree" ? <TreeView value={parsed.value}/> : activeTab === "graph" ? <GraphView value={parsed.value}/> : <pre className="code-output"><code>{converted.text}</code></pre>}
+          {parsed.error && committed.trim() ? <div className="empty-state error-state"><CircleAlert size={30}/><h3>{t("JSON belum dapat dibaca")}</h3><p>{t(parsed.error.message)}</p><span>{t("Baris ")}{parsed.error.line}{t(", kolom ")}{parsed.error.column}</span><button className="secondary-button" onClick={() => transform("fix")}>{t("Coba Fix JSON")}</button></div> : !committed.trim() ? <div className="empty-state"><CodeXml size={30}/><h3>{t("Preview tampil di sini")}</h3><p>{t("Tempel JSON atau muat contoh untuk memulai.")}</p></div> : converted.error ? <div className="empty-state error-state" role="alert"><CircleAlert size={30}/><h3>{t("Konversi tidak tersedia")}</h3><p>{t(converted.error)}</p></div> : activeTab === "tree" ? <TreeView value={parsed.value}/> : activeTab === "graph" ? <GraphView value={parsed.value}/> : <pre className="code-output"><code>{converted.text}</code></pre>}
         </div>
-        <div className="output-footer">{stale ? <span className="status-warning">Input berubah. Klik Validasi untuk memperbarui hasil.</span> : valid && !converted.error ? "Hasil sesuai input terbaru" : "Menunggu input yang valid"}</div>
+        <div className="output-footer">{stale ? <span className="status-warning">{t("Input berubah. Klik Validasi untuk memperbarui hasil.")}</span> : valid && !converted.error ? t("Hasil sesuai input terbaru") : t("Menunggu input yang valid")}</div>
       </div>
     </section>
-    <p className="notice-line" role="status">{notice}</p>
-    <div className="workspace-help"><CodeXml size={18}/><p><strong>Data tetap dalam kendali Anda.</strong> Pemrosesan JSON berjalan di browser. Impor URL akan menghubungi alamat yang Anda tentukan.</p></div>
+    <p className="notice-line" role="status">{t(notice)}</p>
+    <div className="workspace-help"><CodeXml size={18}/><p><strong>{t("Data tetap dalam kendali Anda.")}</strong> {t("Pemrosesan JSON berjalan di browser. Impor URL akan menghubungi alamat yang Anda tentukan.")}</p></div>
     <div className="print-only"><pre>{converted.text}</pre></div>
   </main>;
 }

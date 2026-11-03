@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "./language-provider";
 
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, X } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -9,7 +10,7 @@ type StickyDateTimePickerProps = {
   onChange: (value: string | null) => void;
 };
 
-const weekdays = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+const weekdays = { id: ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"], en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] };
 const pad = (value: number) => String(value).padStart(2, "0");
 const subscribeToTimeZone = () => () => {};
 const getBrowserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -22,8 +23,8 @@ function getInitialDate(value: string | null) {
   return date;
 }
 
-function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("id-ID", {
+function formatDate(date: Date, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -38,6 +39,8 @@ function toLocalDateTime(date: Date, time: string) {
 }
 
 export default function StickyDateTimePicker({ value, onChange }: StickyDateTimePickerProps) {
+  const { t, language } = useLanguage();
+  const locale = language === "en" ? "en-US" : "id-ID";
   const [open, setOpen] = useState(false);
   const timeZone = useSyncExternalStore(subscribeToTimeZone, getBrowserTimeZone, getServerTimeZone);
   const [month, setMonth] = useState(() => {
@@ -114,11 +117,11 @@ export default function StickyDateTimePicker({ value, onChange }: StickyDateTime
 
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
-  const monthLabel = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(month);
+  const monthLabel = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(month);
   const today = new Date();
 
   return <div className="sticky-calendar-field">
-    <span className="sticky-calendar-label">Pengingat</span>
+    <span className="sticky-calendar-label">{t("Pengingat")}</span>
     <button
       ref={triggerRef}
       type="button"
@@ -129,8 +132,8 @@ export default function StickyDateTimePicker({ value, onChange }: StickyDateTime
     >
       <CalendarDays size={15} aria-hidden="true" />
       <span className="sticky-calendar-trigger-copy">
-        <strong>{value ? new Intl.DateTimeFormat("id-ID", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone }).format(new Date(value)) : "Atur pengingat"}</strong>
-        <small>{value ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone }).format(new Date(value)) : "Pilih tanggal dan waktu"}</small>
+        <strong>{value ? new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone }).format(new Date(value)) : t("Atur pengingat")}</strong>
+        <small>{value ? new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone }).format(new Date(value)) : t("Pilih tanggal dan waktu")}</small>
       </span>
       <ChevronRight size={14} className="sticky-calendar-trigger-chevron" aria-hidden="true" />
     </button>
@@ -140,19 +143,19 @@ export default function StickyDateTimePicker({ value, onChange }: StickyDateTime
           <header className="sticky-calendar-header">
             <div className="sticky-calendar-heading">
               <span className="sticky-calendar-icon"><CalendarDays size={17} /></span>
-              <div><h2 id="sticky-calendar-title">Atur pengingat</h2><p>{value ? "Ubah jadwal catatan ini" : "Pilih waktu untuk diingatkan"}</p></div>
+              <div><h2 id="sticky-calendar-title">{t("Atur pengingat")}</h2><p>{value ? t("Ubah jadwal catatan ini") : t("Pilih waktu untuk diingatkan")}</p></div>
             </div>
-            <button type="button" className="sticky-calendar-close" aria-label="Tutup kalender" onClick={() => setOpen(false)}><X size={17} /></button>
+            <button type="button" className="sticky-calendar-close" aria-label={t("Tutup kalender")} onClick={() => setOpen(false)}><X size={17} /></button>
           </header>
           <div className="sticky-calendar-month-nav">
             <strong>{monthLabel}</strong>
             <div>
-              <button type="button" aria-label="Bulan sebelumnya" onClick={() => changeMonth(-1)}><ChevronLeft size={17} /></button>
-              <button type="button" aria-label="Bulan berikutnya" onClick={() => changeMonth(1)}><ChevronRight size={17} /></button>
+              <button type="button" aria-label={t("Bulan sebelumnya")} onClick={() => changeMonth(-1)}><ChevronLeft size={17} /></button>
+              <button type="button" aria-label={t("Bulan berikutnya")} onClick={() => changeMonth(1)}><ChevronRight size={17} /></button>
             </div>
           </div>
           <div className="sticky-calendar-grid" role="group" aria-label={monthLabel}>
-            {weekdays.map(day => <span className="sticky-calendar-weekday" aria-hidden="true" key={day}>{day}</span>)}
+            {weekdays[language].map(day => <span className="sticky-calendar-weekday" aria-hidden="true" key={day}>{day}</span>)}
             {Array.from({ length: firstWeekday }, (_, index) => <span className="sticky-calendar-blank" aria-hidden="true" key={`blank-${index}`} />)}
             {Array.from({ length: daysInMonth }, (_, index) => {
               const day = index + 1;
@@ -160,7 +163,7 @@ export default function StickyDateTimePicker({ value, onChange }: StickyDateTime
               const isToday = today.getFullYear() === month.getFullYear() && today.getMonth() === month.getMonth() && today.getDate() === day;
               return <button
                 type="button"
-                aria-label={formatDate(new Date(month.getFullYear(), month.getMonth(), day))}
+                aria-label={formatDate(new Date(month.getFullYear(), month.getMonth(), day), locale)}
                 aria-current={isToday ? "date" : undefined}
                 aria-pressed={isSelected}
                 className={`sticky-calendar-day${isSelected ? " is-selected" : ""}${isToday ? " is-today" : ""}`}
@@ -170,12 +173,12 @@ export default function StickyDateTimePicker({ value, onChange }: StickyDateTime
             })}
           </div>
           <div className="sticky-calendar-time-row">
-            <span><Clock3 size={15} /> Waktu</span>
-            <input aria-label="Waktu pengingat" type="time" required value={time} onChange={event => setTime(event.target.value)} />
+            <span><Clock3 size={15} /> {t("Waktu")}</span>
+            <input aria-label={t("Waktu pengingat")} type="time" required value={time} onChange={event => setTime(event.target.value)} />
           </div>
           <footer className="sticky-calendar-footer">
-            {value ? <button type="button" className="sticky-calendar-clear" onClick={clearReminder}>Hapus pengingat</button> : <span />}
-            <div><button type="button" className="sticky-calendar-cancel" onClick={() => setOpen(false)}>Batal</button><button type="button" className="sticky-calendar-save" disabled={!/^\d{2}:\d{2}$/.test(time)} onClick={saveReminder}>Simpan</button></div>
+            {value ? <button type="button" className="sticky-calendar-clear" onClick={clearReminder}>{t("Hapus pengingat")}</button> : <span />}
+            <div><button type="button" className="sticky-calendar-cancel" onClick={() => setOpen(false)}>{t("Batal")}</button><button type="button" className="sticky-calendar-save" disabled={!/^\d{2}:\d{2}$/.test(time)} onClick={saveReminder}>{t("Simpan")}</button></div>
           </footer>
         </section>
       </div>,
