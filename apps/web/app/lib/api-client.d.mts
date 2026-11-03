@@ -4,6 +4,7 @@ export function replaceQuery(url: string, rows: RequestRow[]): string;
 export function validateRequest(request: Pick<ImportedRequest, "method" | "url" | "headers" | "body">): { url: string; method: string; headers: Headers; body: string | undefined };
 export function executeApiRequest(request: ReturnType<typeof validateRequest>, signal?: AbortSignal): Promise<{ status: number; statusText: string; milliseconds: number; bytes: number; text: string; truncated: boolean }>;
 export function parseCurl(text: string): ImportedRequest;
+export function parseCurlPaste(text: string): ImportedRequest | null;
 export function parseRequestJson(text: string): ImportedRequest[];
 export type ApiAuthorization = { type: 'none' | 'bearer' | 'basic' | 'api-key'; token?: string; username?: string; password?: string; key?: string; value?: string; placement?: 'header' | 'query' };
 export function applyAuthorization(request: ImportedRequest, auth: ApiAuthorization): ImportedRequest;

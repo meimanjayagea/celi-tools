@@ -119,6 +119,17 @@ export function parseCurl(text) {
   return result;
 }
 
+/** Recognize cURL pasted into the URL field without executing shell input. */
+export function parseCurlPaste(text) {
+  if (!/^\s*curl(?:\s|$)/.test(text)) return null;
+  if (new TextEncoder().encode(text).byteLength > 1024 * 1024) throw new Error("Impor dibatasi hingga 1 MB.");
+  const request = parseCurl(text);
+  let url;
+  try { url = new URL(request.url); } catch { throw new Error("Masukkan URL lengkap yang valid."); }
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new Error("URL harus menggunakan HTTP atau HTTPS tanpa kredensial dalam alamat.");
+  return request;
+}
+
 function pairs(value) {
   if (Array.isArray(value)) return value.filter(item => item && !item.disabled && typeof item.key === "string").map(item => ({ key: item.key, value: String(item.value ?? "") }));
   if (value && typeof value === "object") return Object.entries(value).map(([key, item]) => ({ key, value: String(item ?? "") }));

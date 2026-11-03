@@ -1,7 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { executeApiRequest, parseCurl, parseRequestJson, replaceQuery, validateRequest } from "../apps/web/app/lib/api-client.mjs";
+import { executeApiRequest, parseCurl, parseCurlPaste, parseRequestJson, replaceQuery, validateRequest } from "../apps/web/app/lib/api-client.mjs";
+
+test("detects pasted curl and imports its method, query, headers and JSON body", () => {
+  const request = parseCurlPaste(`  curl 'https://example.com/items?q=one&q=two' \\\n    -X PATCH -H 'Authorization: Bearer secret' -H 'Content-Type: application/json' \\\n    --data-raw '{"name":"Ada"}'`);
+  assert.equal(request.method, "PATCH");
+  assert.deepEqual([...new URL(request.url).searchParams.entries()], [["q", "one"], ["q", "two"]]);
+  assert.equal(request.headers[0].value, "Bearer secret");
+  assert.deepEqual(JSON.parse(request.body), { name: "Ada" });
+});
+
+test("leaves ordinary pasted URLs alone and rejects invalid curl before applying it", () => {
+  assert.equal(parseCurlPaste("https://example.com/?q=curl"), null);
+  assert.throws(() => parseCurlPaste("curl -k https://example.com"), /tidak didukung/);
+  assert.throws(() => parseCurlPaste("curl not-a-url"), /URL/);
+  assert.throws(() => parseCurlPaste(`curl https://example.com -H '${"x".repeat(1024 * 1024)}'`), /1 MB/);
+});
 
 test("imports curl with quoted JSON and headers", () => {
   const request = parseCurl(`curl 'https://example.com/api?q=one' -X POST -H 'Authorization: Bearer abc' -H 'Content-Type: application/json' --data-raw '{"name":"Ada Lovelace"}'`);

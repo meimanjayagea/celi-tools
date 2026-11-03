@@ -2130,6 +2130,7 @@ kbd {
 .api-import-actions { display:flex; gap:10px; align-items:center; padding:12px 24px 0; }
 .api-import-actions span { color:var(--text-muted); font-size:11px; }
 .api-inline-error { margin:10px 24px 0; font-size:12px; }
+.api-paste-message { margin: -10px 24px 16px; font-size: 12px; }
 .api-import-list { margin:16px 24px 0; display:grid; gap:6px; max-height:240px; overflow:auto; }
 .api-import-list p { color:var(--text-secondary); font-size:12px; }
 .api-import-list button { display:flex; align-items:center; gap:12px; width:100%; padding:9px 11px; text-align:left; border:1px solid var(--border); border-radius:7px; }

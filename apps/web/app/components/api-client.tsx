@@ -3,9 +3,9 @@ import { useLanguage } from "./language-provider";
 import { useAppDialog } from "./app-dialog";
 import RacePanel from "./race-panel";
 
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent } from "react";
 import { ArrowUpRight, Braces, CircleAlert, Plus, Send, ShieldCheck, Trash2, Upload, X } from "lucide-react";
-import { executeApiRequest, parseCurl, parseRequestJson, replaceQuery, validateRequest, applyAuthorization, sanitizeSavedRequest, resolveApiVariables, runApiScript, type ApiAuthorization, type ImportedRequest, type RequestRow } from "../lib/api-client.mjs";
+import { executeApiRequest, parseCurl, parseCurlPaste, parseRequestJson, replaceQuery, validateRequest, applyAuthorization, sanitizeSavedRequest, resolveApiVariables, runApiScript, type ApiAuthorization, type ImportedRequest, type RequestRow } from "../lib/api-client.mjs";
 
 type Tab = "params" | "headers" | "body" | "authorization" | "pre-script" | "tests";
 type SavedRequest = ImportedRequest & { id: string; preScript: string; testScript: string };
@@ -54,6 +54,7 @@ export default function ApiClient() {
   const [importText, setImportText] = useState("");
   const [imports, setImports] = useState<ImportedRequest[]>([]);
   const [importError, setImportError] = useState("");
+  const [pasteMessage, setPasteMessage] = useState<{ text: string; error: boolean } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
@@ -107,6 +108,20 @@ export default function ApiClient() {
     setHeaders(request.headers.length ? request.headers : [emptyRow()]);
     setBody(request.body); setResponse(null); setError("");
     setImportOpen(false); setImports([]); setImportText(""); setImportError("");
+  }
+
+  function handleUrlPaste(event: ClipboardEvent<HTMLInputElement>) {
+    const text = event.clipboardData.getData("text/plain");
+    if (!/^\s*curl(?:\s|$)/.test(text)) { setPasteMessage(null); return; }
+    event.preventDefault();
+    try {
+      const request = parseCurlPaste(text);
+      if (!request) return;
+      applyImport(request);
+      setPasteMessage({ text: "cURL berhasil diimpor. Periksa request sebelum mengirim.", error: false });
+    } catch (cause) {
+      setPasteMessage({ text: cause instanceof Error ? cause.message : "Impor gagal.", error: true });
+    }
   }
 
   function importRequest() {
@@ -185,7 +200,8 @@ export default function ApiClient() {
       {imports.length > 0 && <div className="api-import-list"><p>{t("Pilih request dari koleksi:")}</p>{imports.map((item, index) => <button type="button" key={`${item.name}-${index}`} onClick={() => applyImport(item)}><strong>{item.method}</strong><span>{item.name}</span><ArrowUpRight size={15} /></button>)}</div>}
     </section>}
     <section className="panel api-request" aria-labelledby="api-request-title"><div className="api-section-heading"><div><span className="api-kicker">01 / REQUEST</span><h2 id="api-request-title">{t("Siapkan request")}</h2></div><span className="api-private"><ShieldCheck size={15} /> {t("Simpan secara manual")}</span></div>
-      <form className="api-send-bar" onSubmit={send}><label className="sr-only" htmlFor="api-method">{t("Metode HTTP")}</label><select id="api-method" value={method} onChange={event => setMethod(event.target.value)}>{methods.map(item => <option key={item}>{item}</option>)}</select><label className="sr-only" htmlFor="api-url">URL API</label><input id="api-url" type="text" inputMode="url" value={url} onChange={event => updateUrl(event.target.value)} placeholder="https://api.example.com/v1/resource" autoComplete="off" spellCheck={false} required />{sending ? <button type="button" className="secondary-button" onClick={() => controller.current?.abort()}>{t("Batalkan")}</button> : <button className="primary-button" type="submit"><Send size={16} /> {t("Send")}</button>}</form>
+      <form className="api-send-bar" onSubmit={send}><label className="sr-only" htmlFor="api-method">{t("Metode HTTP")}</label><select id="api-method" value={method} onChange={event => setMethod(event.target.value)}>{methods.map(item => <option key={item}>{item}</option>)}</select><label className="sr-only" htmlFor="api-url">URL API</label><input id="api-url" type="text" inputMode="url" value={url} onPaste={handleUrlPaste} onChange={event => { setPasteMessage(null); updateUrl(event.target.value); }} placeholder="https://api.example.com/v1/resource" autoComplete="off" spellCheck={false} required />{sending ? <button type="button" className="secondary-button" onClick={() => controller.current?.abort()}>{t("Batalkan")}</button> : <button className="primary-button" type="submit"><Send size={16} /> {t("Send")}</button>}</form>
+      {pasteMessage && <p className={pasteMessage.error ? "api-paste-message api-inline-error" : "api-paste-message"} role={pasteMessage.error ? "alert" : "status"}>{t(pasteMessage.text)}</p>}
       <div className="api-tabs" role="tablist" aria-label={t("Pengaturan request")} onKeyDown={event => { if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return; event.preventDefault(); const index = tabs.findIndex(tab => tab.id === activeTab); const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length; setActiveTab(tabs[next].id); document.getElementById(`api-tab-${tabs[next].id}`)?.focus(); }}>{tabs.map(tab => <button type="button" role="tab" id={`api-tab-${tab.id}`} key={tab.id} aria-controls="api-request-panel" aria-selected={tab.id === activeTab} tabIndex={tab.id === activeTab ? 0 : -1} className={tab.id === activeTab ? "active" : ""} onClick={() => setActiveTab(tab.id)}>{t(tab.label)}{!!tab.count && <span>{tab.count}</span>}</button>)}</div>
       <div id="api-request-panel" role="tabpanel" aria-labelledby={`api-tab-${activeTab}`} className="api-request-content">{activeTab === "params" ? <KeyValueEditor label="parameter" rows={params} onChange={updateParams} /> : activeTab === "headers" ? <KeyValueEditor label="header" rows={headers} onChange={setHeaders} /> : activeTab === "authorization" ? <div className="api-auth-editor"><label>{t("Jenis authorization")}<select value={auth.type} onChange={event => setAuth({ type: event.target.value as ApiAuthorization["type"] })}><option value="none">{t("Tanpa authorization")}</option><option value="bearer">Bearer Token</option><option value="basic">Basic Auth</option><option value="api-key">API Key</option></select></label>{auth.type === "bearer" && <label>Token<input type="password" autoComplete="off" value={auth.token || ""} onChange={event => setAuth({ ...auth, token: event.target.value })}/></label>}{auth.type === "basic" && <><label>Username<input autoComplete="off" value={auth.username || ""} onChange={event => setAuth({ ...auth, username: event.target.value })}/></label><label>Password<input type="password" autoComplete="new-password" value={auth.password || ""} onChange={event => setAuth({ ...auth, password: event.target.value })}/></label></>}{auth.type === "api-key" && <><label>{t("Key")}<input value={auth.key || ""} onChange={event => setAuth({ ...auth, key: event.target.value })}/></label><label>{t("Value")}<input type="password" autoComplete="off" value={auth.value || ""} onChange={event => setAuth({ ...auth, value: event.target.value })}/></label><label>{t("Tambahkan ke")}<select value={auth.placement || "header"} onChange={event => setAuth({ ...auth, placement: event.target.value as "header" | "query" })}><option value="header">Header</option><option value="query">Query Params</option></select></label></>}</div> : activeTab === "pre-script" || activeTab === "tests" ? <div className="api-body-editor"><div><strong>{activeTab === "pre-script" ? "Pre-request Script" : "Tests"}</strong></div><p>{t("Subset aman: satu perintah per baris. JavaScript bebas, jaringan, dan akses DOM tidak didukung.")}</p><textarea aria-label={activeTab === "pre-script" ? "Pre-request Script" : "Tests"} value={activeTab === "pre-script" ? preScript : testScript} onChange={event => activeTab === "pre-script" ? setPreScript(event.target.value) : setTestScript(event.target.value)} placeholder={activeTab === "pre-script" ? 'pm.environment.set("id", "42");' : 'pm.test("Status 200", () => pm.response.to.have.status(200));'} spellCheck={false}/><p>{t("Gunakan variabel sebagai {{nama}} di URL, header, atau body. Variabel hanya disimpan selama halaman terbuka.")}</p></div> : <div className="api-body-editor"><div><strong>JSON body</strong><span>{t("Untuk POST, PUT, PATCH, dan DELETE")}</span></div><textarea aria-label="Request body JSON" placeholder={'{\n  "name": "Celi"\n}'} value={body} onChange={event => setBody(event.target.value)} spellCheck={false} /><p>{t("Jika Content-Type kosong, application/json ditambahkan saat body dikirim.")}</p></div>}</div>
     </section>
