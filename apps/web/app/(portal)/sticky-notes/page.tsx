@@ -3,7 +3,7 @@ import StickyNotes from "../../components/sticky-notes";
 import { requireAuth } from "../../lib/require-auth";
 
 export const metadata: Metadata = {
-  title: "Sticky Note — Celi Tools",
+  title: "Sticky Note — celimanapp",
   description: "Catatan pribadi dengan tag, posisi bebas, dan pengingat.",
 };
 

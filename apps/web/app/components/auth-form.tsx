@@ -60,14 +60,14 @@ export default function AuthForm({ callbackUrl: requestedCallbackUrl }: { callba
   return <main className="public-auth-page">
     <section className="auth-introduction" aria-labelledby="auth-intro-title">
       <Link href="/" className="auth-back"><ArrowLeft size={16} />{t("Kembali ke beranda")}</Link>
-      <div className="auth-intro-copy"><span className="eyebrow">CELI TOOLS WORKSPACE</span><h2 id="auth-intro-title">{t("Lebih rapi datanya.")}<br /><span>{t("Lebih ringan kerjanya.")}</span></h2><p>{t("Konversi dan kompres file, rapikan JSON, serta olah teks. Empat workspace untuk membawa file dan data Anda dari berantakan menjadi siap digunakan.")}</p></div>
+      <div className="auth-intro-copy"><span className="eyebrow">celimanapp WORKSPACE</span><h2 id="auth-intro-title">{t("Lebih rapi datanya.")}<br /><span>{t("Lebih ringan kerjanya.")}</span></h2><p>{t("Konversi dan kompres file, rapikan JSON, serta olah teks. Empat workspace untuk membawa file dan data Anda dari berantakan menjadi siap digunakan.")}</p></div>
       <Image src="/images/workspace-hero.webp" width={500} height={333} alt="" className="auth-illustration" unoptimized />
       <div className="auth-intro-note"><CodeXml size={19} /><span>{t("Satu akun untuk semua workspace.")}<br /><strong>{t("Masuk aman dengan akun Google Anda.")}</strong></span></div>
     </section>
     <section className="auth-form-section" aria-label={t("Login akun")}>
       <div className="auth-form-card">
         <span className="auth-form-icon"><LockKeyhole size={24} /></span>
-        <div className="auth-form-heading"><h1>{t("Masuk ke Celi Tools")}</h1><p>{t("Gunakan akun Google Anda. Jika ini pertama kalinya, akun Celi Tools akan dibuat otomatis.")}</p></div>
+        <div className="auth-form-heading"><h1>{t("Masuk ke celimanapp")}</h1><p>{t("Gunakan akun Google Anda. Jika ini pertama kalinya, akun celimanapp akan dibuat otomatis.")}</p></div>
         {loading || user ? <div className="auth-session-status" role="status"><LoaderCircle size={19} className="spin" /><p>{user ? t("Membuka workspace Anda…") : t("Memeriksa sesi Anda…")}</p>{user && <Link href={callbackUrl} className="auth-link">{t("Lanjut ke workspace")}</Link>}</div> : <>
           <Suspense fallback={null}><AuthFeedback /></Suspense>
           {status && !status.available && <div className="auth-provider-notice" role="status"><CircleAlert size={17} /><div><p>{t("Login Google belum tersedia saat ini. Hubungi administrator atau coba lagi nanti.")}</p><button type="button" className="auth-link" onClick={() => { setStatus(null); setRefresh(value => value + 1); }}>{t("Periksa lagi")}</button></div></div>}
@@ -78,7 +78,7 @@ export default function AuthForm({ callbackUrl: requestedCallbackUrl }: { callba
           </button>}
           {status?.available && <p className="auth-provider-hint">{t("Akun baru dibuat otomatis setelah Anda menyetujui login Google.")}</p>}
         </>}
-        <div className="account-form-note"><LockKeyhole size={14} /><p>{t("Celi Tools tidak menyimpan kata sandi Google Anda. Autentikasi dilakukan langsung oleh Google.")}</p></div>
+        <div className="account-form-note"><LockKeyhole size={14} /><p>{t("celimanapp tidak menyimpan kata sandi Google Anda. Autentikasi dilakukan langsung oleh Google.")}</p></div>
       </div>
     </section>
   </main>;

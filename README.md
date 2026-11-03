@@ -1,6 +1,6 @@
-# Celi Tools
+# celimanapp
 
-Portal untuk konversi dan kompresi file, JSON Workspace, Crypto Tools, Sticky Note, dan API Client. Login memakai Google OAuth melalui Auth.js dan PostgreSQL; akun Celi Tools dibuat otomatis saat login Google pertama.
+Portal untuk konversi dan kompresi file, JSON Workspace, Crypto Tools, Sticky Note, dan API Client. Login memakai Google OAuth melalui Auth.js dan PostgreSQL; akun celimanapp dibuat otomatis saat login Google pertama.
 
 ## Struktur monorepo
 

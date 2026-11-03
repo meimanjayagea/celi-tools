@@ -57,14 +57,14 @@ export default function Navbar({ children }: {
     {open && <button className="nav-backdrop" aria-label={t("Tutup navigasi")} onClick={() => setOpen(false)}/>}
     <aside className={`portal-sidebar ${open ? "is-open" : ""}`} aria-label={t("Navigasi utama")} id="portal-navigation">
       <button className="icon-button drawer-close" aria-label={t("Tutup menu")} onClick={() => setOpen(false)}><X size={17}/></button>
-      <Link href="/" className="portal-brand" onClick={() => setOpen(false)}><Image src="/brand.svg" width={34} height={34} alt=""/><span>CELI TOOLS</span></Link>
+      <Link href="/" className="portal-brand" onClick={() => setOpen(false)}><Image src="/brand.svg" width={34} height={34} alt=""/><span>celimanapp</span></Link>
       <nav>{links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} onClick={() => setOpen(false)} className={`portal-nav-link ${pathname === href ? "active" : ""} ${href === "/preferences" ? "nav-preferences" : ""}`} aria-current={pathname === href ? "page" : undefined}><Icon size={21}/><span>{t(label)}</span></Link>)}</nav>
       <div className="sidebar-bottom"><span className="local-indicator"/>{t("File & data, satu tempat")}<small>{t("Ubah. Ringankan. Rapikan.")}</small></div>
     </aside>
     <div className="portal-main" inert={open || undefined}>
       <header className="portal-header">
         <button id="navigation-toggle" className="icon-button mobile-menu" aria-label={open ? t("Tutup navigasi") : t("Buka navigasi")} aria-expanded={open} aria-controls="portal-navigation" onClick={() => setOpen(!open)}>{open ? <X /> : <Menu />}</button>
-        <Link href="/dashboard" className="mobile-portal-brand" aria-label="Dashboard"><Image src="/brand.svg" width={30} height={30} alt=""/><span>CELI TOOLS</span></Link>
+        <Link href="/dashboard" className="mobile-portal-brand" aria-label="Dashboard"><Image src="/brand.svg" width={30} height={30} alt=""/><span>celimanapp</span></Link>
         <nav className="breadcrumbs" aria-label="Breadcrumb"><Link href="/dashboard" aria-label="Dashboard"><Home size={17}/></Link><ChevronRight size={14}/><span>{t(title)}</span></nav>
         <div className="header-actions"><LanguageToggle /><ThemeToggle />
           {user ? <details className="account-menu"><summary aria-label={user.email || t("Akun")}><span className="avatar">{(user.email || "A")[0].toUpperCase()}</span><span className="account-label">{user.email?.split("@")[0] || "Akun"}</span><ChevronRight size={14}/></summary><div className="account-dropdown"><span>{user.email}</span><button onClick={async () => {

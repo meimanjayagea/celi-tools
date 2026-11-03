@@ -1,4 +1,4 @@
-# Deploy Celi Tools ke Vercel
+# Deploy celimanapp ke Vercel
 
 Repository ini menjalankan web Next.js dan API file container dalam satu project Vercel menggunakan **Vercel Services**. File besar tidak dikirim sebagai body Function Vercel: browser mengunggah langsung ke private Vercel Blob, lalu API menariknya ke container untuk diproses.
 

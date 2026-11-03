@@ -1,5 +1,5 @@
 export const SAMPLE_JSON = `{
-  "nama": "Celi Tools",
+  "nama": "celimanapp",
   "deskripsi": "Kumpulan tools untuk developer dan admin.",
   "kategori": ["JSON", "Crypto", "Utilities"],
   "aktif": true,

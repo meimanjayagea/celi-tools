@@ -6,7 +6,7 @@ import { LanguageProvider } from "./components/language-provider";
 import { HydrationProgress } from "./components/page-loading";
 
 export const metadata: Metadata = {
-  title: "Celi Tools — Portal Admin Tools",
+  title: "celimanapp — Portal Admin Tools",
   description: "Konversi dan kompres file, olah JSON, encoding, dan kriptografi dalam satu portal.",
 };
 

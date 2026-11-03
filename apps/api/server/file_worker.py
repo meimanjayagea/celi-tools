@@ -658,7 +658,7 @@ def execute(job):
     notes = []
     if job["mode"] == "compress" and target in ("zip", "tar.gz", "gzip", "bz2", "xz"):
         extension = {"gzip": "gz"}.get(target, target)
-        output = folder / ("celi-archive." + extension if len(files) > 1 or target in ("zip", "tar.gz")
+        output = folder / ("celimanapp-archive." + extension if len(files) > 1 or target in ("zip", "tar.gz")
                            else files[0]["safeName"] + "." + extension)
         archive_files(files, output, target)
         notes.append("Arsip mempertahankan isi file. File yang sudah terkompresi mungkin tidak menjadi lebih kecil.")
@@ -704,7 +704,7 @@ def execute(job):
     if len(outputs) == 1:
         final = outputs[0]
     else:
-        final = folder / "celi-results.zip"
+        final = folder / "celimanapp-results.zip"
         with bounded_zip(final) as archive:
             used = set()
             for index, output in enumerate(outputs):

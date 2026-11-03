@@ -131,7 +131,7 @@ export default function StickyNotes() {
         if (!response.ok || stopped) return;
         const data = await response.json();
         for (const reminder of data.reminders as { id: string; content: string }[]) {
-          if (!stopped) new Notification(t("Pengingat Celi Tools"), { body: reminder.content.trim().slice(0, 180) || t("Catatan yang Anda jadwalkan sudah waktunya.") });
+          if (!stopped) new Notification(t("Pengingat celimanapp"), { body: reminder.content.trim().slice(0, 180) || t("Catatan yang Anda jadwalkan sudah waktunya.") });
         }
       } catch { /* Retry on the next interval; notification polling is best effort. */ }
     };

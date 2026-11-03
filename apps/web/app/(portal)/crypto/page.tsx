@@ -4,7 +4,7 @@ import { requireAuth } from "../../lib/require-auth";
 import { pathWithSearchParams } from "../../lib/redirect-path";
 
 export const metadata: Metadata = {
-  title: "Enkripsi & Dekripsi — Celi Tools",
+  title: "Enkripsi & Dekripsi — celimanapp",
   description: "Enkripsi, dekripsi, hashing, dan encoding data di browser Anda. Data tidak pernah keluar dari perangkat.",
 };
 

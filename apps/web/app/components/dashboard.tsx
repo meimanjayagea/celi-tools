@@ -40,6 +40,6 @@ export default function Dashboard() {
     catch {
         setError("Clipboard tidak tersedia. Anda dapat memilih dan menyalin teks contoh.");
     } }}>{copied ? <Check size={16}/> : <Copy size={16}/>}{copied ? t("Tersalin") : t("Salin contoh")}</button></div><div className="sample-code-body">{SAMPLE_JSON.split("\n").map((line, i) => <div key={i}><span className="sample-line-number" aria-hidden="true">{i + 1}</span><code>{line.split(/("(?:[^"\\]|\\.)*")/g).map((part, j, parts) => <span key={j} className={part.startsWith('"') ? (parts[j + 1]?.trim().startsWith(":") ? "syntax-key" : "syntax-string") : ""}>{part}</span>)}</code></div>)}</div></div><p className="sr-only" role="status">{copied ? t("Contoh JSON disalin") : t(error)}</p></section>
-    <footer className="page-footer"><span>CELI TOOLS <span>·</span> PORTAL TOOLS</span><span>{t("Ubah file. Ringankan ukuran. Rapikan data.")}</span></footer>
+    <footer className="page-footer"><span>celimanapp <span>·</span> PORTAL TOOLS</span><span>{t("Ubah file. Ringankan ukuran. Rapikan data.")}</span></footer>
   </main>;
 }

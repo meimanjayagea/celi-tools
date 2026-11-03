@@ -90,7 +90,7 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
         let notes: string[] = [];
         try { const bytes = Uint8Array.from(atob(response.headers.get("X-File-Notes") || ""), char => char.charCodeAt(0)); notes = JSON.parse(new TextDecoder().decode(bytes)); } catch {}
         const encoded = response.headers.get("Content-Disposition")?.split("filename*=UTF-8''")[1];
-        const name = encoded ? decodeURIComponent(encoded) : "celi-result.zip";
+        const name = encoded ? decodeURIComponent(encoded) : "celimanapp-result.zip";
         if (!controller.signal.aborted) setResult({ url: URL.createObjectURL(blob), cleanupPath: "", name, size: blob.size, original: total, notes });
         return;
       }

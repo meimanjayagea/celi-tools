@@ -316,7 +316,7 @@ export async function processBlobFileRequest(request, mode) {
         const outputSize = responseOutputSize(result);
         const disposition = result.headers.get("content-disposition") || "";
         const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
-        const name = encodedName ? decodeURIComponent(encodedName) : "celi-result.zip";
+        const name = encodedName ? decodeURIComponent(encodedName) : "celimanapp-result.zip";
         const outputId = crypto.randomUUID();
         const safeOutputName = name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-180) || "result.bin";
         outputPath = `celi-output/${outputId}/${safeOutputName}`;

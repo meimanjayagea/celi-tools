@@ -135,7 +135,7 @@ export default function CryptoTool() {
     }
     catch {
         setError("Hasil tidak dapat disalin. Pilih teks dan gunakan Ctrl+C.");
-    } }}>{copied ? <Check size={15}/> : <Copy size={15}/>} {copied ? t("Tersalin") : t("Salin")}</button><button className="toolbar-button" disabled={!output || loading} onClick={() => { const url = URL.createObjectURL(new Blob([output], { type: "text/plain;charset=utf-8" })); const a = document.createElement("a"); a.href = url; a.download = `celi-${mode}.txt`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 0); }}><Download size={15}/>{t("Simpan")}</button></div></div></section>
+    } }}>{copied ? <Check size={15}/> : <Copy size={15}/>} {copied ? t("Tersalin") : t("Salin")}</button><button className="toolbar-button" disabled={!output || loading} onClick={() => { const url = URL.createObjectURL(new Blob([output], { type: "text/plain;charset=utf-8" })); const a = document.createElement("a"); a.href = url; a.download = `celimanapp-${mode}.txt`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 0); }}><Download size={15}/>{t("Simpan")}</button></div></div></section>
     </div>
     <div className="crypto-actions"><button className="primary-button" disabled={!input || loading || (needsPassword && !password)} onClick={() => setRun(n => n + 1)}><Play size={16}/>{loading ? t("Memproses…") : t("Proses teks")}</button><span role="status">{loading ? t("Memproses data Anda…") : t("Hasil diperbarui otomatis saat input berubah.")}</span></div>
     {error && <div className="alert alert-error" role="alert"><CircleAlert size={18}/>{t(error)}</div>}

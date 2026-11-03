@@ -1,6 +1,6 @@
-# Celi Tools public flow and portal — design QA
+# celimanapp public flow and portal — design QA
 
-> Historical design QA record. The authentication implementation has since changed to Google OAuth only; see [docs/AUTH.md](./AUTH.md). The former registration page now redirects to `/login`, where Google creates a Celi Tools account on the user's first successful sign-in.
+> Historical design QA record. The authentication implementation has since changed to Google OAuth only; see [docs/AUTH.md](./AUTH.md). The former registration page now redirects to `/login`, where Google creates a celimanapp account on the user's first successful sign-in.
 
 ## Earlier update: standalone landing, login, and registration
 

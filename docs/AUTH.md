@@ -1,6 +1,6 @@
 # Autentikasi Google
 
-Web menggunakan Auth.js, PostgreSQL, dan Google OAuth. Google adalah satu-satunya metode autentikasi. Saat login pertama berhasil, Auth.js membuat akun Celi Tools dan menautkan identitas Google; login berikutnya menggunakan akun yang sama. Tidak ada form registrasi terpisah atau login tautan email.
+Web menggunakan Auth.js, PostgreSQL, dan Google OAuth. Google adalah satu-satunya metode autentikasi. Saat login pertama berhasil, Auth.js membuat akun celimanapp dan menautkan identitas Google; login berikutnya menggunakan akun yang sama. Tidak ada form registrasi terpisah atau login tautan email.
 
 Pengguna lama yang pernah masuk dengan tautan email dapat melanjutkan dengan Google bila alamat emailnya sama dan diverifikasi Google. Auth.js menautkannya ke user yang sudah ada; callback server menolak profil Google yang tidak memiliki `email_verified=true`. Status keberadaan email tidak disediakan lewat endpoint publik.
 

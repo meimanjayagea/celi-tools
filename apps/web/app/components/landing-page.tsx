@@ -11,7 +11,7 @@ export default function LandingPage() {
       <div className="landing-hero-copy">
         <span className="public-eyebrow"><span className="local-indicator"/>{t("FILE & DATA, BERES DALAM SATU WORKSPACE")}</span>
         <h1>{t("Ubah file. Rapikan data.")}<br /><span>{t("Kerja jadi lebih ringan.")}</span></h1>
-        <p>{t("Konversi format, perkecil ukuran file, jelajahi JSON, dan olah teks. Celi Tools menyatukan pekerjaan kecil yang sering menyita waktu, agar Anda bisa lanjut ke hal berikutnya.")}</p>
+        <p>{t("Konversi format, perkecil ukuran file, jelajahi JSON, dan olah teks. celimanapp menyatukan pekerjaan kecil yang sering menyita waktu, agar Anda bisa lanjut ke hal berikutnya.")}</p>
         <div className="landing-actions"><Link href="/login" className="primary-button">{t("Masuk dengan Google ")}<ArrowRight size={18}/></Link><Link href="#tools" className="secondary-button">{t("Lihat workspace")}</Link></div>
         <div className="landing-reassurance"><span><Check size={15}/>{t("Tanpa instalasi")}</span><span><Check size={15}/>{t("Empat workspace dalam satu portal")}</span></div>
       </div>

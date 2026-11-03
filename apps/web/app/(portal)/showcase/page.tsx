@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-export const metadata: Metadata = { title: "CELI TOOLS — Dashboard Themes Showcase" };
+export const metadata: Metadata = { title: "celimanapp — Dashboard Themes Showcase" };
 type Theme = { id: string; label: string; badge: string; bg: string; sidebarBg: string; cardBg: string; text: string; muted: string; border: string; accent: string; accentSoft: string; chart1: string; chart2: string; inputBg: string; shadow: string; };
 const THEMES: Theme[] = [
 { id: "light", label: "Default Light Theme", badge: "Top Left • Light • #2563EB", bg: "#ffffff", sidebarBg: "#f1f5f9", cardBg: "#ffffff", text: "#0f172a", muted: "#64748b", border: "#e2e8f0", accent: "#2563eb", accentSoft: "#eff6ff", chart1: "#2563eb", chart2: "#0ea5e9", inputBg: "#f8fafc", shadow: "0 10px 25px rgba(15,23,42,0.08)" },
@@ -21,10 +21,10 @@ return (
 <div style={{ background: t.bg, borderRadius: 16, overflow: "hidden", border: `1px solid ${t.border}`, boxShadow: t.shadow, fontFamily: "var(--font-sans)" }}>
 <div style={{ display: "flex", gap: 6, padding: "10px 14px", borderBottom: `1px solid ${t.border}`, background: dark ? "#0b1220" : "#f8fafc", alignItems: "center" }}>
 <span style={{ width: 10, height: 10, borderRadius: 99, background: "#f87171" }} /><span style={{ width: 10, height: 10, borderRadius: 99, background: "#fbbf24" }} /><span style={{ width: 10, height: 10, borderRadius: 99, background: "#34d399" }} />
-<span style={{ marginLeft: 10, fontSize: 11, color: t.muted, background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 10px", flex: 1 }}>celi-tools.app/dashboard</span>
+<span style={{ marginLeft: 10, fontSize: 11, color: t.muted, background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 10px", flex: 1 }}>/dashboard</span>
 </div>
 <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: `1px solid ${t.border}`, flexWrap: "wrap" }}>
-<span style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 800, fontSize: 14, color: t.text }}><BrandMark />CELI TOOLS</span>
+<span style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 800, fontSize: 14, color: t.text }}><BrandMark />celimanapp</span>
 <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{["Dashboard","JSON Tools","Crypto Tools","File Converter","Settings"].map((l,i)=>(<span key={l} style={{ fontSize: 11, fontWeight: i===0?700:500, color: i===0?t.accent:t.muted, background: i===0?t.accentSoft:"transparent", border: `1px solid ${i===0?t.accent:"transparent"}`, padding: "5px 9px", borderRadius: 8 }}>{l}</span>))}</span>
 <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
 <span style={{ fontSize: 11, color: t.muted, background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 10px" }}>Search…</span>
@@ -48,7 +48,7 @@ return (
 }
 export default function Page() {
 return (<div style={{ background: "#e5e7eb", minHeight: "100vh", padding: 24, fontFamily: "var(--font-sans)" }}><div style={{ maxWidth: 1280, margin: "0 auto" }}>
-<div style={{ background: "#0f172a", color: "#fff", borderRadius: 16, padding: 20, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}><span style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 800 }}><BrandMark />CELI TOOLS</span><b>Dashboard Themes — Portfolio Display</b><span style={{ color: "#cbd5e1", fontSize: 13 }}>Light / Dark #111827 #1F2937 / Forest #F3F4F6 / Sunset — Manrope / IBM Plex Mono, vector, charts</span><Link href="/" style={{ marginLeft: "auto", background: "#38bdf8", color: "#0f172a", fontWeight: 800, fontSize: 13, padding: "9px 14px", borderRadius: 10, textDecoration: "none" }}>Open live app</Link></div>
+<div style={{ background: "#0f172a", color: "#fff", borderRadius: 16, padding: 20, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}><span style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 800 }}><BrandMark />celimanapp</span><b>Dashboard Themes — Portfolio Display</b><span style={{ color: "#cbd5e1", fontSize: 13 }}>Light / Dark #111827 #1F2937 / Forest #F3F4F6 / Sunset — Manrope / IBM Plex Mono, vector, charts</span><Link href="/" style={{ marginLeft: "auto", background: "#38bdf8", color: "#0f172a", fontWeight: 800, fontSize: 13, padding: "9px 14px", borderRadius: 10, textDecoration: "none" }}>Open live app</Link></div>
 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(480px,1fr))", gap: 20, marginTop: 20 }}>{THEMES.map((t)=>(<div key={t.id}><div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}><span style={{ fontSize: 12, fontWeight: 800, background: "#fff", border: "1px solid #cbd5e1", padding: "5px 11px", borderRadius: 99 }}>{t.label}</span><span style={{ fontSize: 12, color: "#475569" }}>{t.badge}</span></div><Mock t={t} /></div>))}</div>
 <div style={{ marginTop: 14, fontSize: 12, color: "#475569", textAlign: "center" }}>Composite on neutral gray — sidebar + header + search + Sarah C. — JSON / BTC / ETH / Converter — blue / neon / emerald / orange</div>
 </div></div>);

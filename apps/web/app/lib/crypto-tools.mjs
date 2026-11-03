@@ -1,5 +1,5 @@
 /**
- * Celi Tools — crypto, hashing and encoding utilities.
+ * celimanapp — crypto, hashing and encoding utilities.
  * Everything runs locally on the Web Crypto API; nothing is sent to a server.
  * Text is always treated as UTF-8 so non-ASCII input round-trips correctly.
  */
@@ -218,7 +218,7 @@ export async function aesDecrypt(ciphertext, password) {
   if (!password) throw new Error("Kata sandi wajib diisi.");
   const payload = base64ToBytes(ciphertext.trim());
   if (payload.length < 1 + SALT_BYTES + IV_BYTES + GCM_TAG_BYTES) throw new Error("Ciphertext terlalu pendek atau rusak.");
-  if (payload[0] !== AES_VERSION) throw new Error("Format ciphertext tidak dikenali. Gunakan teks hasil enkripsi Celi Tools.");
+  if (payload[0] !== AES_VERSION) throw new Error("Format ciphertext tidak dikenali. Gunakan teks hasil enkripsi celimanapp.");
   const salt = payload.subarray(1, 1 + SALT_BYTES);
   const iv = payload.subarray(1 + SALT_BYTES, 1 + SALT_BYTES + IV_BYTES);
   const data = payload.subarray(1 + SALT_BYTES + IV_BYTES);
