@@ -2,16 +2,17 @@
 import { useLanguage } from "./language-provider";
 import { useAppDialog } from "./app-dialog";
 import RacePanel from "./race-panel";
+import Image from "next/image";
 
 import { useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent } from "react";
 import { ArrowUpRight, Braces, CircleAlert, Plus, Send, ShieldCheck, Trash2, Upload, X } from "lucide-react";
-import { executeApiRequest, parseCurl, parseCurlPaste, parseRequestJson, replaceQuery, validateRequest, applyAuthorization, sanitizeSavedRequest, resolveApiVariables, runApiScript, type ApiAuthorization, type ImportedRequest, type RequestRow } from "../lib/api-client.mjs";
+import { parseCurl, parseCurlPaste, parseRequestJson, replaceQuery, validateRequest, applyAuthorization, sanitizeSavedRequest, createDynamicVariables, resolveApiVariables, runApiScript, type ApiAuthorization, type ImportedRequest, type RequestRow } from "../lib/api-client.mjs";
 
 type Tab = "params" | "headers" | "body" | "authorization" | "pre-script" | "tests";
 type SavedRequest = ImportedRequest & { id: string; preScript: string; testScript: string };
 type Collection = { id: string; name: string; folders: { id: string; name: string; requests: SavedRequest[] }[] };
 const storageKey = "celi-tools:api-collections:v1";
-type ResponseResult = { status: number; statusText: string; milliseconds: number; bytes: number; text: string; truncated: boolean };
+type ResponseResult = { status: number; statusText: string; milliseconds: number; bytes: number; headers: RequestRow[]; text: string; base64: string; contentType: string; previewType: string | null; truncated: boolean };
 const emptyRow = (): RequestRow => ({ key: "", value: "" });
 const methods = ["GET", "POST", "PUT", "DELETE", "PATCH"];
 const maxImportBytes = 1024 * 1024;
@@ -38,6 +39,9 @@ export default function ApiClient() {
   const [headers, setHeaders] = useState<RequestRow[]>([emptyRow()]);
   const [params, setParams] = useState<RequestRow[]>([emptyRow()]);
   const [body, setBody] = useState("");
+  const [bodyMode, setBodyMode] = useState<"raw" | "binary" | "multipart">("raw");
+  const [requestFile, setRequestFile] = useState<File | null>(null);
+  const [fieldName, setFieldName] = useState("file");
   const [activeTab, setActiveTab] = useState<Tab>("params");
   const [auth, setAuth] = useState<ApiAuthorization>({ type: "none" });
   const [preScript, setPreScript] = useState("");
@@ -46,8 +50,9 @@ export default function ApiClient() {
   const [testResults, setTestResults] = useState<{ name: string; passed: boolean }[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [collectionError, setCollectionError] = useState("");
-  const [collectionsOpen, setCollectionsOpen] = useState(false);
+  const [collectionsOpen, setCollectionsOpen] = useState(true);
   const [response, setResponse] = useState<ResponseResult | null>(null);
+  const [responseView, setResponseView] = useState<"body" | "headers">("body");
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -103,6 +108,7 @@ export default function ApiClient() {
   }
 
   function applyImport(request: ImportedRequest) {
+    setBodyMode("raw"); setRequestFile(null);
     setAuth({ type: "none" }); setPreScript(""); setTestScript(""); setTestResults([]);
     setMethod(request.method); updateUrl(request.url);
     setHeaders(request.headers.length ? request.headers : [emptyRow()]);
@@ -116,7 +122,7 @@ export default function ApiClient() {
     if (!/^\s*curl(?:\s|$)/.test(text)) { setPasteMessage(null); return; }
     event.preventDefault();
     try {
-      const request = parseCurlPaste(text);
+      const request = parseCurlPaste(text, { server: true });
       if (!request) return;
       applyImport(request);
       if (!request.ignoredHeaders?.length) setPasteMessage({ text: "cURL berhasil diimpor. Periksa request sebelum mengirim.", error: false });
@@ -130,7 +136,7 @@ export default function ApiClient() {
       const text = importText.trim();
       if (!text) throw new Error("Tempel cURL atau JSON terlebih dahulu.");
       if (new TextEncoder().encode(text).byteLength > maxImportBytes) throw new Error("Impor dibatasi hingga 1 MB.");
-      const requests = /^curl(?:\s|$)/.test(text) ? [parseCurl(text)] : parseRequestJson(text);
+      const requests = /^curl(?:\s|$)/.test(text) ? [parseCurl(text, { server: true })] : parseRequestJson(text);
       if (requests.length === 1) applyImport(requests[0]);
       else { setImports(requests); setImportError(""); }
     } catch (cause) { setImports([]); setImportError(cause instanceof Error ? cause.message : "Impor gagal."); }
@@ -146,15 +152,16 @@ export default function ApiClient() {
   }
 
   function prepareRequest() {
-      const runVariables = runApiScript(preScript, variables, null).variables;
-      setVariables(runVariables);
+      const dynamic = createDynamicVariables();
+      const runVariables = runApiScript(preScript, { ...variables, ...dynamic }, null).variables;
+      setVariables(Object.fromEntries(Object.entries(runVariables).filter(([key]) => !Object.hasOwn(dynamic, key))));
       const sourceUrl = resolveApiVariables(url, runVariables);
       const resolvedParams = params.map(row => ({ key: resolveApiVariables(row.key, runVariables), value: resolveApiVariables(row.value, runVariables) }));
       const composedUrl = resolvedParams.some(row => row.key.trim()) ? replaceQuery(sourceUrl, resolvedParams) : sourceUrl;
       const resolvedHeaders = headers.map(row => ({ key: resolveApiVariables(row.key, runVariables), value: resolveApiVariables(row.value, runVariables) }));
       const resolvedAuth = { ...auth, token: resolveApiVariables(auth.token || "", runVariables), username: resolveApiVariables(auth.username || "", runVariables), password: resolveApiVariables(auth.password || "", runVariables), key: resolveApiVariables(auth.key || "", runVariables), value: resolveApiVariables(auth.value || "", runVariables) };
-      const request = validateRequest(applyAuthorization({ name: "Request", method, url: composedUrl, headers: resolvedHeaders, body: resolveApiVariables(body, runVariables) }, resolvedAuth));
-      return { request, runVariables };
+      const input = applyAuthorization({ name: "Request", method, url: composedUrl, headers: resolvedHeaders, body: resolveApiVariables(body, runVariables) }, resolvedAuth);
+      return { request: input, runVariables };
   }
 
   async function send(event: FormEvent) {
@@ -169,15 +176,34 @@ export default function ApiClient() {
     const timer = setTimeout(() => abortController.abort("timeout"), 60_000);
     setSending(true);
     try {
-      const result = await executeApiRequest(request, abortController.signal);
-      setResponse(result);
-      try { const checked = runApiScript(testScript, runVariables, result); setVariables(checked.variables); setTestResults(checked.tests); }
+      let file;
+      if (bodyMode !== "raw") {
+        if (!requestFile || requestFile.size < 1 || requestFile.size > 512 * 1024) throw new Error("Pilih file berukuran maksimal 512 KB.");
+        const bytes = new Uint8Array(await requestFile.arrayBuffer());
+        let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte);
+        file = { name: requestFile.name, contentType: requestFile.type || "application/octet-stream", base64: btoa(binary), mode: bodyMode, fieldName };
+      }
+      const res = await fetch("/api/api-client/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...request, body: file ? "" : request.body, file }), signal: abortController.signal });
+      const result = await res.json();
+      if (!res.ok) throw new Error(typeof result.error === "string" ? result.error : "Request tidak berhasil.");
+      setResponse(result); setResponseView("body");
+      try { const checked = runApiScript(testScript, runVariables, result); const dynamicKeys = createDynamicVariables(); setVariables(Object.fromEntries(Object.entries(checked.variables).filter(([key]) => !Object.hasOwn(dynamicKeys, key)))); setTestResults(checked.tests); }
       catch (cause) { setError(cause instanceof Error ? cause.message : "Skrip test tidak valid."); }
-    } catch {
+    } catch (cause) {
       setError(abortController.signal.aborted
         ? abortController.signal.reason === "timeout" ? "Request melewati batas 60 detik." : "Request dibatalkan."
-        : "API tidak dapat dijangkau. Periksa URL, koneksi, HTTPS, dan izin CORS pada server tujuan.");
+        : cause instanceof Error ? cause.message : "API tidak dapat dijangkau.");
     } finally { clearTimeout(timer); controller.current = null; setSending(false); }
+  }
+
+  function downloadResponse(result: ResponseResult) {
+    const binary = atob(result.base64);
+    const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+    const address = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+    const link = document.createElement("a");
+    const extensions: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp", "application/pdf": "pdf", "application/json": "json", "text/plain": "txt", "application/zip": "zip" };
+    link.href = address; link.download = `response.${extensions[result.contentType] || "bin"}`; link.click();
+    setTimeout(() => URL.revokeObjectURL(address), 1000);
   }
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
@@ -204,13 +230,13 @@ export default function ApiClient() {
       <form className="api-send-bar" onSubmit={send}><label className="sr-only" htmlFor="api-method">{t("Metode HTTP")}</label><select id="api-method" value={method} onChange={event => setMethod(event.target.value)}>{methods.map(item => <option key={item}>{item}</option>)}</select><label className="sr-only" htmlFor="api-url">URL API</label><input id="api-url" type="text" inputMode="url" value={url} onPaste={handleUrlPaste} onChange={event => { setPasteMessage(null); updateUrl(event.target.value); }} placeholder="https://api.example.com/v1/resource" autoComplete="off" spellCheck={false} required />{sending ? <button type="button" className="secondary-button" onClick={() => controller.current?.abort()}>{t("Batalkan")}</button> : <button className="primary-button" type="submit"><Send size={16} /> {t("Send")}</button>}</form>
       {pasteMessage && <p className={pasteMessage.error ? "api-paste-message api-inline-error" : "api-paste-message"} role={pasteMessage.error ? "alert" : "status"}>{pasteMessage.warning ? <>{t("cURL diimpor. Data berikut tidak disalin karena dikendalikan browser:")} {pasteMessage.text}. {t("Respons dapat berbeda. Periksa CORS pada server tujuan.")}</> : t(pasteMessage.text)}</p>}
       <div className="api-tabs" role="tablist" aria-label={t("Pengaturan request")} onKeyDown={event => { if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return; event.preventDefault(); const index = tabs.findIndex(tab => tab.id === activeTab); const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length; setActiveTab(tabs[next].id); document.getElementById(`api-tab-${tabs[next].id}`)?.focus(); }}>{tabs.map(tab => <button type="button" role="tab" id={`api-tab-${tab.id}`} key={tab.id} aria-controls="api-request-panel" aria-selected={tab.id === activeTab} tabIndex={tab.id === activeTab ? 0 : -1} className={tab.id === activeTab ? "active" : ""} onClick={() => setActiveTab(tab.id)}>{t(tab.label)}{!!tab.count && <span>{tab.count}</span>}</button>)}</div>
-      <div id="api-request-panel" role="tabpanel" aria-labelledby={`api-tab-${activeTab}`} className="api-request-content">{activeTab === "params" ? <KeyValueEditor label="parameter" rows={params} onChange={updateParams} /> : activeTab === "headers" ? <KeyValueEditor label="header" rows={headers} onChange={setHeaders} /> : activeTab === "authorization" ? <div className="api-auth-editor"><label>{t("Jenis authorization")}<select value={auth.type} onChange={event => setAuth({ type: event.target.value as ApiAuthorization["type"] })}><option value="none">{t("Tanpa authorization")}</option><option value="bearer">Bearer Token</option><option value="basic">Basic Auth</option><option value="api-key">API Key</option></select></label>{auth.type === "bearer" && <label>Token<input type="password" autoComplete="off" value={auth.token || ""} onChange={event => setAuth({ ...auth, token: event.target.value })}/></label>}{auth.type === "basic" && <><label>Username<input autoComplete="off" value={auth.username || ""} onChange={event => setAuth({ ...auth, username: event.target.value })}/></label><label>Password<input type="password" autoComplete="new-password" value={auth.password || ""} onChange={event => setAuth({ ...auth, password: event.target.value })}/></label></>}{auth.type === "api-key" && <><label>{t("Key")}<input value={auth.key || ""} onChange={event => setAuth({ ...auth, key: event.target.value })}/></label><label>{t("Value")}<input type="password" autoComplete="off" value={auth.value || ""} onChange={event => setAuth({ ...auth, value: event.target.value })}/></label><label>{t("Tambahkan ke")}<select value={auth.placement || "header"} onChange={event => setAuth({ ...auth, placement: event.target.value as "header" | "query" })}><option value="header">Header</option><option value="query">Query Params</option></select></label></>}</div> : activeTab === "pre-script" || activeTab === "tests" ? <div className="api-body-editor"><div><strong>{activeTab === "pre-script" ? "Pre-request Script" : "Tests"}</strong></div><p>{t("Subset aman: satu perintah per baris. JavaScript bebas, jaringan, dan akses DOM tidak didukung.")}</p><textarea aria-label={activeTab === "pre-script" ? "Pre-request Script" : "Tests"} value={activeTab === "pre-script" ? preScript : testScript} onChange={event => activeTab === "pre-script" ? setPreScript(event.target.value) : setTestScript(event.target.value)} placeholder={activeTab === "pre-script" ? 'pm.environment.set("id", "42");' : 'pm.test("Status 200", () => pm.response.to.have.status(200));'} spellCheck={false}/><p>{t("Gunakan variabel sebagai {{nama}} di URL, header, atau body. Variabel hanya disimpan selama halaman terbuka.")}</p></div> : <div className="api-body-editor"><div><strong>JSON body</strong><span>{t("Untuk POST, PUT, PATCH, dan DELETE")}</span></div><textarea aria-label="Request body JSON" placeholder={'{\n  "name": "Celi"\n}'} value={body} onChange={event => setBody(event.target.value)} spellCheck={false} /><p>{t("Jika Content-Type kosong, application/json ditambahkan saat body dikirim.")}</p></div>}</div>
+      <div id="api-request-panel" role="tabpanel" aria-labelledby={`api-tab-${activeTab}`} className="api-request-content">{activeTab === "params" ? <KeyValueEditor label="parameter" rows={params} onChange={updateParams} /> : activeTab === "headers" ? <KeyValueEditor label="header" rows={headers} onChange={setHeaders} /> : activeTab === "authorization" ? <div className="api-auth-editor"><label>{t("Jenis authorization")}<select value={auth.type} onChange={event => setAuth({ type: event.target.value as ApiAuthorization["type"] })}><option value="none">{t("Tanpa authorization")}</option><option value="bearer">Bearer Token</option><option value="basic">Basic Auth</option><option value="api-key">API Key</option></select></label>{auth.type === "bearer" && <label>Token<input type="password" autoComplete="off" value={auth.token || ""} onChange={event => setAuth({ ...auth, token: event.target.value })}/></label>}{auth.type === "basic" && <><label>Username<input autoComplete="off" value={auth.username || ""} onChange={event => setAuth({ ...auth, username: event.target.value })}/></label><label>Password<input type="password" autoComplete="new-password" value={auth.password || ""} onChange={event => setAuth({ ...auth, password: event.target.value })}/></label></>}{auth.type === "api-key" && <><label>{t("Key")}<input value={auth.key || ""} onChange={event => setAuth({ ...auth, key: event.target.value })}/></label><label>{t("Value")}<input type="password" autoComplete="off" value={auth.value || ""} onChange={event => setAuth({ ...auth, value: event.target.value })}/></label><label>{t("Tambahkan ke")}<select value={auth.placement || "header"} onChange={event => setAuth({ ...auth, placement: event.target.value as "header" | "query" })}><option value="header">Header</option><option value="query">Query Params</option></select></label></>}</div> : activeTab === "pre-script" || activeTab === "tests" ? <div className="api-body-editor"><div><strong>{activeTab === "pre-script" ? "Pre-request Script" : "Tests"}</strong></div><p>{t("Subset aman: satu perintah per baris. JavaScript bebas, jaringan, dan akses DOM tidak didukung.")}</p><textarea aria-label={activeTab === "pre-script" ? "Pre-request Script" : "Tests"} value={activeTab === "pre-script" ? preScript : testScript} onChange={event => activeTab === "pre-script" ? setPreScript(event.target.value) : setTestScript(event.target.value)} placeholder={activeTab === "pre-script" ? 'pm.environment.set("id", "42");' : 'pm.test("Status 200", () => pm.response.to.have.status(200));'} spellCheck={false}/><p>{t("Gunakan variabel sebagai {{nama}} di URL, header, atau body. Variabel hanya disimpan selama halaman terbuka.")}</p></div> : <div className="api-body-editor"><div><strong>Body</strong><label>{t("Jenis body")} <select value={bodyMode} onChange={event => setBodyMode(event.target.value as "raw" | "binary" | "multipart")}><option value="raw">Raw</option><option value="binary">Binary file</option><option value="multipart">Form-data file</option></select></label></div>{bodyMode === "raw" ? <><textarea aria-label="Request body" placeholder={'{\n  "name": "Celi"\n}'} value={body} onChange={event => setBody(event.target.value)} spellCheck={false} /><p>{t("Jika body valid JSON dan Content-Type kosong, application/json ditambahkan.")}</p></> : <div className="api-file-editor"><label>{t("Pilih file")}<input type="file" onChange={event => setRequestFile(event.target.files?.[0] || null)} /></label>{bodyMode === "multipart" && <label>{t("Nama field")}<input value={fieldName} onChange={event => setFieldName(event.target.value)} /></label>}<p>{t("Maksimum 512 KB. File dipindai sebelum dikirim; jika pemindai tidak tersedia, file ditolak.")}</p></div>}<p>{t("Variabel: {{timestamp}}, {{timestemp}}, {{localdate}}, {{$timestamp}}, {{$isoTimestamp}}, {{$guid}}.")}</p></div>}</div>
     </section>
-    <RacePanel prepareRequest={() => prepareRequest().request} />
+    <RacePanel prepareRequest={() => { if (bodyMode !== "raw") throw new Error("Uji race belum mendukung file."); return validateRequest(prepareRequest().request); }} />
     <section className="panel api-response" aria-labelledby="api-response-title"><div className="api-section-heading"><div><span className="api-kicker">02 / RESPONSE</span><h2 id="api-response-title">{t("Respons")}</h2></div>{response && <div className="api-response-meta"><span className={`api-status ${response.status >= 200 && response.status < 300 ? "is-success" : "is-error"}`}>{response.status} {response.statusText}</span><span>{response.milliseconds.toLocaleString("id-ID")} ms</span><span>{response.truncated ? "≥ " : ""}{response.bytes.toLocaleString("id-ID")} byte</span></div>}</div>
-      {error ? <div className="api-empty api-error" role="alert"><CircleAlert size={26} /><strong>{t("Request belum berhasil")}</strong><p>{t(error)}</p></div> : response ? <div className="api-response-body"><div className="api-response-caption">BODY {response.truncated && <span>{t("· Respons dipotong pada 2 MiB")}</span>}</div><pre><code>{response.text || t("(Respons kosong)")}</code></pre></div> : <div className="api-empty"><Braces size={28} /><strong>{sending ? t("Menunggu respons…") : t("Respons akan tampil di sini")}</strong><p>{sending ? t("Request sedang diproses oleh API tujuan.") : t("Masukkan URL dan tekan Send untuk memulai.")}</p></div>}
+      {error ? <div className="api-empty api-error" role="alert"><CircleAlert size={26} /><strong>{t("Request belum berhasil")}</strong><p>{t(error)}</p></div> : response ? <div className="api-response-body"><div className="api-tabs" role="group" aria-label={t("Bagian respons")}><button type="button" className={responseView === "body" ? "active" : ""} aria-pressed={responseView === "body"} onClick={() => setResponseView("body")}>Body</button><button type="button" className={responseView === "headers" ? "active" : ""} aria-pressed={responseView === "headers"} onClick={() => setResponseView("headers")}>{t("Headers")} <span>{response.headers.length}</span></button></div>{responseView === "headers" ? <dl className="api-response-headers">{response.headers.map((row, index) => <div key={`${row.key}-${index}`}><dt>{row.key}</dt><dd>{row.value}</dd></div>)}</dl> : <><div className="api-response-caption">BODY {response.truncated && <span>{t("· Respons dipotong pada 2 MiB")}</span>}</div><div className="api-response-actions"><span>{response.contentType}</span>{response.base64 && <button type="button" className="secondary-button" onClick={() => downloadResponse(response)}>{t("Unduh respons")}</button>}</div>{response.previewType && !response.truncated ? <Image className="api-response-image" src={`data:${response.previewType};base64,${response.base64}`} width={800} height={600} unoptimized alt={t("Pratinjau gambar respons")} /> : response.text ? <pre><code>{response.text}</code></pre> : <p className="api-response-file">{response.base64 ? t("Respons berupa file biner. Unduh untuk melihat isinya.") : t("(Respons kosong)")}</p>}</>}</div> : <div className="api-empty"><Braces size={28} /><strong>{sending ? t("Menunggu respons…") : t("Respons akan tampil di sini")}</strong><p>{sending ? t("Request sedang diproses oleh API tujuan.") : t("Masukkan URL dan tekan Send untuk memulai.")}</p></div>}
     </section>
     {testResults.length > 0 && <section className="panel api-test-results"><h2>{t("Hasil test")}</h2>{testResults.map((test, index) => <p key={index}>{test.passed ? "✓" : "✕"} {test.name}</p>)}</section>}
-    <div className="workspace-help"><ShieldCheck size={18} /><p><strong>{t("Request dikirim langsung dari browser.")}</strong> {t("Server tujuan harus mengizinkan CORS; cookie sesi tidak disertakan. Koleksi disimpan hanya saat Anda memilih menyimpannya.")}</p></div>
+    <div className="workspace-help"><ShieldCheck size={18} /><p><strong>{t("Request dikirim melalui server.")}</strong> {t("Hanya alamat publik yang diizinkan. Cookie dan header hanya dikirim ke tujuan; redirect otomatis tidak diikuti. Uji race tetap berjalan di browser dan memerlukan CORS.")}</p></div>
   </main>;
 }

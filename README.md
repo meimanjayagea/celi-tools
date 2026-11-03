@@ -32,7 +32,7 @@ Web dan API berjalan sebagai dua Vercel Services dalam satu deployment. Browser 
 
 ## API Client
 
-Setelah login, buka **API Client** di sidebar. Masukkan URL HTTP(S), pilih metode, lalu atur query, header, dan body JSON sebelum menekan **Send**. Request dikirim langsung dari browser tanpa cookie; API tujuan harus mengizinkan CORS, dan browser dapat memblokir request HTTP dari halaman HTTPS. Header yang dilarang browser seperti `Cookie` dan `Host` tidak dapat dikirim. Request dan kredensial tidak disimpan sebagai riwayat.
+Setelah login, buka **API Client** di sidebar. Request tunggal dikirim melalui server ke alamat IPv4 publik dengan batas 20 request per pengguna dan 120 request total per menit. Header seperti `Cookie` dapat dikirim; header transport seperti `Host` dan `Transfer-Encoding` ditolak. Redirect otomatis dan alamat privat tidak didukung. Pengujian race tetap berjalan langsung dari browser dan bergantung pada CORS. Cookie dan header rahasia umum tidak disimpan ke koleksi; periksa body, URL, dan skrip sebelum menyimpan karena dapat berisi rahasia.
 
 Menu impor menerima cURL, request JSON, dan koleksi Postman. Opsi cURL yang tidak didukung ditolak. Hapus konfigurasi autentikasi bawaan Postman dari JSON sebelum impor, lalu isi header `Authorization` secara manual; ganti juga variabel environment dengan nilainya. Contoh JSON request:
 
@@ -40,7 +40,7 @@ Menu impor menerima cURL, request JSON, dan koleksi Postman. Opsi cURL yang tida
 {"method":"POST","url":"https://example.com/api","headers":{"Authorization":"Bearer example"},"body":{"name":"Celi"}}
 ```
 
-Impor dibatasi 1 MiB dan tampilan respons 2 MiB. Waktu respons mencakup pembacaan body yang ditampilkan.
+Impor dibatasi 1 MiB dan respons dibatasi 2 MiB. PNG, JPEG, GIF, dan WebP yang memiliki signature sesuai dapat dipratinjau; respons juga dapat diunduh. Body file biner atau satu file form-data dibatasi 512 KiB dan harus lulus pemindaian ClamAV sebelum dikirim. Pemindai yang tidak tersedia menyebabkan file ditolak. Variabel `{{timestamp}}`, `{{timestemp}}`, `{{localdate}}`, `{{$timestamp}}`, `{{$isoTimestamp}}`, dan `{{$guid}}` dihitung untuk setiap request. Implementasi ini belum memiliki seluruh kemampuan Postman, termasuk skrip JavaScript bebas, seluruh jenis collection, dan layanan monitor.
 
 ## Menjalankan secara lokal
 

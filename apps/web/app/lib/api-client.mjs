@@ -89,7 +89,7 @@ function tokenizeCurl(text) {
 }
 
 /** Parse supported cURL request options as data; never execute a shell command. */
-export function parseCurl(text) {
+export function parseCurl(text, { server = false } = {}) {
   const args = tokenizeCurl(text.trim());
   if (args.shift() !== "curl") throw new Error("Perintah harus dimulai dengan curl.");
   const result = { name: "cURL", method: "GET", url: "", headers: [], body: "" };
@@ -105,18 +105,24 @@ export function parseCurl(text) {
       const header = next(i++, arg), separator = header.indexOf(":");
       if (separator <= 0) throw new Error("Format header cURL tidak valid.");
       const key = header.slice(0, separator).trim(), lower = key.toLowerCase();
-      if (FORBIDDEN_HEADERS.has(lower) || lower === "user-agent" || /^(sec-|proxy-)/i.test(key)) ignoreHeader(key);
+      if (!server && (FORBIDDEN_HEADERS.has(lower) || lower === "user-agent" || /^(sec-|proxy-)/i.test(key))) ignoreHeader(key);
       else result.headers.push({ key, value: header.slice(separator + 1).trim() });
     } else if (["-b", "--cookie"].includes(arg)) {
-      next(i++, arg); ignoreHeader("Cookie");
+      const value = next(i++, arg);
+      if (server) { if (!value.includes("=")) throw new Error("Impor cookie dari file tidak didukung."); result.headers.push({ key: "Cookie", value }); }
+      else ignoreHeader("Cookie");
     } else if ((arg.startsWith("-b") && arg.length > 2) || arg.startsWith("--cookie=")) {
-      ignoreHeader("Cookie");
+      const value = arg.startsWith("--cookie=") ? arg.slice(9) : arg.slice(2);
+      if (server) { if (!value.includes("=")) throw new Error("Impor cookie dari file tidak didukung."); result.headers.push({ key: "Cookie", value }); }
+      else ignoreHeader("Cookie");
     } else if (["-d", "--data", "--data-raw", "--data-binary", "--json"].includes(arg)) {
       if (hasBody) throw new Error("Beberapa opsi body cURL tidak didukung.");
       result.body = next(i++, arg); hasBody = true;
       if (result.body.startsWith("@")) throw new Error("Impor body dari path file tidak didukung.");
       if (arg === "--json" && !result.headers.some(h => h.key.toLowerCase() === "content-type")) result.headers.push({ key: "Content-Type", value: "application/json" });
     } else if (arg === "--url") { if (result.url) throw new Error("Hanya satu URL dapat diimpor."); result.url = next(i++, arg); }
+    else if (arg === "--compressed" && server) { if (!result.headers.some(h => h.key.toLowerCase() === "accept-encoding")) result.headers.push({ key: "Accept-Encoding", value: "gzip, deflate, br" }); }
+    else if (["-L", "--location"].includes(arg) && server) throw new Error("Redirect otomatis tidak didukung di mode server. Kirim ulang ke URL tujuan secara manual.");
     else if (["-L", "--location", "-s", "--silent", "--compressed"].includes(arg)) { /* Browser follows redirects and negotiates compression. */ }
     else if (arg.startsWith("-")) throw new Error(`Opsi cURL ${arg} tidak didukung.`);
     else { if (result.url) throw new Error("Hanya satu URL dapat diimpor."); result.url = arg; }
@@ -129,10 +135,10 @@ export function parseCurl(text) {
 }
 
 /** Recognize cURL pasted into the URL field without executing shell input. */
-export function parseCurlPaste(text) {
+export function parseCurlPaste(text, options) {
   if (!/^\s*curl(?:\s|$)/.test(text)) return null;
   if (new TextEncoder().encode(text).byteLength > 1024 * 1024) throw new Error("Impor dibatasi hingga 1 MB.");
-  const request = parseCurl(text);
+  const request = parseCurl(text, options);
   let url;
   try { url = new URL(request.url); } catch { throw new Error("Masukkan URL lengkap yang valid."); }
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new Error("URL harus menggunakan HTTP atau HTTPS tanpa kredensial dalam alamat.");
@@ -208,8 +214,14 @@ export function sanitizeSavedRequest(request) {
 }
 
 /** Replace named in-memory variables; unknown names remain visible for correction. */
+export function createDynamicVariables(now = new Date()) {
+  const timestamp = String(Math.floor(now.getTime() / 1000));
+  const localdate = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+  return { timestamp, timestemp: timestamp, '$timestamp': timestamp, localdate, '$isoTimestamp': now.toISOString(), '$guid': crypto.randomUUID() };
+}
+
 export function resolveApiVariables(text, variables) {
-  return text.replace(/\{\{([\w.-]+)\}\}/g, (whole, key) => Object.hasOwn(variables, key) ? variables[key] : whole);
+  return text.replace(/\{\{(\$?[\w.-]+)\}\}/g, (whole, key) => Object.hasOwn(variables, key) ? variables[key] : whole);
 }
 
 /** Execute a deliberately small Postman-style statement subset, never JavaScript. */

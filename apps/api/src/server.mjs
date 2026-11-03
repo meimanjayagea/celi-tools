@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { FILE_LIMITS } from "@celi/file-tools";
 import { FileBackendError, fileCapabilities, fileErrorResponse, processBlobFileRequest, processFileRequest, scanBlobUploadRequest, deleteTemporaryFileRequest, stopWorkers } from "./file-backend.mjs";
-import { waitForMalwareScanner } from "./malware-scanner.mjs";
+import { waitForMalwareScanner, scanUploadedStream } from "./malware-scanner.mjs";
 
 export function allowedWebOrigins(value, production = false) {
   if (!value && production) throw new Error("WEB_ORIGINS wajib diisi dengan origin frontend production.");
@@ -151,6 +151,17 @@ export function createFileServer({
           const scanner = pathname === "/ready" ? await scannerReady(controller.signal) : true;
           const ready = Object.values(result.engines || {}).every(Boolean) && scanner;
           response = Response.json(pathname === "/ready" ? { ...result, scanner: scanner ? "ready" : "unavailable" } : result, { status: pathname === "/ready" && !ready ? 503 : 200 });
+        }
+      } else if (incoming.method === "POST" && pathname === "/api/files/scan-api-client") {
+        const claims = getValidFileClaims(incoming.headers.authorization, fileApiSecret);
+        if (!claims || claims.scope !== "api-client-scan") {
+          response = Response.json({ error: "Sesi pemindaian file tidak valid." }, { status: 401 });
+          incoming.resume();
+        } else {
+          const length = Number(incoming.headers["content-length"]);
+          if (!Number.isSafeInteger(length) || length < 1 || length > 512 * 1024) throw new FileBackendError("Ukuran file tidak valid.", 413);
+          await scanUploadedStream(Readable.toWeb(incoming), length, controller.signal, true);
+          response = Response.json({ scanned: true });
         }
       } else if (incoming.method === "POST" && pathname === "/api/files/scan") {
         const claims = getValidFileClaims(incoming.headers.authorization, fileApiSecret);

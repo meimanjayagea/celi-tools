@@ -1,6 +1,26 @@
 // Source strings are Indonesian. Unknown strings remain unchanged so user data
 // and technical labels are never sent to a translation service.
 const english = {
+  "Bagian respons": "Response section",
+  "Redirect otomatis tidak didukung di mode server. Kirim ulang ke URL tujuan secara manual.": "Automatic redirects are not supported in server mode. Send another request to the destination URL manually.",
+  "File ditolak atau pemindai keamanan tidak tersedia.": "The file was rejected or the security scanner is unavailable.",
+  "Pemindai keamanan tidak tersedia. File ditolak.": "The security scanner is unavailable. The file was rejected.",
+  "Batas request tercapai. Coba lagi sebentar.": "The request limit has been reached. Try again shortly.",
+  "Header transport tidak diizinkan.": "This transport header is not allowed.",
+  "Hanya alamat publik yang diizinkan.": "Only public addresses are allowed.",
+  "Jenis body": "Body type",
+  "Nama field": "Field name",
+  "Maksimum 512 KB. File dipindai sebelum dikirim; jika pemindai tidak tersedia, file ditolak.": "Maximum 512 KB. Files are scanned before sending and rejected if the scanner is unavailable.",
+  "Variabel: {{timestamp}}, {{timestemp}}, {{localdate}}, {{$timestamp}}, {{$isoTimestamp}}, {{$guid}}.": "Variables: {{timestamp}}, {{timestemp}}, {{localdate}}, {{$timestamp}}, {{$isoTimestamp}}, {{$guid}}.",
+  "Uji race belum mendukung file.": "Race tests do not support files yet.",
+  "Pilih file berukuran maksimal 512 KB.": "Choose a file up to 512 KB.",
+  "Unduh respons": "Download response",
+  "Pratinjau gambar respons": "Response image preview",
+  "Respons berupa file biner. Unduh untuk melihat isinya.": "The response is a binary file. Download it to view its contents.",
+
+  "Jika body valid JSON dan Content-Type kosong, application/json ditambahkan.": "If the body is valid JSON and Content-Type is empty, application/json is added.",
+  "Request dikirim melalui server.": "Requests are sent through the server.",
+  "Hanya alamat publik yang diizinkan. Cookie dan header hanya dikirim ke tujuan; redirect otomatis tidak diikuti. Uji race tetap berjalan di browser dan memerlukan CORS.": "Only public addresses are allowed. Cookies and headers are sent to the target; redirects are not followed automatically. Race tests still run in the browser and require CORS.",
   "cURL diimpor. Data berikut tidak disalin karena dikendalikan browser:": "cURL imported. The following data was not copied because it is controlled by the browser:",
   "Respons dapat berbeda. Periksa CORS pada server tujuan.": "The response may differ. Check the target server's CORS settings.",
   "cURL berhasil diimpor. Periksa request sebelum mengirim.": "cURL imported. Review the request before sending.",

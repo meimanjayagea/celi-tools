@@ -152,3 +152,11 @@ test('saving preserves request variables in URL paths and query strings', async 
   assert.match(request.url, /\{\{id\}\}/);
   assert.match(request.url, /\{\{query\}\}/);
 });
+
+test('dynamic timestamp and date variables use a consistent request snapshot', async () => {
+  const { createDynamicVariables, resolveApiVariables } = await import('../apps/web/app/lib/api-client.mjs');
+  const vars = createDynamicVariables(new Date('2024-01-02T03:04:05.000Z'));
+  assert.equal(resolveApiVariables('{{timestamp}} {{$timestamp}} {{timestemp}}', vars), '1704164645 1704164645 1704164645');
+  assert.equal(resolveApiVariables('{{$isoTimestamp}}', vars), '2024-01-02T03:04:05.000Z');
+  assert.match(resolveApiVariables('{{localdate}}', vars), /^\d{4}-\d{2}-\d{2}$/);
+});

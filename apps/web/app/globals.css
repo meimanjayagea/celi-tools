@@ -2319,3 +2319,25 @@ kbd {
   .hydration-progress span { width:100%; }
   .page-loading-mark { border-color:var(--accent); }
 }
+
+/* API workspace: collections alongside request and response on wider screens. */
+.api-client-page { max-width: 1440px; display: grid; grid-template-columns: minmax(220px, 260px) minmax(0, 1fr); column-gap: 18px; align-items: start; }
+.api-client-page > .api-client-heading { grid-column: 1 / -1; }
+.api-client-page > .api-collections { grid-column: 1; grid-row: 2 / span 5; min-width: 0; }
+.api-client-page > .api-import, .api-client-page > .api-request, .api-client-page > .race-panel, .api-client-page > .api-response, .api-client-page > .api-test-results, .api-client-page > .workspace-help { grid-column: 2; min-width: 0; }
+.api-client-page > .api-collections > .api-section-heading { flex-direction: column; align-items: stretch; gap: 12px; }
+.api-client-page > .api-collections .api-collection-actions { flex-wrap: wrap; }
+.api-file-editor { display: grid !important; gap: 12px; margin-top: 12px; }
+.api-file-editor label { display: grid; gap: 6px; color: var(--text-secondary); }
+.api-file-editor input, .api-body-editor select { max-width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); background: var(--surface-secondary); }
+.api-response-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0 24px 12px; color: var(--text-muted); font-size: 12px; }
+.api-response-actions span { overflow-wrap: anywhere; }
+.api-response-image { display: block; width: auto; height: auto; max-width: calc(100% - 48px); max-height: 520px; object-fit: contain; margin: 0 24px 24px; }
+.api-response-file { color: var(--text-secondary); padding: 0 24px 24px; font-size: 12px; }
+@media (max-width: 900px) {
+  .api-client-page { display: block; }
+}
+.api-response-headers { padding: 8px 24px 24px; margin: 0; font: 12px/1.6 var(--font-mono); }
+.api-response-headers > div { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr); gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.api-response-headers dt { color: var(--text-secondary); }
+.api-response-headers dd { margin: 0; color: var(--text-primary); }
