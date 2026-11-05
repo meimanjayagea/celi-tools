@@ -2695,9 +2695,13 @@ kbd {
 .api-collection-node { min-width:0; margin:0; padding:0; border:1px solid var(--border); border-radius:10px; background:var(--surface); overflow:hidden; }
 .api-collection-node > summary { display:flex; align-items:center; gap:8px; min-height:38px; padding:8px 10px; list-style:none; cursor:pointer; color:var(--text-primary); font-size:12px; font-weight:650; }
 .api-collection-node > summary::-webkit-details-marker { display:none; }
-.api-collection-node > summary::before { content:""; width:6px; height:6px; flex:none; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(-45deg); transition:transform .15s ease; }
-.api-collection-node[open] > summary::before { transform:rotate(45deg) translateY(-1px); }
 .api-collection-node > summary:hover { background:var(--surface-secondary); }
+.api-tree-marker { flex:none; display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--text-muted); }
+.api-tree-marker.is-collection { width:8px; height:8px; background:var(--text-primary); }
+.api-tree-marker.is-folder { width:7px; height:7px; background:var(--text-secondary); }
+.api-tree-marker.is-request { width:8px; height:8px; border:1.5px solid var(--text-muted); background:transparent; }
+.api-tree-disclosure { flex:none; color:var(--text-muted); transition:transform .15s ease; }
+.api-collection-node[open] > summary .api-tree-disclosure { transform:rotate(90deg); }
 .api-tree-title { display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
 .api-tree-title > svg { flex:none; color:var(--accent); }
 .api-tree-title > span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2718,6 +2722,7 @@ kbd {
 .api-request-open { display:flex; align-items:center; gap:7px; flex:1; min-width:0; min-height:32px; padding:3px 4px; border:0; border-radius:6px; background:transparent; color:var(--text-primary); text-align:left; cursor:pointer; }
 .api-request-open:hover { background:var(--surface-secondary); }
 .api-request-icon { flex:none; color:var(--text-muted); }
+.api-request-prefix { flex:none; color:var(--text-secondary); font-size:10px; font-style:italic; }
 .api-request-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; }
 .api-request-actions { display:flex; align-items:center; gap:1px; opacity:.72; }
 .api-saved-row:hover .api-request-actions,.api-saved-row:focus-within .api-request-actions { opacity:1; }
@@ -2752,7 +2757,6 @@ kbd {
 .api-collection-node,.api-folder-node { border:0; border-radius:0; background:transparent; box-shadow:none; overflow:visible; }
 .api-collection-node > summary { gap:7px; min-height:34px; padding:6px 7px; border:0; border-radius:5px; font-size:11px; }
 .api-collection-node > summary:hover,.api-folder-node > summary:hover { background:var(--surface-secondary); }
-.api-collection-node > summary::before { width:5px; height:5px; }
 .api-tree-title { gap:6px; }
 .api-tree-title > svg { width:13px; height:13px; }
 .api-tree-count { min-width:17px; height:17px; padding:0 4px; border-radius:5px; font-size:9px; }
@@ -2761,10 +2765,10 @@ kbd {
 .api-tree-icon-action { width:24px; }
 .api-tree-action:hover,.api-tree-icon-action:hover { border:0; background:var(--accent-soft); }
 .api-tree-icon-action.is-danger:hover { color:var(--danger); background:var(--danger-soft); }
-.api-folder-list { display:grid; gap:4px; padding:3px 0 5px 20px; }
+.api-folder-list { display:grid; gap:5px; margin:3px 0 7px; padding:2px 0 2px 20px; }
 .api-folder-node > summary { min-height:32px; padding:5px 6px; }
 .api-folder-toolbar { min-height:26px; padding:1px 0 3px 23px; }
-.api-request-list { display:grid; gap:3px; padding:2px 0 4px 20px; }
+.api-request-list { display:grid; gap:4px; padding:4px 0 6px 22px; }
 .api-saved-row { gap:3px; min-height:30px; padding:2px 0; border:0; }
 .api-request-open { gap:6px; min-height:29px; padding:4px 5px; }
 .api-request-open:hover { background:var(--surface-secondary); }

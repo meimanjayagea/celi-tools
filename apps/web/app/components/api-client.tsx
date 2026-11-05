@@ -5,7 +5,7 @@ import RacePanel from "./race-panel";
 import Image from "next/image";
 
 import { useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { ArrowUpRight, Braces, CircleAlert, FileCode2, Folder, FolderPlus, GripVertical, Layers3, Pencil, Plus, RotateCw, Send, ShieldCheck, Trash2, Upload, X } from "lucide-react";
+import { ArrowUpRight, Braces, ChevronRight, CircleAlert, FileCode2, Folder, FolderPlus, GripVertical, Layers3, Pencil, Plus, RotateCw, Send, ShieldCheck, Trash2, Upload, X } from "lucide-react";
 import { parseCurl, parseCurlPaste, parseRequestJson, replaceQuery, validateRequest, applyAuthorization, sanitizeSavedRequest, createDynamicVariables, resolveApiVariables, runApiScript, POSTMAN_DYNAMIC_VARIABLES, type ApiAuthorization, type ImportedRequest, type RequestRow } from "../lib/api-client.mjs";
 
 type Tab = "params" | "headers" | "body" | "authorization" | "pre-script" | "tests";
@@ -307,7 +307,7 @@ export default function ApiClient() {
           {collections.map(collection => {
             const requestCount = collection.folders.reduce((count, folder) => count + folder.requests.length, 0);
             return <details className="api-collection-node api-collection-root" key={collection.id}>
-              <summary><span className="api-tree-title"><Layers3 size={15}/><span>{collection.name}</span></span><span className="api-tree-count">{requestCount}</span></summary>
+              <summary><span className="api-tree-marker is-collection" aria-hidden="true"/><span className="api-tree-title"><Layers3 size={15}/><span><strong>{t("Koleksi:")}</strong> {collection.name}</span></span><span className="api-tree-count">{requestCount}</span><ChevronRight className="api-tree-disclosure" size={14}/></summary>
               <div className="api-node-toolbar">
                 <button type="button" className="api-tree-action" onClick={() => void addFolder(collection)}><FolderPlus size={14}/>{t("Folder")}</button>
                 <button type="button" className="api-tree-icon-action" aria-label={`${t("Ganti nama")} ${collection.name}`} title={t("Ganti nama")} onClick={async () => { const name = await ask({ title: "Ganti nama koleksi", description: "Masukkan nama baru untuk koleksi ini.", inputLabel: "Nama koleksi", initialValue: collection.name, confirmLabel: "Simpan" }); if (name) persistCollections(collections.map(item => item.id === collection.id ? { ...item, name: name.slice(0, 100) } : item)); }}><Pencil size={14}/></button>
@@ -316,7 +316,7 @@ export default function ApiClient() {
               {collection.folders.length === 0 && <p className="api-tree-empty">{t("Folder")}</p>}
               <div className="api-folder-list">
                 {collection.folders.map(folder => <details className="api-collection-node api-folder-node" key={folder.id}>
-                  <summary><span className="api-tree-title"><Folder size={14}/><span>{folder.name}</span></span><span className="api-tree-count">{folder.requests.length}</span></summary>
+                  <summary><span className="api-tree-marker is-folder" aria-hidden="true"/><span className="api-tree-title"><Folder size={14}/><span><strong>{t("Folder:")}</strong> {folder.name}</span></span><span className="api-tree-count">{folder.requests.length}</span><ChevronRight className="api-tree-disclosure" size={13}/></summary>
                   <div className="api-node-toolbar api-folder-toolbar">
                     <button type="button" className="api-tree-action" onClick={() => void saveRequest(collection, folder.id)}><Plus size={14}/>{t("Simpan request")}</button>
                     <button type="button" className="api-tree-icon-action" aria-label={`${t("Ganti nama")} ${folder.name}`} title={t("Ganti nama")} onClick={async () => { const name = await ask({ title: "Ganti nama folder", description: "Masukkan nama baru untuk folder ini.", inputLabel: "Nama folder", initialValue: folder.name, confirmLabel: "Simpan" }); if (name) persistCollections(collections.map(item => item.id === collection.id ? { ...item, folders: item.folders.map(entry => entry.id === folder.id ? { ...entry, name: name.slice(0, 100) } : entry) } : item)); }}><Pencil size={14}/></button>
@@ -324,7 +324,7 @@ export default function ApiClient() {
                   </div>
                   {folder.requests.length === 0 ? <p className="api-tree-empty">{t("Belum ada request tersimpan.")}</p> : <div className="api-request-list">
                     {folder.requests.map(item => <div className="api-saved-row" key={item.id}>
-                      <button type="button" className="api-request-open" onClick={() => loadSaved(item)}><span className={`api-method-badge method-${item.method.toLowerCase()}`}>{item.method}</span><FileCode2 className="api-request-icon" size={15}/><span className="api-request-name">{item.name}</span></button>
+                      <button type="button" className="api-request-open" onClick={() => loadSaved(item)}><span className="api-tree-marker is-request" aria-hidden="true"/><FileCode2 className="api-request-icon" size={15}/><span className="api-request-prefix">{t("Request:")}</span><span className={`api-method-badge method-${item.method.toLowerCase()}`}>{item.method}</span><span className="api-request-name">{item.name}</span></button>
                       <div className="api-request-actions">
                         <button type="button" className="api-tree-icon-action" aria-label={`${t("Perbarui dari editor")} ${item.name}`} title={t("Perbarui dari editor")} onClick={() => { const updated = { ...sanitizeSavedRequest({ name: item.name, method, url, headers, body }), id: item.id, preScript, testScript }; persistCollections(collections.map(entry => entry.id === collection.id ? { ...entry, folders: entry.folders.map(group => group.id === folder.id ? { ...group, requests: group.requests.map(saved => saved.id === item.id ? updated : saved) } : group) } : entry)); }}><RotateCw size={14}/></button>
                         <button type="button" className="api-tree-icon-action" aria-label={`${t("Ganti nama")} ${item.name}`} title={t("Ganti nama")} onClick={async () => { const name = await ask({ title: "Ganti nama request", description: "Masukkan nama baru untuk request ini.", inputLabel: "Nama request", initialValue: item.name, confirmLabel: "Simpan" }); if (name) persistCollections(collections.map(entry => entry.id === collection.id ? { ...entry, folders: entry.folders.map(group => group.id === folder.id ? { ...group, requests: group.requests.map(saved => saved.id === item.id ? { ...saved, name: name.slice(0, 100) } : saved) } : group) } : entry)); }}><Pencil size={14}/></button>
