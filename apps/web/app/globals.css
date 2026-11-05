@@ -2737,7 +2737,7 @@ kbd {
 
 /* Keep the collection browser flat and let users choose its desktop width. */
 .api-client-page { column-gap:0; }
-.api-client-page > .api-collections { grid-column:1; grid-row:2 / span 5; margin:0; padding:0; min-width:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+.api-client-page > .api-collections { grid-column:1; grid-row:2 / span 5; margin:0; padding:0; min-width:0; }
 .api-client-page > .api-import,.api-client-page > .api-request,.api-client-page > .race-panel,.api-client-page > .api-response,.api-client-page > .api-test-results,.api-client-page > .workspace-help { grid-column:3; }
 .api-client-page > .api-collections > .api-section-heading { flex-direction:row; align-items:center; gap:8px; padding:4px 7px 9px; }
 .api-collections > .api-section-heading > div:first-child { min-width:0; }
@@ -2745,28 +2745,28 @@ kbd {
 .api-collections > .api-section-heading p { margin:2px 0 0; font-size:10px; line-height:1.4; }
 .api-collections .api-collection-top-actions { flex:none; gap:3px; }
 .api-collections .api-collection-top-actions button { min-height:28px; padding:4px 7px; font-size:10px; }
-.api-collection-list { gap:5px; margin:0; padding:6px 2px 12px; font-size:11px; }
+.api-collection-list { gap:7px; margin:0; padding:8px 14px 14px; font-size:11px; }
 .api-collection-note { gap:6px; padding:2px 3px; border:0; border-radius:0; background:transparent; font-size:10px; line-height:1.45; }
 .api-collection-empty { min-height:34px; padding:5px 3px; border:0; border-radius:0; font-size:11px; }
-.api-collection-tree { gap:0; }
+.api-collection-tree { gap:5px; }
 .api-collection-node,.api-folder-node { border:0; border-radius:0; background:transparent; box-shadow:none; overflow:visible; }
-.api-collection-node > summary { gap:6px; min-height:30px; padding:4px 5px; border:0; border-radius:5px; font-size:11px; }
+.api-collection-node > summary { gap:7px; min-height:34px; padding:6px 7px; border:0; border-radius:5px; font-size:11px; }
 .api-collection-node > summary:hover,.api-folder-node > summary:hover { background:var(--surface-secondary); }
 .api-collection-node > summary::before { width:5px; height:5px; }
 .api-tree-title { gap:6px; }
 .api-tree-title > svg { width:13px; height:13px; }
 .api-tree-count { min-width:17px; height:17px; padding:0 4px; border-radius:5px; font-size:9px; }
-.api-node-toolbar,.api-folder-toolbar { min-height:25px; gap:2px; padding:0 0 2px 22px; border:0; background:transparent; }
+.api-node-toolbar,.api-folder-toolbar { min-height:27px; gap:3px; padding:1px 0 3px 26px; border:0; background:transparent; }
 .api-tree-action,.api-tree-icon-action { min-height:24px; gap:4px; padding:3px 5px; border:0; border-radius:5px; font-size:10px; }
 .api-tree-icon-action { width:24px; }
 .api-tree-action:hover,.api-tree-icon-action:hover { border:0; background:var(--accent-soft); }
 .api-tree-icon-action.is-danger:hover { color:var(--danger); background:var(--danger-soft); }
-.api-folder-list { gap:0; padding:0 0 0 13px; }
-.api-folder-node > summary { min-height:28px; padding:3px 5px; }
-.api-folder-toolbar { padding-left:18px; }
-.api-request-list { padding:0 0 0 15px; }
-.api-saved-row { gap:2px; padding:1px 0; border:0; }
-.api-request-open { gap:5px; min-height:27px; padding:3px 4px; }
+.api-folder-list { display:grid; gap:4px; padding:3px 0 5px 20px; }
+.api-folder-node > summary { min-height:32px; padding:5px 6px; }
+.api-folder-toolbar { min-height:26px; padding:1px 0 3px 23px; }
+.api-request-list { display:grid; gap:3px; padding:2px 0 4px 20px; }
+.api-saved-row { gap:3px; min-height:30px; padding:2px 0; border:0; }
+.api-request-open { gap:6px; min-height:29px; padding:4px 5px; }
 .api-request-open:hover { background:var(--surface-secondary); }
 .api-request-name { overflow:visible; overflow-wrap:anywhere; white-space:normal; line-height:1.35; font-size:10px; }
 .api-request-actions { flex:none; gap:0; opacity:1; }
@@ -2782,7 +2782,7 @@ kbd {
   .api-client-page { display:block; }
   .api-client-page > .api-collections { margin-bottom:18px; }
   .api-client-page > .api-collections > .api-section-heading { padding:8px 2px 10px; }
-  .api-collection-list { padding:6px 2px 12px; }
+  .api-collection-list { padding:8px 14px 14px; }
   .api-collection-resizer { display:none; }
 }
 @media (max-width:560px) {
