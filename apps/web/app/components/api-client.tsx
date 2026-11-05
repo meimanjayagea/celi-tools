@@ -4,8 +4,8 @@ import { useAppDialog } from "./app-dialog";
 import RacePanel from "./race-panel";
 import Image from "next/image";
 
-import { useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
-import { ArrowUpRight, Braces, CircleAlert, FileCode2, Folder, FolderPlus, Layers3, Pencil, Plus, RotateCw, Send, ShieldCheck, Trash2, Upload, X } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { ArrowUpRight, Braces, CircleAlert, FileCode2, Folder, FolderPlus, GripVertical, Layers3, Pencil, Plus, RotateCw, Send, ShieldCheck, Trash2, Upload, X } from "lucide-react";
 import { parseCurl, parseCurlPaste, parseRequestJson, replaceQuery, validateRequest, applyAuthorization, sanitizeSavedRequest, createDynamicVariables, resolveApiVariables, runApiScript, POSTMAN_DYNAMIC_VARIABLES, type ApiAuthorization, type ImportedRequest, type RequestRow } from "../lib/api-client.mjs";
 
 type Tab = "params" | "headers" | "body" | "authorization" | "pre-script" | "tests";
@@ -88,6 +88,7 @@ export default function ApiClient() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [collectionError, setCollectionError] = useState("");
   const [collectionsOpen, setCollectionsOpen] = useState(true);
+  const [collectionWidth, setCollectionWidth] = useState(280);
   const [response, setResponse] = useState<ResponseResult | null>(null);
   const [responseView, setResponseView] = useState<"body" | "headers">("body");
   const [error, setError] = useState("");
@@ -99,10 +100,42 @@ export default function ApiClient() {
   const [pasteMessage, setPasteMessage] = useState<{ text: string; error: boolean; warning?: boolean } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const controller = useRef<AbortController | null>(null);
+  const collectionResize = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
   const variableNames = [
     ...POSTMAN_DYNAMIC_VARIABLES,
     ...["timestamp", "timestemp", "localdate", "$timestamp", "$isoTimestamp", "$guid", ...Object.keys(variables)].map(name => ({ name, description: "" })),
   ].filter((item, index, all) => all.findIndex(candidate => candidate.name === item.name) === index);
+  function beginCollectionResize(event: ReactPointerEvent<HTMLDivElement>) {
+    if (window.innerWidth <= 900) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    collectionResize.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: collectionWidth };
+  }
+  function moveCollectionResize(event: ReactPointerEvent<HTMLDivElement>) {
+    const resize = collectionResize.current;
+    if (!resize || resize.pointerId !== event.pointerId) return;
+    const pageWidth = event.currentTarget.parentElement?.getBoundingClientRect().width ?? window.innerWidth;
+    const maximum = Math.max(220, Math.min(520, pageWidth - 380));
+    setCollectionWidth(Math.max(220, Math.min(maximum, resize.startWidth + event.clientX - resize.startX)));
+  }
+  function endCollectionResize(event: ReactPointerEvent<HTMLDivElement>) {
+    if (collectionResize.current?.pointerId !== event.pointerId) return;
+    collectionResize.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+  function keyResizeCollection(event: KeyboardEvent<HTMLDivElement>) {
+    const step = event.shiftKey ? 32 : 16;
+    const pageWidth = event.currentTarget.parentElement?.getBoundingClientRect().width ?? window.innerWidth;
+    const maximum = Math.max(220, Math.min(520, pageWidth - 380));
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      setCollectionWidth(width => Math.max(220, Math.min(maximum, width + (event.key === "ArrowRight" ? step : -step))));
+    } else if (event.key === "Home") {
+      event.preventDefault(); setCollectionWidth(220);
+    } else if (event.key === "End") {
+      event.preventDefault(); setCollectionWidth(maximum);
+    }
+  }
   useEffect(() => () => controller.current?.abort(), []);
   useEffect(() => {
     try {
@@ -255,10 +288,10 @@ export default function ApiClient() {
     { id: "pre-script", label: "Pre-request Script" },
     { id: "tests", label: "Tests" },
   ];
-  return <main className="tool-page api-client-page">
+  return <main className="tool-page api-client-page" style={{ gridTemplateColumns: `${collectionWidth}px 10px minmax(0, 1fr)` }}>
     {dialog}
     <div className="page-heading api-client-heading"><div><span className="eyebrow">API CLIENT</span><h1>{t("Request lebih mudah, respons lebih jelas.")}</h1><p>{t("Kirim request dan periksa respons API dalam satu ruang kerja.")}</p></div><button type="button" className="secondary-button" onClick={() => setImportOpen(!importOpen)} aria-expanded={importOpen} aria-controls="api-import"><Upload size={16} /> {t("Impor cURL / JSON")}</button></div>
-    <section className="panel api-collections">
+    <section className="panel api-collections" id="api-collections-panel">
       <div className="api-section-heading">
         <div><h2>{t("Koleksi")}</h2><p>{t("Simpan dan kelompokkan request di browser ini.")}</p></div>
         <div className="api-collection-actions api-collection-top-actions">
@@ -306,6 +339,7 @@ export default function ApiClient() {
         </div>
       </div>}
     </section>
+    <div className="api-collection-resizer" role="separator" tabIndex={0} aria-label={t("Atur lebar panel koleksi")} aria-controls="api-collections-panel" aria-orientation="vertical" aria-valuemin={220} aria-valuemax={520} aria-valuenow={collectionWidth} onPointerDown={beginCollectionResize} onPointerMove={moveCollectionResize} onPointerUp={endCollectionResize} onPointerCancel={endCollectionResize} onKeyDown={keyResizeCollection}><GripVertical size={16}/></div>
     {importOpen && <section className="panel api-import" id="api-import" aria-labelledby="api-import-title"><div className="api-section-heading"><div><h2 id="api-import-title">{t("Impor request")}</h2><p>{t("Tempel cURL, request JSON, atau koleksi Postman. Hapus autentikasi Postman dari JSON dan isi header secara manual; ganti juga variabel environment.")}</p></div><button type="button" className="icon-button" aria-label={t("Tutup impor")} onClick={() => setImportOpen(false)}><X size={17} /></button></div>
       <textarea aria-label={t("cURL atau JSON untuk diimpor")} className="api-import-input" value={importText} onChange={event => { setImportText(event.target.value); setImports([]); setImportError(""); }} placeholder={'curl https://api.example.com/users\n\natau {"method":"GET","url":"https://api.example.com/users"}'} spellCheck={false} />
       <div className="api-import-actions"><button type="button" className="secondary-button" onClick={() => fileInput.current?.click()}><Upload size={15} /> {t("Pilih file")}</button><input ref={fileInput} hidden type="file" accept=".json,.txt,application/json,text/plain" onChange={importFile} /><button type="button" className="primary-button" onClick={importRequest}>{t("Baca request")}</button><span>{t("Maks. 1 MB")}</span></div>
