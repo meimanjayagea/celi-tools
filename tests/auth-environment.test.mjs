@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { authConfigurationStatus } from "../apps/web/app/lib/auth-environment.mjs";
+import { databaseConfiguration } from "../apps/web/app/lib/database-config.mjs";
 
 const configured = {
   AUTH_SECRET: "0123456789abcdef0123456789abcdef",
@@ -55,4 +56,13 @@ test("auth status exposes no server secrets", () => {
   assert.equal(serialized.includes(configured.DATABASE_URL), false);
   assert.equal(serialized.includes(configured.GOOGLE_CLIENT_SECRET), false);
   assert.equal(status.email, false);
+});
+
+test("database connection URLs spell out the driver's current secure SSL behavior without deprecation warnings", () => {
+  const normalized = databaseConfiguration({ DATABASE_URL: "postgresql://user:secret@db.example/app?sslmode=require&application_name=celi" });
+  assert.equal(new URL(normalized.url).searchParams.get("sslmode"), "verify-full");
+  assert.equal(new URL(normalized.url).searchParams.get("application_name"), "celi");
+  assert.equal(new URL(databaseConfiguration({ DATABASE_URL: "postgres://user:secret@db.example/app?sslmode=verify-full" }).url).searchParams.get("sslmode"), "verify-full");
+  assert.equal(new URL(databaseConfiguration({ DATABASE_URL: "postgres://user:secret@db.example/app?sslmode=require&uselibpqcompat=true" }).url).searchParams.get("sslmode"), "require");
+  assert.equal(new URL(databaseConfiguration({ DATABASE_URL: "postgres://user:secret@db.example/app?sslmode=disable" }).url).searchParams.get("sslmode"), "disable");
 });
