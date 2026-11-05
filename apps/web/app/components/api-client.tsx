@@ -293,10 +293,10 @@ export default function ApiClient() {
     <div className="page-heading api-client-heading"><div><span className="eyebrow">API CLIENT</span><h1>{t("Request lebih mudah, respons lebih jelas.")}</h1><p>{t("Kirim request dan periksa respons API dalam satu ruang kerja.")}</p></div><button type="button" className="secondary-button" onClick={() => setImportOpen(!importOpen)} aria-expanded={importOpen} aria-controls="api-import"><Upload size={16} /> {t("Impor cURL / JSON")}</button></div>
     <section className="panel api-collections" id="api-collections-panel">
       <div className="api-section-heading">
-        <div><h2>{t("Koleksi")}</h2><p>{t("Simpan dan kelompokkan request di browser ini.")}</p></div>
+        <div><h2>{t("Koleksi")}</h2></div>
         <div className="api-collection-actions api-collection-top-actions">
           <button type="button" className="secondary-button" onClick={() => setCollectionsOpen(!collectionsOpen)} aria-expanded={collectionsOpen}>{collectionsOpen ? t("Tutup") : t("Buka koleksi")}</button>
-          <button type="button" className="primary-button" onClick={() => void addCollection()}><Plus size={15}/>{t("Koleksi")}</button>
+          <button type="button" className="primary-button" onClick={() => void addCollection()}><Plus size={15}/>{t("Tambah koleksi")}</button>
         </div>
       </div>
       {collectionsOpen && <div className="api-collection-list">

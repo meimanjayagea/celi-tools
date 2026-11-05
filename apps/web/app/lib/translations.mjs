@@ -85,7 +85,7 @@ const english = {
   "Koleksi:": "Collection:",
   "Folder:": "Folder:",
   "Request:": "Request:",
-  "Simpan dan kelompokkan request di browser ini.": "Save and organize requests in this browser.",
+  "Tambah koleksi": "Add collection",
   "Tutup": "Close",
   "Buka koleksi": "Open collections",
   "Nama koleksi": "Collection name",

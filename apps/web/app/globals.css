@@ -2745,11 +2745,11 @@ kbd {
 .api-client-page > .api-collections { grid-column:1; grid-row:2 / span 5; margin:0; padding:0; min-width:0; }
 .api-client-page > .api-import,.api-client-page > .api-request,.api-client-page > .race-panel,.api-client-page > .api-response,.api-client-page > .api-test-results,.api-client-page > .workspace-help { grid-column:3; }
 .api-client-page > .api-collections > .api-section-heading { flex-direction:row; align-items:center; gap:8px; padding:4px 7px 9px; }
-.api-collections > .api-section-heading > div:first-child { min-width:0; }
+.api-collections > .api-section-heading > div:first-child { flex:1; min-width:0; }
 .api-collections > .api-section-heading h2 { margin:0; font-size:14px; }
 .api-collections > .api-section-heading p { margin:2px 0 0; font-size:10px; line-height:1.4; }
-.api-collections .api-collection-top-actions { flex:none; gap:3px; }
-.api-collections .api-collection-top-actions button { min-height:28px; padding:4px 7px; font-size:10px; }
+.api-collections .api-collection-top-actions { flex:none; flex-wrap:nowrap; gap:5px; }
+.api-collections .api-collection-top-actions button { min-height:30px; padding:5px 8px; font-size:10px; white-space:nowrap; }
 .api-collection-list { gap:7px; margin:0; padding:8px 14px 14px; font-size:11px; }
 .api-collection-note { gap:6px; padding:2px 3px; border:0; border-radius:0; background:transparent; font-size:10px; line-height:1.45; }
 .api-collection-empty { min-height:34px; padding:5px 3px; border:0; border-radius:0; font-size:11px; }
@@ -2791,6 +2791,6 @@ kbd {
 }
 @media (max-width:560px) {
   .api-collections > .api-section-heading { flex-wrap:wrap; }
-  .api-collections .api-collection-top-actions { width:100%; }
-  .api-collections .api-collection-top-actions button { flex:1; }
+  .api-collections .api-collection-top-actions { width:auto; flex:none; }
+  .api-collections .api-collection-top-actions button { flex:0 0 auto; }
 }
