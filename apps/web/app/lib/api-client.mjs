@@ -1,3 +1,6 @@
+import { faker } from '@faker-js/faker';
+import { POSTMAN_DYNAMIC_VARIABLES } from './api-dynamic-variable-catalog.mjs';
+
 const METHODS = new Set(["GET", "POST", "PUT", "DELETE", "PATCH"]);
 const FORBIDDEN_HEADERS = new Set(["accept-charset", "accept-encoding", "access-control-request-headers", "access-control-request-method", "connection", "content-length", "cookie", "date", "dnt", "expect", "host", "keep-alive", "origin", "referer", "te", "trailer", "transfer-encoding", "upgrade", "via"]);
 
@@ -217,8 +220,138 @@ export function sanitizeSavedRequest(request) {
 export function createDynamicVariables(now = new Date()) {
   const timestamp = String(Math.floor(now.getTime() / 1000));
   const localdate = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
-  return { timestamp, timestemp: timestamp, '$timestamp': timestamp, localdate, '$isoTimestamp': now.toISOString(), '$guid': crypto.randomUUID() };
+  const pick = values => faker.helpers.arrayElement(values);
+  const firstName = () => faker.person.firstName();
+  const lastName = () => faker.person.lastName();
+  const word = () => faker.word.sample();
+  const color = () => faker.color.human();
+  const date = value => value.toISOString();
+  const image = () => faker.image.url({ width: 640, height: 480 });
+  const variables = {
+    '$guid': () => crypto.randomUUID(),
+    '$timestamp': () => timestamp,
+    '$isoTimestamp': () => now.toISOString(),
+    '$randomInt': () => String(faker.number.int({ min: 0, max: 1000 })),
+    '$randomPhoneNumber': () => faker.phone.number({ style: 'national' }),
+    '$randomPhoneNumberExt': () => `${faker.number.int({ min: 10, max: 99 })}-${faker.phone.number({ style: 'national' })}`,
+    '$randomLocale': () => pick(['en', 'id', 'es', 'fr', 'de', 'it', 'ja', 'ko', 'pt', 'zh']),
+    '$randomWords': () => faker.lorem.words(faker.number.int({ min: 2, max: 5 })),
+    '$randomFilePath': () => faker.system.filePath(),
+    '$randomDirectoryPath': () => faker.system.directoryPath(),
+    '$randomCity': () => faker.location.city(),
+    '$randomStreetName': () => faker.location.street(),
+    '$randomStreetAddress': () => faker.location.streetAddress(),
+    '$randomCountry': () => faker.location.country(),
+    '$randomCountryCode': () => faker.location.countryCode(),
+    '$randomLatitude': () => faker.location.latitude({ precision: 4 }),
+    '$randomLongitude': () => faker.location.longitude({ precision: 4 }),
+    '$randomColor': color,
+    '$randomDepartment': () => faker.commerce.department(),
+    '$randomProductName': () => faker.commerce.productName(),
+    '$randomProductAdjective': () => faker.commerce.productAdjective(),
+    '$randomProductMaterial': () => faker.commerce.productMaterial(),
+    '$randomProduct': () => faker.commerce.product(),
+    '$randomCompanyName': () => faker.company.name(),
+    '$randomCompanySuffix': () => faker.company.name().split(' ').at(-1),
+    '$randomCatchPhrase': () => faker.company.catchPhrase(),
+    '$randomBs': () => faker.company.buzzPhrase(),
+    '$randomCatchPhraseAdjective': () => faker.company.catchPhraseAdjective(),
+    '$randomCatchPhraseDescriptor': () => faker.company.catchPhraseDescriptor(),
+    '$randomCatchPhraseNoun': () => faker.company.catchPhraseNoun(),
+    '$randomBsAdjective': () => faker.company.buzzAdjective(),
+    '$randomBsBuzz': () => faker.company.buzzVerb(),
+    '$randomBsNoun': () => faker.company.buzzNoun(),
+    '$randomDatabaseColumn': () => pick(['id', 'createdAt', 'updatedAt', 'email', 'status', 'name', 'token', 'group']),
+    '$randomDatabaseType': () => pick(['integer', 'bigint', 'varchar', 'text', 'boolean', 'timestamp', 'decimal', 'jsonb']),
+    '$randomDatabaseCollation': () => pick(['utf8_bin', 'utf8_general_ci', 'utf8mb4_unicode_ci', 'en_US.utf8']),
+    '$randomDatabaseEngine': () => pick(['InnoDB', 'PostgreSQL', 'SQLite', 'Memory', 'Archive']),
+    '$randomDatePast': () => date(faker.date.past({ refDate: now })),
+    '$randomDateFuture': () => date(faker.date.future({ refDate: now })),
+    '$randomDateRecent': () => date(faker.date.recent({ refDate: now })),
+    '$randomMonth': () => faker.date.month(),
+    '$randomWeekday': () => faker.date.weekday(),
+    '$randomBankAccount': () => faker.finance.accountNumber({ length: 8 }),
+    '$randomBankAccountName': () => `${pick(['Savings', 'Checking', 'Business', 'Everyday'])} Account`,
+    '$randomCreditCardMask': () => `**** **** **** ${faker.string.numeric(4)}`,
+    '$randomPrice': () => faker.commerce.price({ min: 0, max: 1000, dec: 2 }),
+    '$randomTransactionType': () => faker.finance.transactionType(),
+    '$randomCurrencyCode': () => faker.finance.currencyCode(),
+    '$randomCurrencyName': () => faker.finance.currencyName(),
+    '$randomCurrencySymbol': () => faker.finance.currencySymbol(),
+    '$randomBitcoin': () => faker.finance.bitcoinAddress(),
+    '$randomBankAccountIban': () => faker.finance.iban(),
+    '$randomBankAccountBic': () => faker.finance.bic(),
+    '$randomAbbreviation': () => faker.word.adjective().slice(0, 3).toUpperCase(),
+    '$randomAdjective': () => faker.word.adjective(),
+    '$randomNoun': () => faker.word.noun(),
+    '$randomVerb': () => faker.word.verb(),
+    '$randomIngverb': () => `${faker.word.verb()}ing`,
+    '$randomPhrase': () => faker.hacker.phrase(),
+    '$randomAvatarImage': () => faker.image.avatar(),
+    '$randomImageUrl': () => faker.image.url(),
+    '$randomAbstractImage': () => image('abstract'),
+    '$randomAnimalsImage': () => image('animals'),
+    '$randomBusinessImage': () => image('business'),
+    '$randomCatsImage': () => image('cats'),
+    '$randomCityImage': () => image('city'),
+    '$randomFoodImage': () => image('food'),
+    '$randomNightlifeImage': () => image('nightlife'),
+    '$randomFashionImage': () => image('fashion'),
+    '$randomPeopleImage': () => image('people'),
+    '$randomNatureImage': () => image('nature'),
+    '$randomSportsImage': () => image('sports'),
+    '$randomTransportImage': () => image('transport'),
+    '$randomImageDataUri': () => faker.image.dataUri({ type: 'svg-base64' }),
+    '$randomEmail': () => faker.internet.email(),
+    '$randomExampleEmail': () => `${firstName().toLowerCase()}.${lastName().toLowerCase()}@example.com`,
+    '$randomUserName': () => faker.internet.username(),
+    '$randomProtocol': () => pick(['http', 'https']),
+    '$randomUrl': () => faker.internet.url(),
+    '$randomDomainName': () => faker.internet.domainName(),
+    '$randomDomainSuffix': () => `.${faker.internet.domainName().split('.').at(-1)}`,
+    '$randomDomainWord': () => faker.internet.domainWord(),
+    '$randomIP': () => faker.internet.ipv4(),
+    '$randomIPV6': () => faker.internet.ipv6(),
+    '$randomUserAgent': () => faker.internet.userAgent(),
+    '$randomHexColor': () => faker.color.rgb({ format: 'hex' }),
+    '$randomMACAddress': () => faker.internet.mac(),
+    '$randomPassword': () => faker.internet.password({ length: 15 }),
+    '$randomLoremWord': () => faker.lorem.word(),
+    '$randomLoremWords': () => faker.lorem.words(3),
+    '$randomLoremSentence': () => faker.lorem.sentence(),
+    '$randomLoremSlug': () => faker.helpers.slugify(faker.lorem.words(3)).toLowerCase(),
+    '$randomLoremSentences': () => faker.lorem.sentences({ min: 2, max: 6 }),
+    '$randomLoremParagraph': () => faker.lorem.paragraph(),
+    '$randomLoremParagraphs': () => faker.lorem.paragraphs(3),
+    '$randomLoremText': () => faker.lorem.text(),
+    '$randomLoremLines': () => faker.lorem.lines(faker.number.int({ min: 1, max: 5 })),
+    '$randomFirstName': firstName,
+    '$randomLastName': lastName,
+    '$randomFullName': () => faker.person.fullName(),
+    '$randomJobTitle': () => faker.person.jobTitle(),
+    '$randomNamePrefix': () => faker.person.prefix(),
+    '$randomNameSuffix': () => faker.person.suffix(),
+    '$randomJobDescriptor': () => faker.person.jobDescriptor(),
+    '$randomJobArea': () => faker.person.jobArea(),
+    '$randomJobType': () => faker.person.jobType(),
+    '$randomUUID': () => crypto.randomUUID(),
+    '$randomBoolean': () => String(faker.datatype.boolean()),
+    '$randomWord': word,
+    '$randomAlphaNumeric': () => faker.string.alphanumeric(1),
+    '$randomFileName': () => faker.system.fileName(),
+    '$randomCommonFileName': () => faker.system.commonFileName(),
+    '$randomMimeType': () => faker.system.mimeType(),
+    '$randomCommonFileType': () => faker.system.commonFileType(),
+    '$randomCommonFileExt': () => faker.system.commonFileExt(),
+    '$randomFileType': () => faker.system.fileType(),
+    '$randomFileExt': () => faker.system.fileExt(),
+    '$randomSemver': () => faker.system.semver(),
+  };
+  const generated = Object.fromEntries(POSTMAN_DYNAMIC_VARIABLES.map(({ name }) => [name, String(variables[name]())]));
+  return { ...generated, timestamp, timestemp: timestamp, '$timestamp': timestamp, localdate, '$isoTimestamp': now.toISOString(), '$guid': crypto.randomUUID() };
 }
+
+export { POSTMAN_DYNAMIC_VARIABLES };
 
 export function resolveApiVariables(text, variables) {
   return text.replace(/\{\{(\$?[\w.-]+)\}\}/g, (whole, key) => Object.hasOwn(variables, key) ? variables[key] : whole);

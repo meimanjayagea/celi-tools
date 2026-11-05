@@ -160,3 +160,18 @@ test('dynamic timestamp and date variables use a consistent request snapshot', a
   assert.equal(resolveApiVariables('{{$isoTimestamp}}', vars), '2024-01-02T03:04:05.000Z');
   assert.match(resolveApiVariables('{{localdate}}', vars), /^\d{4}-\d{2}-\d{2}$/);
 });
+
+test('Postman dynamic variable catalog includes all documented names and resolves representative generators', async () => {
+  const { createDynamicVariables, POSTMAN_DYNAMIC_VARIABLES } = await import('../apps/web/app/lib/api-client.mjs');
+  assert.equal(POSTMAN_DYNAMIC_VARIABLES.length, 118);
+  const vars = createDynamicVariables(new Date('2024-01-02T03:04:05.000Z'));
+  for (const { name } of POSTMAN_DYNAMIC_VARIABLES) {
+    assert.equal(typeof vars[name], 'string', name);
+    assert.ok(vars[name].length > 0, name);
+  }
+  for (const name of ['$randomInt', '$randomEmail', '$randomFirstName', '$randomUUID', '$randomLoremParagraph', '$randomDateFuture', '$randomImageUrl']) {
+    assert.equal(typeof vars[name], 'string', name);
+    assert.ok(vars[name].length > 0, name);
+  }
+  assert.match(vars.$randomUUID, /^[0-9a-f-]{36}$/i);
+});

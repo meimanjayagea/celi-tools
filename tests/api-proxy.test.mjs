@@ -55,3 +55,12 @@ test('response headers preserve repeated values as separate rows', async () => {
     {key:'Content-Type',value:'image/png'}, {key:'Set-Cookie',value:'a=1'}, {key:'Set-Cookie',value:'b=2'}
   ]);
 });
+
+test('HTTP header size includes the status/request line and CRLF framing', async () => {
+  const { measureHttp1HeaderBytes, measureProxySizes } = await import('../apps/web/app/lib/api-proxy.mjs');
+  assert.equal(measureHttp1HeaderBytes('HTTP/1.1 200 OK', ['Content-Type', 'application/json']), Buffer.byteLength('HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n', 'latin1'));
+  assert.equal(measureHttp1HeaderBytes('GET / HTTP/1.1', ['Host', 'example.com']), Buffer.byteLength('GET / HTTP/1.1\r\nHost: example.com\r\n\r\n', 'latin1'));
+  const sizes = measureProxySizes({ requestHeader:'POST / HTTP/1.1\r\nHost: example.com\r\n\r\n', requestBody:Buffer.from('é'), responseStartLine:'HTTP/1.1 200 OK', responseHeaders:['Content-Encoding','gzip'], responseBodyBytes:40, responseUncompressedBytes:100 });
+  assert.deepEqual(sizes.request, { headersBytes:Buffer.byteLength('POST / HTTP/1.1\r\nHost: example.com\r\n\r\n'), bodyBytes:2, totalBytes:Buffer.byteLength('POST / HTTP/1.1\r\nHost: example.com\r\n\r\n')+2 });
+  assert.deepEqual(sizes.response, { headersBytes:measureHttp1HeaderBytes('HTTP/1.1 200 OK', ['Content-Encoding','gzip']), bodyBytes:40, uncompressedBytes:100, totalBytes:measureHttp1HeaderBytes('HTTP/1.1 200 OK', ['Content-Encoding','gzip'])+40 });
+});

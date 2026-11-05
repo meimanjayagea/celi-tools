@@ -11,4 +11,5 @@ export function applyAuthorization(request: ImportedRequest, auth: ApiAuthorizat
 export function sanitizeSavedRequest(request: ImportedRequest): ImportedRequest;
 export function resolveApiVariables(text: string, variables: Record<string, string>): string;
 export function createDynamicVariables(now?: Date): Record<string, string>;
+export const POSTMAN_DYNAMIC_VARIABLES: readonly { name: string; description: string }[];
 export function runApiScript(script: string, variables: Record<string, string>, response: {status: number; text: string} | null): { variables: Record<string, string>; tests: { name: string; passed: boolean }[] };

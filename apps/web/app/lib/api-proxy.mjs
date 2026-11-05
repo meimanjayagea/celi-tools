@@ -17,6 +17,23 @@ export function responseHeaderRows(rawHeaders) {
   return rows;
 }
 
+/** Count the HTTP/1 start line, header lines, and final CRLF in bytes. */
+export function measureHttp1HeaderBytes(startLine, rawHeaders) {
+  let text = `${startLine}\r\n`;
+  for (let index = 0; index + 1 < rawHeaders.length; index += 2) text += `${rawHeaders[index]}: ${rawHeaders[index + 1]}\r\n`;
+  return Buffer.byteLength(`${text}\r\n`, 'latin1');
+}
+
+export function measureProxySizes({ requestHeader, requestBody, responseStartLine, responseHeaders, responseBodyBytes, responseUncompressedBytes }) {
+  const requestHeadersBytes = Buffer.byteLength(requestHeader, 'latin1');
+  const requestBodyBytes = Buffer.isBuffer(requestBody) ? requestBody.byteLength : Buffer.byteLength(requestBody || '');
+  const responseHeadersBytes = measureHttp1HeaderBytes(responseStartLine, responseHeaders);
+  return {
+    request: { headersBytes: requestHeadersBytes, bodyBytes: requestBodyBytes, totalBytes: requestHeadersBytes + requestBodyBytes },
+    response: { headersBytes: responseHeadersBytes, bodyBytes: responseBodyBytes, uncompressedBytes: responseUncompressedBytes, totalBytes: responseHeadersBytes + responseBodyBytes },
+  };
+}
+
 export function classifyProxyBody(buffer, contentType) {
   const mime = String(contentType || '').split(';')[0].trim().toLowerCase();
   const signatures = {
@@ -75,13 +92,14 @@ export function validateProxyRequest(input) {
 /** DNS is resolved once and the approved address is pinned to the actual connection. */
 export async function executeProxyRequest(input, signal) {
   const request = validateProxyRequest(input);
+  const start = performance.now();
   let addresses;
   let dnsTimer;
   try { addresses = await Promise.race([lookup(request.url.hostname, { all:true, family:4 }), new Promise((_, reject) => { dnsTimer = setTimeout(() => reject(new Error('DNS timeout')), 5000); })]); }
   catch { throw new Error('Domain tidak dapat ditemukan.'); }
   finally { clearTimeout(dnsTimer); }
   if (!addresses.length || addresses.some(({ address }) => !isPublicAddress(address))) throw new Error('Hanya alamat publik yang diizinkan.');
-  const address = addresses[0].address, start = performance.now();
+  const address = addresses[0].address;
   return new Promise((resolve, reject) => {
     const send = request.url.protocol === 'https:' ? httpsRequest : httpRequest;
     const outgoing = send(request.url, { method:request.method, headers:request.headers, agent:false, family:4, signal, lookup: (_host, _options, cb) => cb(null, address, 4) }, response => {
@@ -89,12 +107,14 @@ export async function executeProxyRequest(input, signal) {
       const decompressor = encoding === 'gzip' ? createGunzip() : encoding === 'deflate' ? createInflate() : encoding === 'br' ? createBrotliDecompress() : null;
       if (encoding && encoding !== 'identity' && !decompressor) { response.destroy(); reject(new Error('Encoding respons tidak didukung.')); return; }
       const stream = decompressor ? response.pipe(decompressor) : response;
-      const chunks = []; let bytes = 0, truncated = false, settled = false;
+      const chunks = []; let bytes = 0, responseBodyBytes = 0, truncated = false, settled = false;
       const finish = () => {
         if (settled) return; settled = true;
         const body = classifyProxyBody(Buffer.concat(chunks), response.headers['content-type']);
-        resolve({ status:response.statusCode || 0, statusText:response.statusMessage || '', milliseconds:Math.round(performance.now()-start), bytes, headers:responseHeaderRows(response.rawHeaders), ...body, truncated });
+        const metrics = measureProxySizes({ requestHeader: outgoing._header || '', requestBody: request.body, responseStartLine: `HTTP/${response.httpVersion} ${response.statusCode || 0} ${response.statusMessage || ''}`.trimEnd(), responseHeaders: response.rawHeaders, responseBodyBytes, responseUncompressedBytes: bytes });
+        resolve({ status:response.statusCode || 0, statusText:response.statusMessage || '', milliseconds:Math.round(performance.now()-start), bytes, headers:responseHeaderRows(response.rawHeaders), metrics, ...body, truncated });
       };
+      response.on('data', chunk => { responseBodyBytes += chunk.length; });
       stream.on('data', chunk => { const remaining = 2*1024*1024 - bytes; if (chunk.length > remaining) { chunks.push(chunk.subarray(0, remaining)); bytes += remaining; truncated = true; stream.destroy(); response.destroy(); finish(); } else { chunks.push(chunk); bytes += chunk.length; } });
       stream.on('end', finish); stream.on('error', () => { if (!settled) reject(new Error('Respons tidak dapat dibaca.')); });
       response.on('error', () => { if (!settled) reject(new Error('Respons tidak dapat dibaca.')); });
