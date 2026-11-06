@@ -196,6 +196,15 @@ const indonesian = {
   "Key": "Kunci", "Value": "Nilai", "Query Params": "Parameter Query", "Headers": "Header", "Send": "Kirim",
 };
 
+const aiEnglish = {
+  "AI Agent": "AI Agent", "Pengaturan": "Settings", "Atur penyedia AI untuk bantuan penggunaan celimanapp.": "Configure AI providers for celimanapp help.",
+  "Kunci API dienkripsi di database dan tidak pernah ditampilkan kembali. Chat hanya menjawab tentang penggunaan celimanapp; tidak membaca catatan, file, atau request Anda.": "API keys are encrypted in the database and never shown again. Chat only helps with celimanapp; it cannot read your notes, files, or requests.",
+  "Ubah provider": "Edit provider", "Tambah provider": "Add provider", "Nama profil": "Profile name", "Provider": "Provider", "Model ID": "Model ID", "Base URL (HTTPS publik)": "Base URL (public HTTPS)", "API key": "API key", "Kosongkan untuk mempertahankan key tersimpan": "Leave blank to keep the stored key", "Aktifkan provider ini": "Activate this provider", "Menyimpan…": "Saving…", "Simpan": "Save", "Batal": "Cancel", "Provider tersimpan": "Saved providers", "Baru": "New", "Memuat…": "Loading…", "Belum ada provider. Tambahkan konfigurasi untuk mengaktifkan chat.": "No provider configured. Add one to enable chat.", "API key tersimpan": "API key stored", "API key belum diatur": "API key not set", "Aktif": "Active", "Tidak aktif": "Inactive", "Uji": "Test", "Ubah": "Edit", "Hapus provider": "Delete provider", "Konfigurasi tersimpan.": "Configuration saved.", "Konfigurasi dihapus.": "Configuration deleted.", "Koneksi provider berhasil.": "Provider connection succeeded.", "Konfigurasi AI belum tersedia.": "AI configuration is unavailable.", "Perubahan tidak dapat disimpan.": "Changes could not be saved.", "Provider tidak merespons.": "Provider did not respond.", "Hapus konfigurasi provider ini?": "Delete this provider configuration?",
+  "Bantuan AI": "AI Help", "Tutup bantuan AI": "Close AI help", "Buka bantuan AI": "Open AI help", "Bantuan AI celimanapp": "celimanapp AI help", "Bantuan celimanapp": "celimanapp help", "Siap membantu": "Ready to help", "Belum dikonfigurasi": "Not configured", "Hapus percakapan": "Clear conversation", "Ada yang bisa saya bantu?": "How can I help?", "Tanyakan cara menggunakan fitur celimanapp.": "Ask how to use celimanapp features.", "Menyiapkan jawaban…": "Preparing an answer…", "Jawaban belum dapat dimuat. Periksa koneksi lalu coba lagi.": "The answer could not be loaded. Check your connection and try again.", "Layanan bantuan AI belum diaktifkan. Coba lagi nanti.": "AI help is not enabled yet. Please try again later.", "Tulis pertanyaan…": "Ask a question…", "Tulis pertanyaan": "Ask a question", "Hentikan jawaban": "Stop response", "Kirim pesan": "Send message"
+};
+for (const [message, translated] of Object.entries(aiEnglish)) english[message] = translated;
+for (const message of Object.keys(aiEnglish)) if (!indonesian[message]) indonesian[message] = message;
+
 /** Translate a known interface message without altering user-supplied data. */
 export function translate(message, language) {
   const catalog = language === "en" ? english : indonesian;

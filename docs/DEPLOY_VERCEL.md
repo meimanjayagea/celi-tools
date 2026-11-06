@@ -38,10 +38,14 @@ Variabel penting:
 | `DATABASE_PROVIDER` | `prisma-postgres`, `supabase`, atau driver PostgreSQL yang didukung (opsional; default `postgres`) |
 | `DATABASE_URL` | Satu koneksi PostgreSQL TLS untuk Auth.js `celi_auth` dan catatan `celi_app` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Wajib untuk login Google dan pembuatan akun otomatis; simpan Client Secret sebagai secret server-side |
+| `AI_AGENT_ADMIN_EMAILS` | Email akun Google admin yang boleh mengatur provider AI, dipisahkan koma |
+| `AI_AGENT_CREDENTIALS_ENCRYPTION_KEY` | Secret Base64 32 byte untuk enkripsi AES-256-GCM; buat dengan `openssl rand -base64 32`, simpan hanya di Vercel, dan jangan rotasi tanpa memasukkan ulang API key provider |
 | `WEB_ORIGINS` | Daftar origin HTTPS yang diizinkan API, dipisahkan koma |
 | `FILE_TOOLS_TRUST_PROXY` | `true` untuk membaca IP klien dari `x-vercel-forwarded-for` |
 
 Tidak perlu mengatur `FILE_API_URL`: web dan API dilayani pada domain sama melalui rewrite. Gunakan satu database PostgreSQL. Sebelum mengaktifkan auth, ekspor `DATABASE_URL` untuk database target ke environment shell, periksa `npm run db:status`, lalu jalankan `npm run db:migrate` bila masih ada migrasi pending. Migrasi tidak dijalankan otomatis saat deploy. Runner merekam versi dan checksum di schema metadata terpisah `celi_meta.schema_migrations`; backup database sebelum penerapan production. Tidak ada dummy user/note dalam migration karena catatan dan identitas adalah data privat. Login hanya memakai Google OAuth dan akun baru dibuat otomatis saat login pertama. Jangan memasukkan nilai rahasia Google, DB, Auth.js, atau Blob ke konfigurasi frontend.
+
+Untuk mengaktifkan AI Agent, tambahkan email Google pemilik di `AI_AGENT_ADMIN_EMAILS` serta secret acak pada `AI_AGENT_CREDENTIALS_ENCRYPTION_KEY`. Jalankan migrasi PostgreSQL terbaru. Admin kemudian dapat menyimpan provider dari menu **AI Agent**; kunci dienkripsi sebelum masuk database dan tidak dapat dibaca ulang dari UI/API. Chat hanya membahas penggunaan celimanapp dan percakapan tidak disimpan. Untuk endpoint OpenAI-compatible, hanya HTTPS pada alamat IP publik yang diizinkan.
 
 Untuk Google OAuth, buat OAuth Client bertipe Web application dan daftarkan Authorized redirect URI `${AUTH_URL}/api/auth/callback/google`. Nilai OAuth harus Client ID dan Client Secret, bukan API key. Selalu buka aplikasi melalui origin yang sama dengan `AUTH_URL`; Next.js Proxy mengarahkan alias Vercel lain ke sana agar cookie PKCE host-only tetap terkirim saat callback Google. Vercel deployment protection pada domain `vercel.app` dapat menghalangi pengunjung publik mencapai halaman login/callback; gunakan domain khusus publik atau tinjau proteksi deployment sebelum membuka auth ke pengguna.
 

@@ -79,6 +79,8 @@ GOOGLE_CLIENT_SECRET=replace-with-google-oauth-client-secret
 | `DATABASE_PROVIDER` | Pilih `postgres`, `supabase`, `prisma-postgres`, `neon`, `vercel-postgres`, atau `none`. Semua provider PostgreSQL memakai satu pool `pg` untuk Auth.js dan data Sticky Note. `none` menonaktifkan penyimpanan dan login. `AUTH_DATABASE_PROVIDER` dibaca sebagai fallback lama. |
 | `DATABASE_URL` | Satu-satunya URL PostgreSQL server-side untuk Auth.js dan data aplikasi. `POSTGRES_URL` tidak dipakai. Gunakan koneksi TLS di production. Supabase dan Prisma Postgres memakai URL koneksi PostgreSQL server-side. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Wajib untuk login dan pembuatan akun dengan Google OAuth. Buat OAuth Client bertipe Web application di Google Cloud Console; jangan gunakan API key. Redirect URI harus `${AUTH_URL}/api/auth/callback/google`. Simpan Client Secret hanya di environment server Vercel. |
+| `AI_AGENT_ADMIN_EMAILS` | Daftar email Google admin dipisahkan koma untuk mengatur provider AI. |
+| `AI_AGENT_CREDENTIALS_ENCRYPTION_KEY` | Secret Base64 acak tepat 32 byte untuk mengenkripsi API key provider. Buat dengan `openssl rand -base64 32`; simpan hanya di server dan jangan rotasi tanpa memasukkan ulang API key provider. |
 
 Google mengautentikasi pemilik alamat email. Login pertama otomatis membuat akun; login berikutnya membuka akun yang sama. Akun lama yang menggunakan email terverifikasi dapat ditautkan ke akun Google dengan email sama, dan aplikasi hanya menerima profil Google dengan `email_verified=true`. Tidak ada form registrasi atau login tautan email.
 

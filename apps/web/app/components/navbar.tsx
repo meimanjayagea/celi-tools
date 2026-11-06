@@ -8,6 +8,7 @@ import { CodeXml, Home, LockKeyhole, Settings2, FileInput, FileArchive, Menu, X,
 import { useAuth } from "./auth-provider";
 import { ThemeToggle } from "./theme-provider";
 import { LanguageToggle, useLanguage } from "./language-provider";
+import AiHelpChat from "./ai-help-chat";
 const GROUP_LABELS: Record<string, string> = {
     workspace: "Workspace",
     tools: "Tools",
@@ -31,6 +32,17 @@ export default function Navbar({ children }: {
     const pathname = usePathname();
     const router = useRouter();
     const { user, loading } = useAuth();
+    const authenticatedUserId = user?.id;
+    const [aiAdminCheck, setAiAdminCheck] = useState<{ userId:string; isAdmin:boolean } | null>(null);
+    useEffect(() => {
+      if (!authenticatedUserId) return;
+      const controller = new AbortController();
+      fetch("/api/ai-agent/access", { cache:"no-store", signal:controller.signal })
+        .then(async response => response.ok ? response.json() : null)
+        .then(data => { if (!controller.signal.aborted) setAiAdminCheck({userId:authenticatedUserId,isAdmin:Boolean(data?.isAdmin)}); })
+        .catch(() => { if (!controller.signal.aborted) setAiAdminCheck({userId:authenticatedUserId,isAdmin:false}); });
+      return () => controller.abort();
+    }, [authenticatedUserId]);
     const [open, setOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const [authError, setAuthError] = useState("");
@@ -44,11 +56,13 @@ export default function Navbar({ children }: {
         setCommandIndex(0);
         setCommandOpen(true);
     }, []);
-    const commandItems = useMemo(() => links.filter((link) =>
+    const isAiAdmin = Boolean(user && aiAdminCheck?.userId === user.id && aiAdminCheck.isAdmin);
+    const visibleLinks = useMemo(() => isAiAdmin ? [...links, { group:"settings", href:"/ai-agent", label:"AI Agent", icon:Waypoints }] : links, [isAiAdmin]);
+    const commandItems = useMemo(() => visibleLinks.filter((link) =>
       `${t(link.label)} ${link.label} ${t(GROUP_LABELS[link.group] || link.group)}`
         .toLocaleLowerCase()
         .includes(commandQuery.trim().toLocaleLowerCase())
-    ), [commandQuery, t]);
+    ), [commandQuery, t, visibleLinks]);
 
     useEffect(() => {
         const handleShortcut = (event: KeyboardEvent) => {
@@ -123,9 +137,9 @@ export default function Navbar({ children }: {
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [profileOpen]);
-    const title = links.find((link) => link.href === pathname)?.label || (pathname === "/login" ? "Akun" : "Showcase");
+    const title = visibleLinks.find((link) => link.href === pathname)?.label || (pathname === "/login" ? "Akun" : "Showcase");
 
-    const groups = links.reduce<Record<string, typeof links>>((acc, link) => {
+    const groups = visibleLinks.reduce<Record<string, typeof links>>((acc, link) => {
         if (!acc[link.group]) acc[link.group] = [];
         acc[link.group].push(link);
         return acc;
@@ -200,5 +214,6 @@ export default function Navbar({ children }: {
       {authError && <p className="alert alert-error" role="alert">{t(authError)}</p>}
       <div id="portal-content" className="portal-content" tabIndex={-1}>{children}</div>
     </div>
+    {user && <AiHelpChat />}
   </div>;
 }
