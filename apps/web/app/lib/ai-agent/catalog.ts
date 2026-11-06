@@ -18,12 +18,12 @@ function nextPage(provider:AiProvider, payload:unknown):string|undefined {
   return undefined;
 }
 
-export async function fetchProviderModels(input:CatalogInput, fetchOverride?:typeof fetch):Promise<Array<{id:string;name:string}>> {
+export async function fetchProviderModels(input:CatalogInput, fetchOverride?:typeof fetch):Promise<Array<{id:string;name:string;isFree:boolean|null}>> {
   if (!input.apiKey || input.apiKey.length > 4096) throw safeModelCatalogError();
   const baseUrl = providerBaseUrl(input.provider, input.baseUrl);
   const fetcher = fetchOverride ?? await publicFetchForProvider(input.provider, input.baseUrl);
   try {
-    const models = new Map<string,{id:string;name:string}>();
+    const models = new Map<string,{id:string;name:string;isFree:boolean|null}>();
     let token:string|undefined;
     for (let page=0; page<3 && models.size<200; page++) {
       const payload = await fetchCatalogPage({provider:input.provider,baseUrl,apiKey:input.apiKey,pageToken:token,fetchImpl:fetcher});

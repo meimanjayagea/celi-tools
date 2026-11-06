@@ -7,6 +7,10 @@ test('interface messages switch between Indonesian and English', () => {
   assert.equal(translate('Preferensi', 'id'), 'Preferensi');
   assert.equal(translate('Light', 'id'), 'Terang');
   assert.equal(translate('  Tersedia ', 'en'), '  Available ');
+  assert.equal(translate('Gratis', 'en'), 'Free');
+  assert.equal(translate('Berbayar', 'en'), 'Paid');
+  assert.equal(translate('Tarif tidak diketahui', 'en'), 'Price unknown');
+  assert.equal(translate('Model tanpa data harga hanya tampil di filter Semua.', 'en'), 'Models without pricing data only appear under All.');
 });
 
 test('unknown content stays unchanged in either language', () => {

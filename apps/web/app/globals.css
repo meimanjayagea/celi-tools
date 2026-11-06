@@ -50,6 +50,9 @@
 .ai-model-picker>label { color:var(--text-secondary); font-size:12px; font-weight:650; }
 .ai-model-fetch-row { display:flex; align-items:center; gap:8px; }
 .ai-model-fetch-row input { flex:1; min-width:0; }
+.ai-model-filter { display:flex; flex-wrap:wrap; gap:6px; }
+.ai-model-filter .secondary-button { min-height:32px; padding:6px 10px; font-size:12px; }
+.ai-model-filter .secondary-button.is-selected { border-color:var(--accent); color:var(--accent); font-weight:700; }
 .ai-model-picker>select { width:100%; min-height:40px; padding:9px 11px; border:1px solid var(--border); border-radius:9px; background:var(--surface); color:var(--text-primary); font:inherit; font-size:13px; }
 .ai-model-picker>small { color:var(--text-muted); font-size:11px; line-height:1.45; }
 .ai-order-controls { display:flex; flex:none; align-items:center; gap:2px; color:var(--text-muted); font-size:11px; }

@@ -1,12 +1,9 @@
 import "server-only";
 import { lookup } from "node:dns/promises";
 import { Agent, fetch as undiciFetch } from "undici";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createGoogle } from "@ai-sdk/google";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { ProviderProfile } from "./types";
 import { assertNoRedirect, isPublicUnicastAddress, validateHttpsEndpoint } from "./endpoint-safety.mjs";
+import { createProviderChatModel } from "./provider-model.mjs";
 
 export type RuntimeProfile = ProviderProfile & { apiKey: string };
 
@@ -52,20 +49,7 @@ export async function publicFetchForProvider(provider: RuntimeProfile["provider"
 export async function createProviderModel(profile: RuntimeProfile) {
   const baseURL = providerBaseUrl(profile.provider, profile.baseUrl);
   const fetch = await publicFetchForProvider(profile.provider, profile.baseUrl);
-  switch (profile.provider) {
-    case "openai": return createOpenAI({ apiKey: profile.apiKey, baseURL, fetch })(profile.modelId);
-    case "anthropic": return createAnthropic({ apiKey: profile.apiKey, baseURL, fetch })(profile.modelId);
-    case "google": return createGoogle({ apiKey: profile.apiKey, baseURL, fetch })(profile.modelId);
-    case "groq":
-    case "xai":
-    case "openrouter":
-    case "opencode-zen":
-    case "hermes":
-    case "openai-compatible": {
-      const provider = createOpenAICompatible({ name: profile.provider, baseURL, apiKey: profile.apiKey, fetch });
-      return provider.chatModel(profile.modelId);
-    }
-  }
+  return createProviderChatModel({provider:profile.provider,apiKey:profile.apiKey,modelId:profile.modelId,baseURL},{fetchImpl:fetch});
 }
 
 export function validateProfile(input: unknown) {

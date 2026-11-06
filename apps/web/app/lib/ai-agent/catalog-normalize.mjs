@@ -2,6 +2,17 @@ const maxModels = 200;
 const unsupported = /(?:embed|embedding|moderation|rerank|whisper|speech|audio|tts|transcri|image-gen|image_generation|gpt-image|imagen|dall-e|grok-imagine)/i;
 const safePart = (value, limit) => typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, limit) : "";
 
+function modelIsFree(item, id) {
+  if (/:free$/i.test(id) || item.is_free === true || item.free === true) return true;
+  if (item.is_free === false || item.free === false) return false;
+  const pricing = item.pricing;
+  if (!pricing || typeof pricing !== "object" || Array.isArray(pricing)) return null;
+  const prices = [pricing.prompt, pricing.completion, pricing.input, pricing.output]
+    .map((value) => typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN)
+    .filter((value) => Number.isFinite(value) && value >= 0);
+  return prices.length ? prices.every((value) => value === 0) : null;
+}
+
 export function normalizeProviderModels(provider, payload) {
   const source = provider === "google" ? payload?.models : (payload?.data ?? payload?.models);
   if (!Array.isArray(source)) return [];
@@ -23,7 +34,7 @@ export function normalizeProviderModels(provider, payload) {
     if (seen.has(id)) continue;
     seen.add(id);
     const name = safePart(item.display_name ?? item.displayName ?? item.name ?? item.id ?? id, 120) || id;
-    result.push({ id, name });
+    result.push({ id, name, isFree: modelIsFree(item, id) });
     if (result.length >= maxModels) break;
   }
   return result;
