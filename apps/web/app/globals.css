@@ -2787,7 +2787,6 @@ kbd {
 .api-request-open { display:flex; align-items:center; gap:7px; flex:1; min-width:0; min-height:32px; padding:3px 4px; border:0; border-radius:6px; background:transparent; color:var(--text-primary); text-align:left; cursor:pointer; }
 .api-request-open:hover { background:var(--surface-secondary); }
 .api-request-icon { flex:none; color:var(--text-muted); }
-.api-request-prefix { flex:none; color:var(--text-secondary); font-size:10px; font-style:italic; }
 .api-request-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; }
 .api-request-actions { display:flex; align-items:center; gap:1px; opacity:.72; }
 .api-saved-row:hover .api-request-actions,.api-saved-row:focus-within .api-request-actions { opacity:1; }
