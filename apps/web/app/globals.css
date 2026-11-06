@@ -2765,10 +2765,6 @@ kbd {
 .api-collection-node > summary { display:flex; align-items:center; gap:8px; min-height:38px; padding:8px 10px; list-style:none; cursor:pointer; color:var(--text-primary); font-size:12px; font-weight:650; }
 .api-collection-node > summary::-webkit-details-marker { display:none; }
 .api-collection-node > summary:hover { background:var(--surface-secondary); }
-.api-tree-marker { flex:none; display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--text-muted); }
-.api-tree-marker.is-collection { width:8px; height:8px; background:var(--text-primary); }
-.api-tree-marker.is-folder { width:7px; height:7px; background:var(--text-secondary); }
-.api-tree-marker.is-request { width:8px; height:8px; border:1.5px solid var(--text-muted); background:transparent; }
 .api-tree-disclosure { flex:none; color:var(--text-muted); transition:transform .15s ease; }
 .api-collection-node[open] > summary .api-tree-disclosure { transform:rotate(90deg); }
 .api-tree-title { display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
