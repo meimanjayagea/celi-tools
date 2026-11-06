@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
-import { createUIMessageStreamResponse, streamText, toUIMessageStream } from "ai";
+import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from "ai";
 import { auth } from "../../../../auth";
 import { pool } from "../../../lib/database";
 import { HELP_INSTRUCTIONS } from "../../../lib/ai-agent/help-context";
 import { aiJson, aiHeaders, hasSameOrigin, readAiJson, recordAiRequest } from "../../../lib/ai-agent/http";
-import { getActiveProviderProfile } from "../../../lib/ai-agent/repository";
-import { createProviderModel } from "../../../lib/ai-agent/providers";
+import { listEnabledProviderProfiles } from "../../../lib/ai-agent/repository";
+import { createProviderTextStream, type RuntimeProviderProfile } from "../../../lib/ai-agent/failover";
+import { uiStreamWithFallback } from "../../../lib/ai-agent/ui-stream.mjs";
 
 export async function POST(request: Request) {
   if (!hasSameOrigin(request)) return aiJson({ error:"Permintaan tidak diizinkan." }, 403);
@@ -33,11 +34,14 @@ export async function POST(request: Request) {
     if (!(await recordAiRequest(pool, key, 10)).rowCount) return aiJson({ error:"Batas penggunaan tercapai. Coba lagi dalam satu menit." }, 429);
   } catch { return aiJson({ error:"Pembatas layanan bantuan AI belum tersedia." }, 503); }
   try {
-    const profile = await getActiveProviderProfile();
-    if (!profile) return aiJson({ error:"Bantuan AI belum dikonfigurasi. Hubungi administrator." }, 503);
-    const model = await createProviderModel(profile);
-    const result = streamText({ model, system:HELP_INSTRUCTIONS, messages:safeMessages, maxOutputTokens:800, abortSignal:request.signal });
-    return createUIMessageStreamResponse({ stream:toUIMessageStream({ stream:result.stream }), headers:aiHeaders });
+    const profiles = await listEnabledProviderProfiles();
+    if (!profiles.length) return aiJson({ error:"Bantuan AI belum dikonfigurasi. Hubungi administrator." }, 503);
+    const signal=AbortSignal.any([request.signal,AbortSignal.timeout(42_000)]);
+    const stream=createUIMessageStream<UIMessage>({
+      execute:async({writer})=>uiStreamWithFallback({writer,profiles,signal,createStream:(profile)=>createProviderTextStream(profile as RuntimeProviderProfile,safeMessages,HELP_INSTRUCTIONS,signal)}),
+      onError:()=>"Bantuan AI sementara tidak tersedia. Coba lagi nanti.",
+    });
+    return createUIMessageStreamResponse({ stream, headers:aiHeaders });
   } catch { return aiJson({ error:"Bantuan AI sementara tidak tersedia. Coba lagi nanti." }, 502);
   }
 }

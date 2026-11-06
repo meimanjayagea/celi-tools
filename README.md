@@ -82,9 +82,13 @@ GOOGLE_CLIENT_SECRET=replace-with-google-oauth-client-secret
 | `AI_AGENT_ADMIN_EMAILS` | Daftar email Google admin dipisahkan koma untuk mengatur provider AI. |
 | `AI_AGENT_CREDENTIALS_ENCRYPTION_KEY` | Secret Base64 acak tepat 32 byte untuk mengenkripsi API key provider. Buat dengan `openssl rand -base64 32`; simpan hanya di server dan jangan rotasi tanpa memasukkan ulang API key provider. |
 
+Admin mengatur penyedia di `/ai-agent`. Pilihan yang tersedia: OpenAI, Anthropic, Google Gemini, Groq, xAI Grok, OpenRouter, OpenCode Zen, Hermes API, dan endpoint OpenAI-compatible. Tombol **Ambil model** meminta katalog langsung dari provider; API key profil baru hanya dikirim untuk permintaan tersebut, sementara key profil tersimpan didekripsi di server. Pilih model yang dikembalikan provider sebelum menyimpan. Hermes harus berupa API server HTTPS yang bisa dijangkau publik; aplikasi tidak menjalankan CLI Hermes atau OpenCode di Vercel.
+
+Sampai empat profil berkey yang aktif dapat diurutkan untuk fallback. Chat berpindah profil hanya untuk kuota/rate limit atau gangguan jaringan/layanan sementara sebelum teks jawaban mulai dikirim. Key salah, model tidak valid, dan error setelah teks dimulai tidak memicu jawaban kedua. Fallback tidak mengganti akun tagihan; setiap profil memakai API key dan kuotanya sendiri.
+
 Google mengautentikasi pemilik alamat email. Login pertama otomatis membuat akun; login berikutnya membuka akun yang sama. Akun lama yang menggunakan email terverifikasi dapat ditautkan ke akun Google dengan email sama, dan aplikasi hanya menerima profil Google dengan `email_verified=true`. Tidak ada form registrasi atau login tautan email.
 
-Semua migrasi PostgreSQL berada di `apps/web/db/migrations/` dan dijalankan berurutan menggunakan satu `DATABASE_URL`:
+Semua migrasi PostgreSQL berada di `apps/web/db/migrations/` dan dijalankan berurutan menggunakan satu `DATABASE_URL`. Migrasi 004 diperlukan sebelum kode katalog/fallback digunakan di deployment; migrasi tidak berjalan otomatis saat deploy:
 
 ```sh
 npm run db:list      # Daftar file migrasi tanpa koneksi database

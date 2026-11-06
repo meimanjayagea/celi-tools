@@ -1,7 +1,7 @@
 import { auth } from "../../../../auth";
 import { isAiAgentAdmin } from "../../../lib/ai-agent/admin";
 import { aiJson, hasSameOrigin, readAiJson } from "../../../lib/ai-agent/http";
-import { deleteProviderProfile, listProviderProfiles, saveProviderProfile } from "../../../lib/ai-agent/repository";
+import { deleteProviderProfile, listProviderProfiles, reorderProviderProfiles, saveProviderProfile } from "../../../lib/ai-agent/repository";
 import { validateProfile } from "../../../lib/ai-agent/providers";
 
 async function authorize() {
@@ -20,7 +20,13 @@ export async function POST(request: Request) {
   if (!hasSameOrigin(request)) return aiJson({ error:"Permintaan tidak diizinkan." }, 403);
   try {
     if (!await authorize()) return aiJson({ error:"Akses admin diperlukan." }, 403);
-    const input = validateProfile(await readAiJson(request, 12_000));
+    const raw = await readAiJson(request, 12_000) as {action?:unknown;profileIds?:unknown};
+    if (raw?.action === "reorder") {
+      if (!Array.isArray(raw.profileIds) || raw.profileIds.length>100 || raw.profileIds.some((id)=>typeof id!=="string")) return aiJson({error:"Urutan provider tidak valid."},400);
+      await reorderProviderProfiles(raw.profileIds as string[]);
+      return aiJson({ok:true});
+    }
+    const input = validateProfile(raw);
     return aiJson({ profile:await saveProviderProfile(input) });
   } catch (error) {
     const message = error instanceof Error && /karakter|wajib|valid|key|aktif|tidak ditemukan|endpoint/i.test(error.message) ? error.message : "Konfigurasi tidak dapat disimpan. Periksa database dan kunci enkripsi.";

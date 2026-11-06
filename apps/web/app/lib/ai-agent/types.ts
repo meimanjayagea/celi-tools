@@ -1,4 +1,4 @@
-export type AiProvider = "openai" | "anthropic" | "google" | "openai-compatible";
+export type AiProvider = "openai" | "anthropic" | "google" | "groq" | "xai" | "openrouter" | "opencode-zen" | "hermes" | "openai-compatible";
 
 export type ProviderProfile = {
   id: string;
@@ -7,6 +7,7 @@ export type ProviderProfile = {
   modelId: string;
   baseUrl: string | null;
   isActive: boolean;
+  fallbackOrder: number;
   hasApiKey: boolean;
   createdAt: string;
   updatedAt: string;
@@ -29,4 +30,5 @@ export type SaveProfileInput = {
   baseUrl?: string;
   apiKey?: string;
   isActive: boolean;
+  fallbackOrder?: number;
 };
