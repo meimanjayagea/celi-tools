@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { signOut } from "next-auth/react";
@@ -8,7 +9,7 @@ import { CodeXml, Home, LockKeyhole, Settings2, FileInput, FileArchive, Menu, X,
 import { useAuth } from "./auth-provider";
 import { ThemeToggle } from "./theme-provider";
 import { LanguageToggle, useLanguage } from "./language-provider";
-import AiHelpChat from "./ai-help-chat";
+const AiHelpChat = dynamic(() => import("./ai-help-chat"), { ssr: false });
 const GROUP_LABELS: Record<string, string> = {
     workspace: "Workspace",
     tools: "Tools",
