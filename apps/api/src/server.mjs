@@ -56,15 +56,16 @@ function createClientLimiter() {
       clients.set(address, state);
     }
     state.lastSeen = now;
-    const timestamps = kind === "upload" ? state.uploads : state.probes;
-    const maxRequests = kind === "upload" ? 6 : 30;
+    const isUpload = kind === "upload" || kind === "guest-upload";
+    const timestamps = isUpload ? state.uploads : state.probes;
+    const maxRequests = kind === "guest-upload" ? 2 : kind === "upload" ? 6 : 30;
     while (timestamps.length && now - timestamps[0] >= 60_000) timestamps.shift();
-    if (kind === "upload" && state.activeUploads >= 1) return { allowed: false, retryAfter: 2 };
+    if (isUpload && state.activeUploads >= 1) return { allowed: false, retryAfter: 2 };
     if (timestamps.length >= maxRequests) {
       return { allowed: false, retryAfter: Math.max(1, Math.ceil((timestamps[0] + 60_000 - now) / 1000)) };
     }
     timestamps.push(now);
-    if (kind !== "upload") return { allowed: true, release: () => {} };
+    if (!isUpload) return { allowed: true, release: () => {} };
     state.activeUploads += 1;
     let released = false;
     return {
@@ -186,14 +187,15 @@ export function createFileServer({
           const isLocalMultipart = process.env.NODE_ENV !== "production" && incoming.headers["content-type"]?.startsWith("multipart/form-data");
           if (!Number.isFinite(length) || length <= 0 || length > (isJson ? 64 * 1024 : FILE_LIMITS.maxBytes + 1024 * 1024)) throw new FileBackendError("Metadata file tidak valid atau terlalu besar.", 413);
           if (!isJson && !isLocalMultipart) throw new FileBackendError("Metadata harus berupa JSON.", 415);
-          const limit = limitClient(getClientAddress(incoming, trustProxy, trustedProxyHops), "upload");
+          const isGuest = claims?.kind === "guest";
+          const limit = limitClient(getClientAddress(incoming, trustProxy, trustedProxyHops), isGuest ? "guest-upload" : "upload");
           if (!limit.allowed) {
             response = Response.json({ error: "Batas penggunaan file tercapai. Tunggu sebentar sebelum mencoba lagi." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
             incoming.resume();
           } else {
             releaseClientRequest = limit.release;
             const request = new Request("http://file-api.internal" + pathname, { method: "POST", headers: incoming.headers, body: Readable.toWeb(incoming), duplex: "half", signal: controller.signal });
-            response = isLocalMultipart ? await processFiles(request, pathname.endsWith("/convert") ? "convert" : "compress") : await processBlobFileRequest(request, pathname.endsWith("/convert") ? "convert" : "compress");
+            response = isLocalMultipart ? await processFiles(request, pathname.endsWith("/convert") ? "convert" : "compress") : await processBlobFileRequest(request, pathname.endsWith("/convert") ? "convert" : "compress", isGuest ? { maxFiles: 3, maxBytes: 25 * 1024 * 1024 } : undefined);
           }
         }
       } else if (incoming.method === "POST" && pathname === "/api/files/delete") {

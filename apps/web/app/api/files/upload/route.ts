@@ -1,13 +1,17 @@
 import { del } from "@vercel/blob";
 import { handleUpload } from "@vercel/blob/client";
 import { NextResponse, type NextRequest } from "next/server";
+import { randomUUID } from "node:crypto";
+import { cookies } from "next/headers";
 import { auth } from "../../../../auth";
 import { createFileApiToken } from "../../../lib/file-api-token.mjs";
-import { fileUploadTokenOptions } from "../../../lib/file-upload-token.mjs";
+import { FILE_UPLOAD_LIMITS, fileUploadTokenOptions } from "../../../lib/file-upload-token.mjs";
 
 const tokenRequests = new Map<string, number[]>();
 const inputPathPattern = /^celi-input\/[0-9a-f-]{36}\/(?!\.{1,2}$)[A-Za-z0-9._-]{1,200}$/i;
 const MAX_UPLOAD_EVENT_BYTES = 32 * 1024;
+const GUEST_COOKIE = "celimanapp-file-guest";
+const guestIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // Scanning a 100 MiB private Blob can take longer than the default function timeout.
 export const maxDuration = 180;
@@ -26,7 +30,7 @@ function clientAddress(request: NextRequest) {
   return value.split(",")[0]?.trim().slice(0, 80) || "unknown";
 }
 
-function rateLimited(address: string) {
+function rateLimited(address: string, limit: number) {
   const now = Date.now();
   for (const [key, values] of tokenRequests) {
     const recent = values.filter(value => now - value < 60_000);
@@ -34,7 +38,7 @@ function rateLimited(address: string) {
     else tokenRequests.delete(key);
   }
   const recent = tokenRequests.get(address) || [];
-  if (recent.length >= 20) return true;
+  if (recent.length >= limit) return true;
   recent.push(now);
   tokenRequests.set(address, recent);
   return false;
@@ -139,17 +143,32 @@ export async function POST(request: NextRequest) {
   }
 
   let userId: string | null = null;
+  let guest = false;
   if (eventType === "blob.generate-client-token") {
     if (!originAllowed(request)) {
       return NextResponse.json({ error: "Origin tidak diizinkan." }, { status: 403, headers: { "Cache-Control": "no-store" } });
     }
-    if (rateLimited(clientAddress(request))) {
-      return NextResponse.json({ error: "Terlalu banyak permintaan unggah. Coba lagi sebentar." }, { status: 429, headers: { "Retry-After": "60", "Cache-Control": "no-store" } });
-    }
-    const session = await auth();
+    let session = null;
+    try { session = await auth(); } catch { /* An unavailable sign-in service must not block guest uploads. */ }
     userId = session?.user?.id || null;
     if (!userId) {
-      return NextResponse.json({ error: "Silakan masuk untuk mengunggah file." }, { status: 401, headers: { "Cache-Control": "no-store" } });
+      const cookieStore = await cookies();
+      let guestId = cookieStore.get(GUEST_COOKIE)?.value;
+      if (!guestIdPattern.test(guestId || "")) {
+        guestId = randomUUID();
+        cookieStore.set(GUEST_COOKIE, guestId, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24,
+        });
+      }
+      userId = `guest:${guestId}`;
+      guest = true;
+    }
+    if (rateLimited(clientAddress(request), guest ? 5 : 20)) {
+      return NextResponse.json({ error: "Batas token unggah tercapai. Tunggu sebentar sebelum mencoba lagi." }, { status: 429, headers: { "Retry-After": "60", "Cache-Control": "no-store" } });
     }
     if (process.env.NODE_ENV === "production" && (!process.env.FILE_API_SIGNING_SECRET || Buffer.byteLength(process.env.FILE_API_SIGNING_SECRET) < 32)) {
       return NextResponse.json({ error: "Layanan pemindaian keamanan belum dikonfigurasi." }, { status: 503, headers: { "Cache-Control": "no-store" } });
@@ -165,7 +184,7 @@ export async function POST(request: NextRequest) {
       body,
       request,
       onBeforeGenerateToken: async pathname => ({
-        ...fileUploadTokenOptions(pathname),
+        ...fileUploadTokenOptions(pathname, Date.now(), guest ? FILE_UPLOAD_LIMITS.maxGuestBytes : FILE_UPLOAD_LIMITS.maxBytes),
         ...(process.env.NODE_ENV === "production" && userId ? { tokenPayload: userId } : {}),
       }),
       ...(process.env.NODE_ENV === "production" ? {

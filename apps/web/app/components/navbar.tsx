@@ -2,9 +2,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { signOut } from "next-auth/react";
-import { CodeXml, Home, LockKeyhole, Settings2, FileInput, FileArchive, Menu, X, ChevronRight, LogOut, LogIn, StickyNote, Waypoints, User, Mail, Shield } from "lucide-react";
+import { CodeXml, Home, LockKeyhole, Settings2, FileInput, FileArchive, Menu, X, ChevronRight, LogOut, LogIn, StickyNote, Waypoints, User, Mail, Shield, Search, CornerDownLeft } from "lucide-react";
 import { useAuth } from "./auth-provider";
 import { ThemeToggle } from "./theme-provider";
 import { LanguageToggle, useLanguage } from "./language-provider";
@@ -34,6 +34,60 @@ export default function Navbar({ children }: {
     const [open, setOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const [authError, setAuthError] = useState("");
+    const [commandOpen, setCommandOpen] = useState(false);
+    const [commandQuery, setCommandQuery] = useState("");
+    const [commandIndex, setCommandIndex] = useState(0);
+    const commandInput = useRef<HTMLInputElement>(null);
+    const commandTrigger = useRef<HTMLButtonElement>(null);
+    const openCommand = useCallback(() => {
+        setCommandQuery("");
+        setCommandIndex(0);
+        setCommandOpen(true);
+    }, []);
+    const commandItems = useMemo(() => links.filter((link) =>
+      `${t(link.label)} ${link.label} ${t(GROUP_LABELS[link.group] || link.group)}`
+        .toLocaleLowerCase()
+        .includes(commandQuery.trim().toLocaleLowerCase())
+    ), [commandQuery, t]);
+
+    useEffect(() => {
+        const handleShortcut = (event: KeyboardEvent) => {
+            if (!event.isComposing && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+                event.preventDefault();
+                openCommand();
+            }
+        };
+        document.addEventListener("keydown", handleShortcut);
+        return () => document.removeEventListener("keydown", handleShortcut);
+    }, [openCommand]);
+
+    useEffect(() => {
+        if (!commandOpen) return;
+        commandInput.current?.focus();
+        const keepFocusInDialog = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setCommandOpen(false);
+                commandTrigger.current?.focus();
+                return;
+            }
+            if (event.key === "Tab") {
+                const targets = document.querySelectorAll<HTMLElement>(".command-dialog input, .command-dialog button");
+                if (!targets.length) return;
+                const first = targets[0];
+                const last = targets[targets.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            }
+        };
+        document.addEventListener("keydown", keepFocusInDialog);
+        return () => document.removeEventListener("keydown", keepFocusInDialog);
+    }, [commandOpen]);
+
     useEffect(() => {
         if (!open)
             return;
@@ -99,7 +153,7 @@ export default function Navbar({ children }: {
         <button id="navigation-toggle" className="icon-button mobile-menu" aria-label={open ? t("Tutup navigasi") : t("Buka navigasi")} aria-expanded={open} aria-controls="portal-navigation" onClick={() => setOpen(!open)}>{open ? <X /> : <Menu />}</button>
         <Link href="/dashboard" className="mobile-portal-brand" aria-label="Dashboard"><Image src="/brand.svg" width={30} height={30} alt=""/><span>celimanapp</span></Link>
         <nav className="breadcrumbs" aria-label="Breadcrumb"><Link href="/dashboard" aria-label="Dashboard"><Home size={17}/></Link><ChevronRight size={14}/><span>{t(title)}</span></nav>
-        <div className="header-actions"><LanguageToggle /><ThemeToggle />
+        <div className="header-actions"><button ref={commandTrigger} type="button" className="command-trigger" aria-label={t("Cari halaman")} aria-haspopup="dialog" aria-expanded={commandOpen} onClick={openCommand}><Search size={17}/><span>{t("Cari halaman")}</span><kbd>⌘ / Ctrl K</kbd></button><LanguageToggle /><ThemeToggle />
           {user ? (
             <div className="account-menu" onClick={(e) => { e.stopPropagation(); setProfileOpen(!profileOpen); }}>
               <button className="account-trigger" aria-label={user.email || t("Akun")} aria-expanded={profileOpen}><span className="avatar">{ (user.email || "A")[0].toUpperCase() }</span><span className="account-label">{user.email?.split("@")[0] || "Akun"}</span><ChevronRight size={14} className="account-chevron"/></button>
@@ -128,9 +182,21 @@ export default function Navbar({ children }: {
                 </div>
               )}
             </div>
-          ) : <Link href="/login" className="account-login" aria-label={t("Masuk")}><span className="avatar"><LogIn size={18}/></span><span>{loading ? t("Memuat…") : t("Masuk")}</span></Link>}
+          ) : loading ? <span className="account-loading" role="status" aria-label={t("Memuat akun")}><span className="account-loading-avatar"/><span className="account-loading-label"/></span> : <Link href="/login" className="account-login" aria-label={t("Masuk")}><span className="avatar"><LogIn size={18}/></span><span>{t("Masuk")}</span></Link>}
         </div>
       </header>
+      {commandOpen && <div className="command-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setCommandOpen(false); commandTrigger.current?.focus(); } }}>
+        <section className="command-dialog" role="dialog" aria-modal="true" aria-labelledby="command-title">
+          <h2 id="command-title" className="sr-only">{t("Cari halaman")}</h2>
+          <div className="command-search"><Search size={18} aria-hidden="true"/><input ref={commandInput} type="search" value={commandQuery} onChange={(event) => { setCommandQuery(event.target.value); setCommandIndex(0); }} onKeyDown={(event) => {
+            if (event.key === "ArrowDown" && commandItems.length) { event.preventDefault(); setCommandIndex((index) => (index + 1) % commandItems.length); }
+            if (event.key === "ArrowUp" && commandItems.length) { event.preventDefault(); setCommandIndex((index) => (index - 1 + commandItems.length) % commandItems.length); }
+            if (event.key === "Enter" && commandItems[commandIndex]) { event.preventDefault(); router.push(commandItems[commandIndex].href); setCommandOpen(false); }
+          }} placeholder={t("Ketik nama halaman atau tool…")} aria-label={t("Cari halaman")} aria-controls="command-results" aria-activedescendant={commandItems[commandIndex] ? `command-result-${commandItems[commandIndex].href.slice(1)}` : undefined}/><kbd>ESC</kbd></div>
+          <div className="command-results" id="command-results" role="listbox" aria-label={t("Halaman")}>{commandItems.length ? commandItems.map(({ href, label, group, icon: Icon }, index) => <button key={href} id={`command-result-${href.slice(1)}`} type="button" role="option" aria-selected={index === commandIndex} className="command-result" onMouseEnter={() => setCommandIndex(index)} onClick={() => { router.push(href); setCommandOpen(false); }}><Icon size={18} aria-hidden="true"/><span>{t(label)}</span><small>{t(GROUP_LABELS[group] || group)}</small>{index === commandIndex && <CornerDownLeft size={15} aria-hidden="true"/>}</button>) : <p className="command-empty">{t("Tidak ada halaman yang cocok.")}</p>}</div>
+          <footer className="command-hints"><span><kbd>↑</kbd><kbd>↓</kbd> {t("Pilih")}</span><span><kbd>↵</kbd> {t("Buka")}</span><span><kbd>ESC</kbd> {t("Tutup")}</span></footer>
+        </section>
+      </div>}
       {authError && <p className="alert alert-error" role="alert">{t(authError)}</p>}
       <div id="portal-content" className="portal-content" tabIndex={-1}>{children}</div>
     </div>

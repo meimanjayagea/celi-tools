@@ -5,17 +5,20 @@ import { ArrowRight, Check, CircleAlert, Download, FileArchive, FileInput, Files
 import { upload } from "@vercel/blob/client";
 import { COMPRESS_METHODS, CONVERTER_GROUPS, FILE_LIMITS, conversionTargets, converterGroup, formatBytes, validateSelection } from "@celi/file-tools";
 import { fileApiEndpoint } from "../lib/file-api";
+import { useAuth } from "./auth-provider";
 
 type Result = { url: string; name: string; size: number; original: number; notes: string[]; cleanupPath: string };
-async function getFileAccessToken(signal?: AbortSignal) {
+type FileAccess = { token: string; guest: boolean; maxFiles: number; maxFileBytes: number; maxTotalBytes: number };
+async function getFileAccessToken(signal?: AbortSignal): Promise<FileAccess> {
   const response = await fetch("/api/files/access-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", cache: "no-store", credentials: "same-origin", signal });
   const payload = await response.json();
   if (!response.ok || typeof payload.token !== "string") throw new Error(payload.error || "Sesi file tidak tersedia. Silakan masuk kembali.");
-  return payload.token as string;
+  return payload as FileAccess;
 }
 
 export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }) {
   const { t } = useLanguage();
+  const { user, loading: authLoading } = useAuth();
   const converting = mode === "convert";
   const [files, setFiles] = useState<File[]>([]);
   const [target, setTarget] = useState(converting ? "pdf" : "zip");
@@ -94,6 +97,10 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
         if (!controller.signal.aborted) setResult({ url: URL.createObjectURL(blob), cleanupPath: "", name, size: blob.size, original: total, notes });
         return;
       }
+      const accessLimits = await getFileAccessToken(controller.signal);
+      if (accessLimits.guest && (files.length > accessLimits.maxFiles || files.some(file => file.size > accessLimits.maxFileBytes) || total > accessLimits.maxTotalBytes)) {
+        throw new Error("Mode tanpa akun dibatasi 3 file dan total 25 MB per proses. Masuk untuk memakai batas standar.");
+      }
       const uploadResults = await Promise.allSettled(files.map(async file => {
         const safeName = (file.name.replaceAll("\\", "/").split("/").at(-1)?.replace(/[^A-Za-z0-9._-]/g, "_").slice(-180) || "file").replace(/^\.{1,2}$/, "file");
         const stored = await upload(`celi-input/${crypto.randomUUID()}/${safeName}`, file, {
@@ -107,10 +114,10 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
       const failedUpload = uploadResults.find(result => result.status === "rejected");
       if (failedUpload?.status === "rejected") throw failedUpload.reason;
       const uploaded = uploadResults.flatMap(result => result.status === "fulfilled" ? [result.value] : []);
-      const accessToken = await getFileAccessToken(controller.signal);
+      const access = await getFileAccessToken(controller.signal);
       const response = await fetch(fileApiEndpoint(mode), {
         method: "POST", signal: controller.signal, credentials: "same-origin",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${access.token}` },
         body: JSON.stringify({ files: uploaded, target: selected, preset }),
       });
       if (!response.ok) { const payload = await response.json(); throw new Error(payload.error || "File tidak dapat diproses."); }
@@ -131,7 +138,8 @@ export default function FileWorkspace({ mode }: { mode: "convert" | "compress" }
 
   return <main className="file-workspace tool-page">
     <div className="page-heading"><span className="eyebrow">FILE WORKSPACE</span><h1>{converting ? t("Format yang tepat. Tanpa repot.") : t("Lebih ringan. Lebih mudah dibagikan.")}</h1><p>{converting ? t("Ubah gambar, dokumen, data, audio, dan video ke format yang Anda butuhkan.") : t("Optimalkan ukuran file atau gabungkan berbagai jenis file dalam satu arsip.")}</p></div>
-    <div className="file-server-status" role="status"><Server size={15} />{engines ? t("Server pemrosesan siap") : capabilityError ? t("Server belum tersedia") : t("Memeriksa ketersediaan server…")}<span>{t("Maks. 10 file · total 100 MB")}</span></div>
+    <div className="file-server-status" role="status"><Server size={15} />{engines ? t("Server pemrosesan siap") : capabilityError ? t("Server belum tersedia") : t("Memeriksa ketersediaan server…")}<span>{!authLoading && !user ? t("Maks. 3 file · total 25 MB") : t("Maks. 10 file · total 100 MB")}</span></div>
+    {!authLoading && !user && <p className="file-guest-limit">{t("Mode tanpa akun dibatasi 3 file dan total 25 MB per proses. Masuk untuk memakai batas standar.")}</p>}
     {capabilityError && <div className="alert alert-error" role="alert"><CircleAlert size={18}/><span>{t(capabilityError)}</span><button className="text-button" onClick={() => setRefresh(value => value + 1)}>{t("Periksa lagi")}</button></div>}
     <div className="file-workspace-grid">
       <section className="panel file-upload-panel" aria-labelledby="file-input-title">

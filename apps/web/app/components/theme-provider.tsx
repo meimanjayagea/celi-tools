@@ -12,10 +12,11 @@ export function ThemeProvider({ children }: {
 }) {
     const [theme, setTheme] = useState("light");
     useEffect(() => {
+        const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
         const sync = () => {
-            let value = "light";
+            let value = systemTheme.matches ? "dark" : "light";
             try {
-                value = localStorage.getItem("celi-tools:theme") || localStorage.getItem("celi-theme") || "light";
+                value = localStorage.getItem("celi-tools:theme") || localStorage.getItem("celi-theme") || value;
             }
             catch { }
             if (!THEMES.some(item => item.id === value))
@@ -26,7 +27,8 @@ export function ThemeProvider({ children }: {
         const timer = setTimeout(sync, 0);
         window.addEventListener("celi:theme", sync);
         window.addEventListener("storage", sync);
-        return () => { clearTimeout(timer); window.removeEventListener("celi:theme", sync); window.removeEventListener("storage", sync); };
+        systemTheme.addEventListener("change", sync);
+        return () => { clearTimeout(timer); window.removeEventListener("celi:theme", sync); window.removeEventListener("storage", sync); systemTheme.removeEventListener("change", sync); };
     }, []);
     const changeTheme = (value: string) => {
         if (!THEMES.some(item => item.id === value))

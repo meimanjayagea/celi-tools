@@ -1,6 +1,6 @@
 "use client";
 import { useLanguage } from "./language-provider";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { stringify as stringifyYaml } from "yaml";
 import { AlignLeft, Upload, Download, Copy, Printer, Wrench, Trash2, ChevronDown, Check, CircleAlert, CodeXml, Sparkles, Minimize2, ArrowDownAZ } from "lucide-react";
 import { cleanJson, fixJson, formatJson, minifyJson, sortKeys, parseJson, toCsv, toXml } from "../lib/json-tools.mjs";
@@ -81,7 +81,10 @@ export default function JsonWorkbench() {
     const [notice, setNotice] = useState("");
     const [fileName, setFileName] = useState("data.json");
     const [copied, setCopied] = useState(false);
+    const [editorShare, setEditorShare] = useState(1);
+    const [resizing, setResizing] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
+    const workbench = useRef<HTMLElement>(null);
     const parsed = useMemo(() => parseJson(committed), [committed]);
     const formatted = useMemo(() => parsed.error ? "" : JSON.stringify(parsed.value, null, indent), [parsed, indent]);
     const converted = useMemo(() => {
@@ -172,10 +175,28 @@ export default function JsonWorkbench() {
         event.target.value = "";
     };
     const valid = !parsed.error && !!committed.trim();
+    const resizePanels = (event: ReactPointerEvent<HTMLDivElement>) => {
+        if (window.innerWidth <= 1150) return;
+        const rect = workbench.current?.getBoundingClientRect();
+        if (!rect) return;
+        const share = Math.max(25, Math.min(75, ((event.clientX - rect.left) / rect.width) * 100));
+        setEditorShare(share / (100 - share));
+    };
+    const resizeFromKeyboard = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+        if (event.key === "Home") { event.preventDefault(); setEditorShare(1 / 3); }
+        else if (event.key === "End") { event.preventDefault(); setEditorShare(3); }
+        else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+            event.preventDefault();
+            setEditorShare(value => {
+                const share = Math.max(25, Math.min(75, (value / (1 + value) * 100) + (event.key === "ArrowLeft" ? -2 : 2)));
+                return share / (100 - share);
+            });
+        }
+    };
     return <main className="tool-page">
     <div className="page-heading"><span className="eyebrow">JSON WORKSPACE</span><h1>{t("Format, validasi, pahami.")}</h1><p>{t("Rapikan data, jelajahi strukturnya, dan konversi ke format yang Anda butuhkan.")}</p></div>
     <div className="tool-heading-meta"><span className={`validation-pill ${valid ? "is-valid" : committed.trim() ? "is-invalid" : ""}`}>{valid ? <Check size={15}/> : <CircleAlert size={15}/>}{!committed.trim() ? t("Menunggu JSON") : valid ? t("JSON valid") : t("JSON tidak valid")}</span><span className="privacy-note">{t("Input terakhir disimpan di browser ini")}</span></div>
-    <section className="workbench" aria-label={t("Workspace JSON")}>
+    <section ref={workbench} className="workbench" style={{ "--json-left-share": `${editorShare}fr`, "--json-right-share": `${1 / editorShare}fr` } as React.CSSProperties} aria-label={t("Workspace JSON")}>
       <div className="panel editor-panel">
         <div className="panel-heading"><div className="panel-title-wrap"><span className="panel-index">01</span><div><h2>Input</h2><p>{t("Tempel JSON atau buka file")}</p></div></div><button className="subtle-button" onClick={() => { setInput(SAMPLE_JSON); setCommitted(SAMPLE_JSON); setNotice("Contoh JSON dimuat."); }}>{t("Contoh")}</button></div>
         <div className="editor-toolbar"><div className="toolbar-group"><button className="toolbar-button" onClick={() => fileInput.current?.click()}><Upload size={16}/>Upload</button><input ref={fileInput} hidden type="file" accept=".json,.txt,application/json,text/plain" onChange={upload}/><button className="toolbar-button" onClick={() => transform("fix")}><Wrench size={16}/>Fix JSON</button></div><label className="select-label">{t("Indentasi")}<select aria-label={t("Indentasi JSON")} value={indent} onChange={event => setIndent(Number(event.target.value))}><option value={2}>{t("2 spasi")}</option><option value={3}>{t("3 spasi")}</option><option value={4}>{t("4 spasi")}</option></select></label></div>
@@ -188,6 +209,7 @@ export default function JsonWorkbench() {
         <div className="editor-extras"><button className="toolbar-button" onClick={() => transform("minify")}><Minimize2 size={15}/>Minify</button><button className="toolbar-button" onClick={() => transform("sort")}><ArrowDownAZ size={15}/>{t("Urutkan key")}</button><label className="auto-row"><input type="checkbox" checked={auto} onChange={e => { setAuto(e.target.checked); if (e.target.checked)
         setCommitted(input); }}/>{t("Update otomatis")}</label></div>
       </div>
+      <div className={`json-splitter${resizing ? " is-dragging" : ""}`} role="separator" aria-orientation="vertical" aria-label={t("Atur lebar panel editor JSON")} aria-valuemin={25} aria-valuemax={75} aria-valuenow={Math.round(editorShare / (1 + editorShare) * 100)} tabIndex={0} onKeyDown={resizeFromKeyboard} onPointerDown={event => { if (window.innerWidth <= 1150) return; event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); setResizing(true); resizePanels(event); }} onPointerMove={event => { if (resizing) resizePanels(event); }} onPointerUp={event => { setResizing(false); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} onLostPointerCapture={() => setResizing(false)} />
       <div className="panel output-panel">
         <div className="panel-heading"><div className="panel-title-wrap"><span className="panel-index">02</span><div><h2>{t("Hasil")}</h2><p>{t("Jelajahi dan ekspor data")}</p></div></div><button className="icon-button" aria-label={t("Cetak hasil JSON")} disabled={!valid || stale || !!converted.error} onClick={() => window.print()}><Printer size={17}/></button></div>
         <div className="output-tabs" role="tablist" aria-label={t("Format output")} onKeyDown={e => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {

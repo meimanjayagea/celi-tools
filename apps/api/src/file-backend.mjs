@@ -274,13 +274,13 @@ async function removeExpiredFileResults() {
     }
 }
 
-export async function processBlobFileRequest(request, mode) {
+export async function processBlobFileRequest(request, mode, limits = { maxFiles: FILE_LIMITS.maxFiles, maxBytes: FILE_LIMITS.maxBytes }) {
     const inputPaths = [];
     let outputPath;
     try {
         const payload = await request.json();
-        if (!payload || !Array.isArray(payload.files) || payload.files.length < 1 || payload.files.length > FILE_LIMITS.maxFiles)
-            throw new FileBackendError("Pilih 1 sampai 10 file untuk diproses.");
+        if (!payload || !Array.isArray(payload.files) || payload.files.length < 1 || payload.files.length > limits.maxFiles)
+            throw new FileBackendError(`Pilih 1 sampai ${limits.maxFiles} file untuk diproses.`);
         if (typeof payload.target !== "string" || typeof payload.preset !== "string")
             throw new FileBackendError("Pilihan pemrosesan tidak valid.");
         const files = [];
@@ -293,7 +293,7 @@ export async function processBlobFileRequest(request, mode) {
             seen.add(entry.pathname);
             inputPaths.push(entry.pathname);
             sizeTotal += entry.size;
-            if (sizeTotal > FILE_LIMITS.maxBytes) throw new FileBackendError("Total file melebihi batas 100 MB.", 413);
+            if (sizeTotal > limits.maxBytes) throw new FileBackendError(`Total file melebihi batas ${Math.round(limits.maxBytes / (1024 * 1024))} MB.`, 413);
             const stored = await get(entry.pathname, { access: "private", abortSignal: request.signal, useCache: false });
             if (!stored || stored.statusCode !== 200 || !stored.stream) throw new FileBackendError("File unggahan tidak ditemukan.", 400);
             const contents = await readBlobContents(stored.stream, entry.size);
