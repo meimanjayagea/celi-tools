@@ -2338,6 +2338,7 @@ kbd {
   .landing-start h2 { font-size: 22px; }
 }
 .workspace-directory { padding-top: 48px; }
+.public-auth-page { max-width: 1170px; margin: 0 auto; padding: 55px 40px 65px; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; min-height: calc(100vh - 150px); }
 .auth-back { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-secondary); margin-bottom: 46px; }
 .auth-back:hover { color: var(--accent); }
 .auth-intro-copy h2 { font-size: 39px; line-height: 1.2; font-weight: 650; letter-spacing: -.035em; margin-top: 14px; }
