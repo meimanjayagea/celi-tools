@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Check, ChevronDown, LoaderCircle, Plus, RefreshCw, Save, Search, ShieldCheck, Trash2, Waypoints } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronDown, LoaderCircle, Plus, RefreshCw, Save, Search, ShieldCheck, Trash2, Waypoints, X } from "lucide-react";
 import { useLanguage } from "./language-provider";
 import { countModelFilters, filterModels } from "../lib/ai-agent/model-filter.mjs";
 
@@ -17,6 +17,8 @@ const empty:Form={name:"",provider:"openai",modelId:"",baseUrl:"",apiKey:"",isAc
 export default function AiAgentSettings() {
   const {t}=useLanguage();
   const [profiles,setProfiles]=useState<Profile[]>([]);
+  const [formOpen,setFormOpen]=useState(false);
+  const formDialogRef=useRef<HTMLDialogElement>(null);
   const [form,setForm]=useState<Form>(empty);
   const [models,setModels]=useState<Model[]>([]);
   const [selectedModelIds,setSelectedModelIds]=useState<string[]>([]);
@@ -44,6 +46,12 @@ export default function AiAgentSettings() {
   },[fetchProfiles,t]);
   useEffect(()=>{let active=true;fetchProfiles().then(data=>{if(active)setProfiles(data);}).catch(cause=>{if(active)setError(cause instanceof Error?cause.message:t("Konfigurasi AI belum tersedia."));}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[fetchProfiles,t]);
   useEffect(()=>{
+    const dialog=formDialogRef.current;
+    if(!dialog)return;
+    if(formOpen&&!dialog.open)dialog.showModal();
+    else if(!formOpen&&dialog.open)dialog.close();
+  },[formOpen]);
+  useEffect(()=>{
     if(!modelListOpen)return;
     const onPointerDown=(event:PointerEvent)=>{if(!modelPickerRef.current?.contains(event.target as Node))setModelListOpen(false);};
     const onKeyDown=(event:KeyboardEvent)=>{if(event.key==="Escape")setModelListOpen(false);};
@@ -51,7 +59,8 @@ export default function AiAgentSettings() {
     return()=>{document.removeEventListener("pointerdown",onPointerDown);document.removeEventListener("keydown",onKeyDown);};
   },[modelListOpen]);
 
-  const clearForm=()=>{setForm({...empty});setModels([]);setSelectedModelIds([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);setError("");setNotice("");};
+  const clearForm=()=>{setForm({...empty});setModels([]);setSelectedModelIds([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);setError("");setNotice("");setFormOpen(false);};
+  const addProvider=()=>{clearForm();setFormOpen(true);};
   const save=async(event:React.FormEvent)=>{
     event.preventDefault();setError("");setNotice("");
     if(!selectedModelIds.length){setError(t("Pilih model sebelum menyimpan."));return;}
@@ -68,7 +77,7 @@ export default function AiAgentSettings() {
   };
   const edit=(profile:Profile)=>{
     setForm({id:profile.id,name:profile.name,provider:profile.provider,modelId:profile.modelId,baseUrl:profile.baseUrl||"",apiKey:"",isActive:profile.isActive});
-    setModels([{id:profile.modelId,name:profile.modelId,isFree:null}]);setSelectedModelIds([profile.modelId]);setModelSearch("");setModelFilter("all");setModelListOpen(false);setError("");setNotice("");
+    setModels([{id:profile.modelId,name:profile.modelId,isFree:null}]);setSelectedModelIds([profile.modelId]);setModelSearch("");setModelFilter("all");setModelListOpen(false);setError("");setNotice("");setFormOpen(true);
   };
   const fetchModels=async()=>{
     setModelsBusy(true);setError("");setNotice("");setModels([]);setSelectedModelIds([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);
@@ -125,10 +134,12 @@ export default function AiAgentSettings() {
   return <section className="ai-settings-page">
     <header className="page-heading"><div><span className="eyebrow">{t("Pengaturan")}</span><h1><Waypoints size={25}/>{t("AI Agent")}</h1><p>{t("Atur penyedia AI untuk bantuan penggunaan celimanapp.")}</p></div></header>
     <div className="ai-privacy-note"><ShieldCheck size={19}/><span>{t("Kunci API dienkripsi di database dan tidak pernah ditampilkan kembali. Chat hanya menjawab tentang penggunaan celimanapp; tidak membaca catatan, file, atau request Anda.")}</span></div>
-    {notice&&<div className="ai-flash success" role="status"><Check size={17}/>{notice}</div>}{error&&<div className="ai-flash error" role="alert">{error}</div>}
+    {notice&&!formOpen&&<div className="ai-flash success" role="status"><Check size={17}/>{notice}</div>}{error&&!formOpen&&<div className="ai-flash error" role="alert">{error}</div>}
     <div className="ai-settings-grid">
-      <form className="panel ai-profile-form" onSubmit={save}>
-        <h2>{form.id?t("Ubah provider"):t("Tambah provider")}</h2>
+      <dialog ref={formDialogRef} className="ai-provider-dialog" aria-labelledby="ai-provider-dialog-title" onCancel={event=>{event.preventDefault();clearForm();}} onClick={event=>{if(event.target===formDialogRef.current)clearForm();}}>
+      <form className="ai-profile-form" onSubmit={save}>
+        <header className="ai-provider-dialog-header"><div><span className="eyebrow">{t("AI Agent")}</span><h2 id="ai-provider-dialog-title">{form.id?t("Ubah provider"):t("Tambah provider")}</h2><p>{t("Atur penyedia AI untuk bantuan penggunaan celimanapp.")}</p></div><button type="button" className="app-dialog-close" aria-label={t("Tutup dialog")} onClick={clearForm}><X size={18}/></button></header>
+        {error&&<div className="ai-flash error" role="alert">{error}</div>}
         <label>{t("Nama profil")}<input required maxLength={80} value={form.name} onChange={event=>setForm({...form,name:event.target.value})}/></label>
         <label>{t("Provider")}<select disabled={modelsBusy||Boolean(form.id)} value={form.provider} onChange={event=>selectProvider(event.target.value as Provider)}>{providers.map(provider=><option key={provider.id} value={provider.id}>{provider.label}</option>)}</select></label>
         {providers.find(item=>item.id===form.provider)?.needsUrl&&<label>{t("Base URL (HTTPS publik)")}<input disabled={modelsBusy} required type="url" placeholder={form.provider==="hermes"?"https://hermes.example.com/v1":"https://api.example.com/v1"} value={form.baseUrl} onChange={event=>setForm({...form,baseUrl:event.target.value})}/></label>}
@@ -157,9 +168,10 @@ export default function AiAgentSettings() {
           <small>{form.id?t("Pilih satu model untuk memperbarui profil."):t("Pilih satu atau beberapa model. Setiap model akan menjadi baris profil sendiri dengan key provider yang sama.")} {t("Kunci baru hanya dipakai sementara untuk mengambil daftar model.")} {t("Status gratis mengikuti label atau harga yang disediakan provider; model tanpa data harga ditandai tidak diketahui.")}</small>
         </div>
         <label className="ai-checkbox"><input type="checkbox" checked={form.isActive} onChange={event=>setForm({...form,isActive:event.target.checked})}/>{t("Sertakan dalam fallback")}</label>
-        <div className="ai-form-actions"><button className="primary-button" disabled={busy||loading}><Save size={16}/>{busy?t("Menyimpan…"):!form.id&&selectedModelIds.length>1?t("Simpan model {count}").replace("{count}",String(selectedModelIds.length)):t("Simpan")}</button>{form.id&&<button type="button" className="secondary-button" onClick={clearForm}>{t("Batal")}</button>}</div>
+        <div className="app-dialog-actions"><button type="button" className="secondary-button" onClick={clearForm}>{t("Batal")}</button><button className="primary-button" disabled={busy||loading}><Save size={16}/>{busy?t("Menyimpan…"):!form.id&&selectedModelIds.length>1?t("Simpan model {count}").replace("{count}",String(selectedModelIds.length)):t("Simpan")}</button></div>
       </form>
-      <section className="panel ai-profiles"><header><div><h2>{t("Urutan provider fallback")}</h2><p>{profiles.length} {t("profil tersimpan")}</p></div><button type="button" className="secondary-button" onClick={clearForm}><Plus size={16}/>{t("Baru")}</button></header>
+      </dialog>
+      <section className="panel ai-profiles"><header><div><h2>{t("Urutan provider fallback")}</h2><p>{profiles.length} {t("profil tersimpan")}</p></div><button type="button" className="primary-button" aria-haspopup="dialog" aria-expanded={formOpen} onClick={addProvider}><Plus size={16}/>{t("Tambah provider")}</button></header>
         <p className="ai-fallback-hint">{t("Maksimal empat provider aktif dicoba sesuai urutan. Fallback hanya untuk kuota atau gangguan sementara sebelum jawaban dimulai.")}</p>
         {loading?<p className="ai-empty"><LoaderCircle size={18} className="spin"/>{t("Memuat…")}</p>:profiles.length===0?<p className="ai-empty">{t("Belum ada provider. Tambahkan konfigurasi untuk mengaktifkan chat.")}</p>:<div className="ai-provider-table-scroll"><table className="ai-provider-table"><thead><tr><th>{t("Nama profil")}</th><th>{t("Provider / Model")}</th><th>{t("Status")}</th><th>{t("Urutan")}</th><th><span className="sr-only">{t("Aksi")}</span></th></tr></thead><tbody>{sortedProfiles.map((profile,index)=><tr key={profile.id}>
           <td className="ai-table-name"><strong>{profile.name}</strong></td>
