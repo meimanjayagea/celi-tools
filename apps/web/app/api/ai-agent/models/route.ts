@@ -6,6 +6,7 @@ import { aiJson, hasSameOrigin, readAiJson, recordAiRequest } from "../../../lib
 import { fetchProviderModels } from "../../../lib/ai-agent/catalog";
 import { testProfileSecret } from "../../../lib/ai-agent/repository";
 import { validateProfile } from "../../../lib/ai-agent/providers";
+import { isSafeModelCatalogError } from "../../../lib/ai-agent/catalog-normalize.mjs";
 
 export async function POST(request:Request) {
   if (!hasSameOrigin(request)) return aiJson({ error:"Permintaan tidak diizinkan." },403);
@@ -35,8 +36,11 @@ export async function POST(request:Request) {
     const models=await fetchProviderModels({provider:profile.provider,apiKey:profile.apiKey,baseUrl:profile.baseUrl ?? undefined});
     return aiJson({ models });
   } catch (error) {
-    const invalidInput=error instanceof Error && /wajib|valid|endpoint|URL|aktifkan|tidak didukung/i.test(error.message);
-    const message=invalidInput
+    const safeCatalogFailure=error instanceof Error && isSafeModelCatalogError(error);
+    const invalidInput=!safeCatalogFailure && error instanceof Error && /wajib|valid|endpoint|URL|aktifkan|tidak didukung/i.test(error.message);
+    const message=safeCatalogFailure
+      ? error.message
+      : invalidInput
       ? error.message
       : "Daftar model tidak dapat dimuat. Periksa API key, endpoint, dan akses provider.";
     return aiJson({ error:message },invalidInput?400:502);

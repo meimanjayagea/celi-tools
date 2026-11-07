@@ -1,5 +1,5 @@
 import { assertNoRedirect } from "./endpoint-safety.mjs";
-import { readBoundedJson, safeModelCatalogError } from "./catalog-normalize.mjs";
+import { isSafeModelCatalogError, readBoundedJson, safeModelCatalogError } from "./catalog-normalize.mjs";
 
 export function providerCatalogUrl(provider, baseUrl, pageToken) {
   const url=new URL(`${baseUrl.replace(/\/$/,"")}/${provider==="xai"?"language-models":"models"}`);
@@ -34,9 +34,10 @@ export async function fetchCatalogPage({provider,baseUrl,apiKey,pageToken,fetchI
       signal:signal??AbortSignal.timeout(12_000),
     });
     assertNoRedirect(response);
-    if(!response.ok)throw safeModelCatalogError();
+    if(!response.ok)throw safeModelCatalogError(provider,response.status);
     return await readBoundedJson(response);
-  } catch {
-    throw safeModelCatalogError();
+  } catch (error) {
+    if(isSafeModelCatalogError(error))throw error;
+    throw safeModelCatalogError(provider);
   }
 }

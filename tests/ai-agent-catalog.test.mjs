@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeProviderModels, readBoundedJson, safeModelCatalogError } from "../apps/web/app/lib/ai-agent/catalog-normalize.mjs";
+import { isSafeModelCatalogError, normalizeProviderModels, readBoundedJson, safeModelCatalogError } from "../apps/web/app/lib/ai-agent/catalog-normalize.mjs";
 import { assertNoRedirect, isPublicUnicastAddress, validateHttpsEndpoint } from "../apps/web/app/lib/ai-agent/endpoint-safety.mjs";
 import { fetchCatalogPage, providerCatalogHeaders, providerCatalogUrl } from "../apps/web/app/lib/ai-agent/catalog-http.mjs";
 
@@ -52,6 +52,24 @@ test("rejects oversized or malformed model responses without exposing provider d
   const body=new ReadableStream({start(controller){controller.enqueue(new TextEncoder().encode('{"data":['));controller.enqueue(new Uint8Array(40));controller.close();}});
   await assert.rejects(readBoundedJson(new Response(body),24),/Daftar model tidak dapat dimuat/);
   assert.equal(safeModelCatalogError().message,"Daftar model tidak dapat dimuat. Periksa API key, endpoint, dan akses provider.");
+});
+
+test("classifies Gemini catalog failures safely without exposing upstream messages", async () => {
+  const cases=[
+    {status:400,message:/API key/i},
+    {status:401,message:/API key/i},
+    {status:403,message:/akses/i},
+    {status:429,message:/kuota/i},
+    {status:503,message:/gangguan/i},
+  ];
+  for(const entry of cases){
+    await assert.rejects(fetchCatalogPage({provider:"google",baseUrl:"https://generativelanguage.googleapis.com/v1beta",apiKey:"secret-key",fetchImpl:async()=>Response.json({error:{message:"raw provider detail secret-key"}},{status:entry.status})}),error=>{
+      assert.equal(isSafeModelCatalogError(error),true);
+      assert.match(error.message,entry.message);
+      assert.doesNotMatch(error.message,/raw provider detail|secret-key/);
+      return true;
+    });
+  }
 });
 
 test("rejects private provider endpoints, DNS ranges, and redirected provider calls", () => {

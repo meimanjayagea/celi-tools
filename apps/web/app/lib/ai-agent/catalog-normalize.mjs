@@ -40,8 +40,24 @@ export function normalizeProviderModels(provider, payload) {
   return result;
 }
 
-export function safeModelCatalogError() {
-  return new Error("Daftar model tidak dapat dimuat. Periksa API key, endpoint, dan akses provider.");
+export function isSafeModelCatalogError(error) {
+  return error instanceof Error && error.name === "SafeModelCatalogError";
+}
+
+export function safeModelCatalogError(provider, status) {
+  let message = "Daftar model tidak dapat dimuat. Periksa API key, endpoint, dan akses provider.";
+  if (provider === "google") {
+    if (status === 400) message = "Gemini menolak permintaan katalog (HTTP 400). Periksa API key dan akses Generative Language API.";
+    else if (status === 401) message = "Gemini tidak menerima API key (HTTP 401). Pastikan key aktif dan berasal dari Google AI Studio.";
+    else if (status === 403) message = "Gemini menolak akses (HTTP 403). Periksa pembatasan key dan izin proyek Gemini.";
+    else if (status === 429) message = "Kuota atau batas permintaan Gemini tercapai (HTTP 429). Periksa kuota atau coba lagi nanti.";
+    else if (typeof status === "number" && status >= 500) message = `Gemini sedang mengalami gangguan (HTTP ${status}). Coba lagi nanti.`;
+    else if (status === 404) message = "Endpoint katalog Gemini tidak ditemukan (HTTP 404). Periksa konfigurasi API Gemini.";
+    else if (status === undefined) message = "Endpoint Gemini tidak dapat dijangkau. Periksa koneksi dan akses provider.";
+  }
+  const error = new Error(message);
+  error.name = "SafeModelCatalogError";
+  return error;
 }
 
 export async function readBoundedJson(response, maxBytes = 1_000_000) {

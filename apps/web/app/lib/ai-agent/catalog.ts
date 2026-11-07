@@ -1,7 +1,7 @@
 import "server-only";
 import type { AiProvider } from "./types";
 import { publicFetchForProvider, providerBaseUrl } from "./providers";
-import { normalizeProviderModels, safeModelCatalogError } from "./catalog-normalize.mjs";
+import { isSafeModelCatalogError, normalizeProviderModels, safeModelCatalogError } from "./catalog-normalize.mjs";
 import { fetchCatalogPage } from "./catalog-http.mjs";
 
 export type CatalogInput = { provider:AiProvider; apiKey:string; baseUrl?:string };
@@ -35,7 +35,8 @@ export async function fetchProviderModels(input:CatalogInput, fetchOverride?:typ
       if (!token) break;
     }
     return [...models.values()];
-  } catch {
-    throw safeModelCatalogError();
+  } catch (error) {
+    if (isSafeModelCatalogError(error)) throw error;
+    throw safeModelCatalogError(input.provider);
   }
 }
