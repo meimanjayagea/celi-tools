@@ -10,7 +10,8 @@ test('interface messages switch between Indonesian and English', () => {
   assert.equal(translate('Gratis', 'en'), 'Free');
   assert.equal(translate('Berbayar', 'en'), 'Paid');
   assert.equal(translate('Tarif tidak diketahui', 'en'), 'Price unknown');
-  assert.equal(translate('Model tanpa data harga hanya tampil di filter Semua.', 'en'), 'Models without pricing data only appear under All.');
+  assert.equal(translate('Model tanpa data harga tersedia di filter Semua dan Belum diketahui.', 'en'), 'Models without pricing data are available under All and Unknown.');
+  assert.equal(translate('Belum diketahui', 'en'), 'Unknown');
 });
 
 test('unknown content stays unchanged in either language', () => {

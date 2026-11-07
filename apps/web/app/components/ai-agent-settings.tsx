@@ -2,12 +2,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Check, ChevronDown, LoaderCircle, Plus, RefreshCw, Save, Search, ShieldCheck, Trash2, Waypoints } from "lucide-react";
 import { useLanguage } from "./language-provider";
+import { countModelFilters, filterModels } from "../lib/ai-agent/model-filter.mjs";
 
 type Provider="openai"|"anthropic"|"google"|"groq"|"xai"|"openrouter"|"opencode-zen"|"hermes"|"openai-compatible";
 type Profile={id:string;name:string;provider:Provider;modelId:string;baseUrl:string|null;isActive:boolean;fallbackOrder:number;hasApiKey:boolean;createdAt:string};
 type Form={id?:string;name:string;provider:Provider;modelId:string;baseUrl:string;apiKey:string;isActive:boolean};
 type Model={id:string;name:string;isFree:boolean|null};
-type ModelFilter="all"|"free"|"paid";
+type ModelFilter="all"|"free"|"paid"|"unknown";
 const providers:Array<{id:Provider;label:string;needsUrl?:boolean}>=[
   {id:"openai",label:"OpenAI"},
   {id:"anthropic",label:"Anthropic"},
@@ -74,7 +75,7 @@ export default function AiAgentSettings() {
     setModels([{id:profile.modelId,name:profile.modelId,isFree:null}]);setModelSearch("");setModelFilter("all");setModelListOpen(false);setError("");setNotice("");
   };
   const fetchModels=async()=>{
-    setModelsBusy(true);setError("");setNotice("");setModels([]);setModelSearch("");setModelListOpen(false);
+    setModelsBusy(true);setError("");setNotice("");setModels([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);
     try{
       const saved=profiles.find(profile=>profile.id===form.id);
       const sameSavedEndpoint=saved&&saved.provider===form.provider&&(saved.baseUrl||"")===form.baseUrl&&saved.hasApiKey&&!form.apiKey;
@@ -120,7 +121,8 @@ export default function AiAgentSettings() {
     const selected=providers.find(item=>item.id===provider)!;
     setForm(current=>({...current,provider,modelId:"",baseUrl:selected.needsUrl?current.baseUrl:""}));setModels([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);
   };
-  const modelOptions=models.filter(model=>`${model.id} ${model.name}`.toLowerCase().includes(modelSearch.toLowerCase())).filter(model=>modelFilter==="all"||(modelFilter==="free"&&model.isFree===true)||(modelFilter==="paid"&&model.isFree===false));
+  const modelOptions=filterModels(models,modelSearch,modelFilter);
+  const modelFilterCounts=countModelFilters(models);
   const modelCostLabel=(model:Model)=>model.isFree===true?t("Gratis"):model.isFree===false?t("Berbayar"):t("Tarif tidak diketahui");
   const selectedModel=models.find(model=>model.id===form.modelId);
   const clearForm=()=>{setForm({...empty});setModels([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);};
@@ -148,15 +150,15 @@ export default function AiAgentSettings() {
               <div className="ai-model-options" id="ai-model-options" role="listbox" aria-label={t("Pilih model")}>
                 {modelOptions.length?modelOptions.map(model=><button key={model.id} type="button" role="option" aria-selected={form.modelId===model.id} className={`ai-model-option${form.modelId===model.id?" is-selected":""}`} onClick={()=>{setForm(current=>({...current,modelId:model.id}));setModelSearch("");setModelListOpen(false);}}>
                   <span className="ai-model-option-copy"><strong>{model.name}</strong><code>{model.id}</code></span><span className={`ai-model-price${model.isFree===true?" is-free":model.isFree===false?" is-paid":""}`}>{modelCostLabel(model)}</span>
-                </button>):<p className="ai-model-no-results">{t("Tidak ada model yang cocok dengan pencarian ini.")}</p>}
+                </button>):<p className="ai-model-no-results">{modelSearch.trim()?t("Tidak ada model yang cocok dengan pencarian ini."):modelFilter==="free"||modelFilter==="paid"?modelFilterCounts.unknown?t("Provider tidak memberikan informasi harga untuk mengelompokkan model ini. Lihat filter Belum diketahui."):t("Tidak ada model pada filter biaya ini."):t("Tidak ada model pada filter ini.")}</p>}
               </div>
               <small className="ai-model-count">{t("Jumlah model")}: {modelOptions.length} / {models.length}</small>
             </div>}
           </div>
           <div className="ai-model-filter" role="group" aria-label={t("Filter biaya model")}>
-            {([["all","Semua"],["free","Gratis"],["paid","Berbayar"]] as const).map(([value,label])=><button key={value} type="button" className={`secondary-button${modelFilter===value?" is-selected":""}`} aria-pressed={modelFilter===value} disabled={!models.length} onClick={()=>setModelFilter(value)}>{t(label)}</button>)}
+            {([["all","Semua"],["free","Gratis"],["paid","Berbayar"],["unknown","Belum diketahui"]] as const).map(([value,label])=><button key={value} type="button" className={`secondary-button${modelFilter===value?" is-selected":""}`} aria-pressed={modelFilter===value} disabled={!models.length} onClick={()=>{setModelFilter(value);setModelSearch("");setModelListOpen(true);}}>{t(label)} <span className="ai-model-filter-count">{modelFilterCounts[value]}</span></button>)}
           </div>
-          <small>{t("Kunci baru hanya dipakai sementara untuk mengambil daftar model.")} {t("Status gratis mengikuti label atau harga yang disediakan provider; model tanpa data harga ditandai tidak diketahui.")} {t("Model tanpa data harga hanya tampil di filter Semua.")}</small>
+          <small>{t("Kunci baru hanya dipakai sementara untuk mengambil daftar model.")} {t("Status gratis mengikuti label atau harga yang disediakan provider; model tanpa data harga ditandai tidak diketahui.")} {t("Model tanpa data harga tersedia di filter Semua dan Belum diketahui.")}</small>
         </div>
         <label className="ai-checkbox"><input type="checkbox" checked={form.isActive} onChange={event=>setForm({...form,isActive:event.target.checked})}/>{t("Sertakan dalam fallback")}</label>
         <div className="ai-form-actions"><button className="primary-button" disabled={busy||loading}><Save size={16}/>{busy?t("Menyimpan…"):t("Simpan")}</button>{form.id&&<button type="button" className="secondary-button" onClick={clearForm}>{t("Batal")}</button>}</div>
