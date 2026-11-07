@@ -2,7 +2,7 @@ import "server-only";
 import { lookup } from "node:dns/promises";
 import { Agent, fetch as undiciFetch } from "undici";
 import type { ProviderProfile } from "./types";
-import { assertNoRedirect, isPublicUnicastAddress, validateHttpsEndpoint } from "./endpoint-safety.mjs";
+import { assertNoRedirect, createPinnedLookup, isPublicUnicastAddress, validateHttpsEndpoint } from "./endpoint-safety.mjs";
 import { createProviderChatModel } from "./provider-model.mjs";
 
 export type RuntimeProfile = ProviderProfile & { apiKey: string };
@@ -16,7 +16,7 @@ async function publicPinnedFetch(baseUrl: string): Promise<typeof fetch> {
   const records = await lookup(url.hostname, { all: true, verbatim: true });
   if (!records.length || records.some(({ address }) => !isPublicUnicastAddress(address))) throw new Error("Endpoint harus mengarah ke alamat IP publik.");
   const selected = records[0];
-  const agent = new Agent({ connect: { lookup: (_hostname, _options, callback) => callback(null, selected.address, selected.family) } });
+  const agent = new Agent({ connect: { lookup: createPinnedLookup(url.hostname, selected.address, selected.family) } });
   const pinnedFetch: typeof fetch = async (input, init) => {
     const target = new URL(input instanceof Request ? input.url : input.toString());
     if (target.origin !== url.origin) throw new Error("Provider attempted an unexpected endpoint.");

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { isSafeModelCatalogError, normalizeProviderModels, readBoundedJson, safeModelCatalogError } from "../apps/web/app/lib/ai-agent/catalog-normalize.mjs";
-import { assertNoRedirect, isPublicUnicastAddress, validateHttpsEndpoint } from "../apps/web/app/lib/ai-agent/endpoint-safety.mjs";
+import { assertNoRedirect, createPinnedLookup, isPublicUnicastAddress, validateHttpsEndpoint } from "../apps/web/app/lib/ai-agent/endpoint-safety.mjs";
 import { fetchCatalogPage, providerCatalogHeaders, providerCatalogUrl } from "../apps/web/app/lib/ai-agent/catalog-http.mjs";
 
 test("normalizes chat models from OpenAI-compatible provider payloads", () => {
@@ -79,6 +79,19 @@ test("rejects private provider endpoints, DNS ranges, and redirected provider ca
   assert.equal(isPublicUnicastAddress("10.0.0.1"),false);
   assert.equal(isPublicUnicastAddress("8.8.8.8"),true);
   assert.throws(()=>assertNoRedirect(new Response(null,{status:302,headers:{Location:"https://attacker.example"}})),/redirect is not allowed/i);
+});
+
+test("pinned DNS lookup supports undici all-address and single-address callback contracts", () => {
+  const lookup=createPinnedLookup("api.example.com","203.0.113.9",4);
+  const all=[];
+  lookup("api.example.com",{all:true},(...args)=>all.push(args));
+  assert.deepEqual(all,[[null,[{address:"203.0.113.9",family:4}]]]);
+  const single=[];
+  lookup("api.example.com",{all:false},(...args)=>single.push(args));
+  assert.deepEqual(single,[[null,"203.0.113.9",4]]);
+  const rejected=[];
+  lookup("attacker.example",{all:true},(...args)=>rejected.push(args));
+  assert.equal(rejected[0][0].code,"ENOTFOUND");
 });
 
 test("builds provider-specific model endpoints and authentication without leaking headers", async () => {
