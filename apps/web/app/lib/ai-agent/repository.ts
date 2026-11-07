@@ -63,6 +63,36 @@ export async function saveProviderProfile(input: SaveProfileInput): Promise<Prov
   finally { client.release(); }
 }
 
+/** Save several model profiles for one provider in a single atomic operation. */
+export async function saveProviderProfiles(inputs: SaveProfileInput[]): Promise<ProviderProfile[]> {
+  if (!pool) throw new Error("AI provider storage is unavailable.");
+  if (!inputs.length || inputs.length > 20 || inputs.some((input) => input.id || !input.apiKey) || new Set(inputs.map((input) => input.modelId)).size !== inputs.length) throw new Error("Daftar model tidak valid.");
+  const active = inputs.filter((input) => input.isActive).length;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    if (active) {
+      await client.query("LOCK TABLE celi_app.ai_provider_profiles IN SHARE ROW EXCLUSIVE MODE");
+      const { rows:[{active_count}] } = await client.query<{active_count:number}>(`SELECT COUNT(*)::integer AS active_count FROM celi_app.ai_provider_profiles WHERE is_active`);
+      if (active_count + active > 4) throw new Error("Maksimal 4 provider aktif dapat disertakan dalam fallback.");
+    }
+    const { rows:[ordering] } = await client.query<{next_order:number}>(`SELECT COALESCE(MAX(fallback_order),-1)+1 AS next_order FROM celi_app.ai_provider_profiles`);
+    const saved: ProviderProfile[] = [];
+    for (const [index,input] of inputs.entries()) {
+      const secret = input.apiKey ? encryptProviderKey(input.apiKey) : null;
+      if (input.isActive && !secret) throw new Error("Tambahkan API key sebelum mengaktifkan provider.");
+      const { rows } = await client.query<Row>(`INSERT INTO celi_app.ai_provider_profiles
+        (id,name,provider,model_id,base_url,api_key_ciphertext,api_key_nonce,api_key_tag,encryption_version,is_active,fallback_order,updated_at)
+        VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now()) RETURNING *`,
+        [input.name,input.provider,input.modelId,input.provider === "openai-compatible" || input.provider === "hermes" ? input.baseUrl || null : null,secret?.ciphertext || null,secret?.nonce || null,secret?.tag || null,secret?.version || null,input.isActive,ordering.next_order + index]);
+      saved.push(visible(safe(rows[0])));
+    }
+    await client.query("COMMIT");
+    return saved;
+  } catch (error) { await client.query("ROLLBACK").catch(() => {}); throw error; }
+  finally { client.release(); }
+}
+
 export async function deleteProviderProfile(id: string): Promise<void> {
   if (!pool) throw new Error("AI provider storage is unavailable.");
   await pool.query(`DELETE FROM celi_app.ai_provider_profiles WHERE id = $1`, [id]);

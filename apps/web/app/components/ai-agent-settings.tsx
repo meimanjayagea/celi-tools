@@ -10,15 +10,7 @@ type Form={id?:string;name:string;provider:Provider;modelId:string;baseUrl:strin
 type Model={id:string;name:string;isFree:boolean|null};
 type ModelFilter="all"|"free"|"paid"|"unknown";
 const providers:Array<{id:Provider;label:string;needsUrl?:boolean}>=[
-  {id:"openai",label:"OpenAI"},
-  {id:"anthropic",label:"Anthropic"},
-  {id:"google",label:"Google Gemini"},
-  {id:"groq",label:"Groq"},
-  {id:"xai",label:"xAI Grok"},
-  {id:"openrouter",label:"OpenRouter"},
-  {id:"opencode-zen",label:"OpenCode Zen"},
-  {id:"hermes",label:"Hermes API",needsUrl:true},
-  {id:"openai-compatible",label:"OpenAI-compatible",needsUrl:true},
+  {id:"openai",label:"OpenAI"},{id:"anthropic",label:"Anthropic"},{id:"google",label:"Google Gemini"},{id:"groq",label:"Groq"},{id:"xai",label:"xAI Grok"},{id:"openrouter",label:"OpenRouter"},{id:"opencode-zen",label:"OpenCode Zen"},{id:"hermes",label:"Hermes API",needsUrl:true},{id:"openai-compatible",label:"OpenAI-compatible",needsUrl:true},
 ];
 const empty:Form={name:"",provider:"openai",modelId:"",baseUrl:"",apiKey:"",isActive:false};
 
@@ -27,6 +19,7 @@ export default function AiAgentSettings() {
   const [profiles,setProfiles]=useState<Profile[]>([]);
   const [form,setForm]=useState<Form>(empty);
   const [models,setModels]=useState<Model[]>([]);
+  const [selectedModelIds,setSelectedModelIds]=useState<string[]>([]);
   const [modelSearch,setModelSearch]=useState("");
   const [modelFilter,setModelFilter]=useState<ModelFilter>("all");
   const [modelListOpen,setModelListOpen]=useState(false);
@@ -54,28 +47,31 @@ export default function AiAgentSettings() {
     if(!modelListOpen)return;
     const onPointerDown=(event:PointerEvent)=>{if(!modelPickerRef.current?.contains(event.target as Node))setModelListOpen(false);};
     const onKeyDown=(event:KeyboardEvent)=>{if(event.key==="Escape")setModelListOpen(false);};
-    document.addEventListener("pointerdown",onPointerDown);
-    document.addEventListener("keydown",onKeyDown);
+    document.addEventListener("pointerdown",onPointerDown);document.addEventListener("keydown",onKeyDown);
     return()=>{document.removeEventListener("pointerdown",onPointerDown);document.removeEventListener("keydown",onKeyDown);};
   },[modelListOpen]);
 
+  const clearForm=()=>{setForm({...empty});setModels([]);setSelectedModelIds([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);setError("");setNotice("");};
   const save=async(event:React.FormEvent)=>{
     event.preventDefault();setError("");setNotice("");
-    if(!form.modelId){setError(t("Pilih model sebelum menyimpan."));return;}
+    if(!selectedModelIds.length){setError(t("Pilih model sebelum menyimpan."));return;}
+    if(!form.id&&!form.apiKey.trim()){setError(t("API key wajib diisi untuk provider baru."));return;}
     setBusy(true);
     try{
-      const response=await fetch("/api/ai-agent/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...form,baseUrl:providers.find(item=>item.id===form.provider)?.needsUrl?form.baseUrl:undefined,apiKey:form.apiKey||undefined})});
+      const payload={...form,baseUrl:providers.find(item=>item.id===form.provider)?.needsUrl?form.baseUrl:undefined,apiKey:form.apiKey||undefined,...(!form.id?{modelIds:selectedModelIds}:{modelId:selectedModelIds[0]})};
+      const response=await fetch("/api/ai-agent/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       const data=await response.json();if(!response.ok)throw new Error(data.error||t("Perubahan tidak dapat disimpan."));
-      setForm({...empty});setModels([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);setNotice(t("Konfigurasi tersimpan."));await load();
+      const savedCount=Array.isArray(data.profiles)?data.profiles.length:1;
+      clearForm();setNotice(savedCount>1?t("Konfigurasi tersimpan untuk beberapa model."):t("Konfigurasi tersimpan."));await load();
     }catch(cause){setError(cause instanceof Error?cause.message:t("Perubahan tidak dapat disimpan."));}
     finally{setBusy(false);}
   };
   const edit=(profile:Profile)=>{
     setForm({id:profile.id,name:profile.name,provider:profile.provider,modelId:profile.modelId,baseUrl:profile.baseUrl||"",apiKey:"",isActive:profile.isActive});
-    setModels([{id:profile.modelId,name:profile.modelId,isFree:null}]);setModelSearch("");setModelFilter("all");setModelListOpen(false);setError("");setNotice("");
+    setModels([{id:profile.modelId,name:profile.modelId,isFree:null}]);setSelectedModelIds([profile.modelId]);setModelSearch("");setModelFilter("all");setModelListOpen(false);setError("");setNotice("");
   };
   const fetchModels=async()=>{
-    setModelsBusy(true);setError("");setNotice("");setModels([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);
+    setModelsBusy(true);setError("");setNotice("");setModels([]);setSelectedModelIds([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);
     try{
       const saved=profiles.find(profile=>profile.id===form.id);
       const sameSavedEndpoint=saved&&saved.provider===form.provider&&(saved.baseUrl||"")===form.baseUrl&&saved.hasApiKey&&!form.apiKey;
@@ -109,23 +105,22 @@ export default function AiAgentSettings() {
   };
   const move=async(profileId:string,direction:-1|1)=>{
     const ordered=[...profiles].sort((a,b)=>a.fallbackOrder-b.fallbackOrder||a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id));
-    const from=ordered.findIndex(item=>item.id===profileId);const to=from+direction;
-    if(from<0||to<0||to>=ordered.length)return;
-    [ordered[from],ordered[to]]=[ordered[to],ordered[from]];
-    setBusy(true);setError("");setNotice("");
+    const from=ordered.findIndex(item=>item.id===profileId);const to=from+direction;if(from<0||to<0||to>=ordered.length)return;
+    [ordered[from],ordered[to]]=[ordered[to],ordered[from]];setBusy(true);setError("");setNotice("");
     try{const response=await fetch("/api/ai-agent/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"reorder",profileIds:ordered.map(item=>item.id)})});const data=await response.json();if(!response.ok)throw new Error(data.error||t("Urutan provider tidak dapat disimpan."));await load();}
     catch(cause){setError(cause instanceof Error?cause.message:t("Urutan provider tidak dapat disimpan."));}
     finally{setBusy(false);}
   };
   const selectProvider=(provider:Provider)=>{
     const selected=providers.find(item=>item.id===provider)!;
-    setForm(current=>({...current,provider,modelId:"",baseUrl:selected.needsUrl?current.baseUrl:""}));setModels([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);
+    setForm(current=>({...current,provider,modelId:"",baseUrl:selected.needsUrl?current.baseUrl:""}));setModels([]);setSelectedModelIds([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);
   };
+  const toggleModel=(modelId:string)=>setSelectedModelIds(current=>current.includes(modelId)?current.filter(id=>id!==modelId):[...current,modelId]);
   const modelOptions=filterModels(models,modelSearch,modelFilter);
   const modelFilterCounts=countModelFilters(models);
   const modelCostLabel=(model:Model)=>model.isFree===true?t("Gratis"):model.isFree===false?t("Berbayar"):t("Tarif tidak diketahui");
-  const selectedModel=models.find(model=>model.id===form.modelId);
-  const clearForm=()=>{setForm({...empty});setModels([]);setModelSearch("");setModelFilter("all");setModelListOpen(false);};
+  const selectedModels=models.filter(model=>selectedModelIds.includes(model.id));
+  const sortedProfiles=[...profiles].sort((a,b)=>a.fallbackOrder-b.fallbackOrder||a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id));
 
   return <section className="ai-settings-page">
     <header className="page-heading"><div><span className="eyebrow">{t("Pengaturan")}</span><h1><Waypoints size={25}/>{t("AI Agent")}</h1><p>{t("Atur penyedia AI untuk bantuan penggunaan celimanapp.")}</p></div></header>
@@ -135,41 +130,44 @@ export default function AiAgentSettings() {
       <form className="panel ai-profile-form" onSubmit={save}>
         <h2>{form.id?t("Ubah provider"):t("Tambah provider")}</h2>
         <label>{t("Nama profil")}<input required maxLength={80} value={form.name} onChange={event=>setForm({...form,name:event.target.value})}/></label>
-        <label>{t("Provider")}<select disabled={modelsBusy} value={form.provider} onChange={event=>selectProvider(event.target.value as Provider)}>{providers.map(provider=><option key={provider.id} value={provider.id}>{provider.label}</option>)}</select></label>
+        <label>{t("Provider")}<select disabled={modelsBusy||Boolean(form.id)} value={form.provider} onChange={event=>selectProvider(event.target.value as Provider)}>{providers.map(provider=><option key={provider.id} value={provider.id}>{provider.label}</option>)}</select></label>
         {providers.find(item=>item.id===form.provider)?.needsUrl&&<label>{t("Base URL (HTTPS publik)")}<input disabled={modelsBusy} required type="url" placeholder={form.provider==="hermes"?"https://hermes.example.com/v1":"https://api.example.com/v1"} value={form.baseUrl} onChange={event=>setForm({...form,baseUrl:event.target.value})}/></label>}
-        <label>{t("API key")}<input disabled={modelsBusy} type="password" autoComplete="new-password" value={form.apiKey} onChange={event=>setForm({...form,apiKey:event.target.value})} placeholder={form.id?t("Kosongkan untuk mempertahankan key tersimpan"):"sk-…"}/></label>
+        <label>{t("API key")}<input disabled={modelsBusy} required={!form.id} type="password" autoComplete="new-password" value={form.apiKey} onChange={event=>setForm({...form,apiKey:event.target.value})} placeholder={form.id?t("Kosongkan untuk mempertahankan key tersimpan"):"sk-…"}/></label>
         <div className="ai-model-picker" ref={modelPickerRef}>
           <label>{t("Model AI")}</label>
           <div className="ai-model-fetch-row">
             <button type="button" className={`ai-model-trigger${modelListOpen?" is-open":""}`} disabled={!models.length} aria-haspopup="listbox" aria-expanded={modelListOpen} aria-controls="ai-model-options" onClick={()=>{setModelSearch("");setModelListOpen(open=>!open);}}>
-              <span className="ai-model-trigger-text">{selectedModel?.name||form.modelId||t("Ambil model terlebih dahulu")}{form.modelId&&<small>{form.modelId}</small>}</span><ChevronDown size={17}/>
+              <span className="ai-model-trigger-text">{selectedModelIds.length?t("Model dipilih {count}").replace("{count}",String(selectedModelIds.length)):form.modelId||t("Ambil model terlebih dahulu")}<small>{selectedModelIds.length?selectedModels.map(model=>model.name).join(", "):form.modelId}</small></span><ChevronDown size={17}/>
             </button>
             <button type="button" className="secondary-button" disabled={modelsBusy||!canFetchModels} onClick={()=>void fetchModels()}><RefreshCw size={15} className={modelsBusy?"spin":""}/>{modelsBusy?t("Memuat model…"):t("Get models")}</button>
             {modelListOpen&&<div className="ai-model-menu">
               <label className="ai-model-search"><Search size={16}/><input autoFocus type="search" aria-label={t("Cari model")} value={modelSearch} onChange={event=>setModelSearch(event.target.value)} onKeyDown={event=>{if(event.key==="Enter")event.preventDefault();}} placeholder={t("Ketik untuk menyaring model…")}/></label>
-              <div className="ai-model-options" id="ai-model-options" role="listbox" aria-label={t("Pilih model")}>
-                {modelOptions.length?modelOptions.map(model=><button key={model.id} type="button" role="option" aria-selected={form.modelId===model.id} className={`ai-model-option${form.modelId===model.id?" is-selected":""}`} onClick={()=>{setForm(current=>({...current,modelId:model.id}));setModelSearch("");setModelListOpen(false);}}>
-                  <span className="ai-model-option-copy"><strong>{model.name}</strong><code>{model.id}</code></span><span className={`ai-model-price${model.isFree===true?" is-free":model.isFree===false?" is-paid":""}`}>{modelCostLabel(model)}</span>
+              <div className="ai-model-options" id="ai-model-options" role="listbox" aria-multiselectable={!form.id} aria-label={t("Pilih model")}>
+                {modelOptions.length?modelOptions.map(model=><button key={model.id} type="button" role="option" aria-selected={selectedModelIds.includes(model.id)} className={`ai-model-option${selectedModelIds.includes(model.id)?" is-selected":""}`} onClick={()=>{if(form.id){setSelectedModelIds([model.id]);setForm(current=>({...current,modelId:model.id}));setModelListOpen(false);}else toggleModel(model.id);}}>
+                  <span className={`ai-model-check${selectedModelIds.includes(model.id)?" is-selected":""}`}>{selectedModelIds.includes(model.id)&&<Check size={12}/>}</span><span className="ai-model-option-copy"><strong>{model.name}</strong><code>{model.id}</code></span><span className={`ai-model-price${model.isFree===true?" is-free":model.isFree===false?" is-paid":""}`}>{modelCostLabel(model)}</span>
                 </button>):<p className="ai-model-no-results">{modelSearch.trim()?t("Tidak ada model yang cocok dengan pencarian ini."):modelFilter==="free"||modelFilter==="paid"?modelFilterCounts.unknown?t("Provider tidak memberikan informasi harga untuk mengelompokkan model ini. Lihat filter Belum diketahui."):t("Tidak ada model pada filter biaya ini."):t("Tidak ada model pada filter ini.")}</p>}
               </div>
-              <small className="ai-model-count">{t("Jumlah model")}: {modelOptions.length} / {models.length}</small>
+              <small className="ai-model-count">{t("Jumlah model")}: {modelOptions.length} / {models.length} · {t("Model dipilih {count}").replace("{count}",String(selectedModelIds.length))}</small>
             </div>}
           </div>
           <div className="ai-model-filter" role="group" aria-label={t("Filter biaya model")}>
-            {([["all","Semua"],["free","Gratis"],["paid","Berbayar"],["unknown","Belum diketahui"]] as const).map(([value,label])=><button key={value} type="button" className={`secondary-button${modelFilter===value?" is-selected":""}`} aria-pressed={modelFilter===value} disabled={!models.length} onClick={()=>{setModelFilter(value);setModelSearch("");setModelListOpen(true);}}>{t(label)} <span className="ai-model-filter-count">{modelFilterCounts[value]}</span></button>)}
+            {([ ["all","Semua"],["free","Gratis"],["paid","Berbayar"],["unknown","Belum diketahui"] ] as const).map(([value,label])=><button key={value} type="button" className={`secondary-button${modelFilter===value?" is-selected":""}`} aria-pressed={modelFilter===value} disabled={!models.length} onClick={()=>{setModelFilter(value);setModelSearch("");setModelListOpen(true);}}>{t(label)} <span className="ai-model-filter-count">{modelFilterCounts[value]}</span></button>)}
           </div>
-          <small>{t("Kunci baru hanya dipakai sementara untuk mengambil daftar model.")} {t("Status gratis mengikuti label atau harga yang disediakan provider; model tanpa data harga ditandai tidak diketahui.")} {t("Model tanpa data harga tersedia di filter Semua dan Belum diketahui.")}</small>
+          {selectedModelIds.length>0&&<div className="ai-selected-models" aria-live="polite">{selectedModels.map(model=><span key={model.id}>{model.name}<button type="button" aria-label={`${t("Hapus model")}: ${model.name}`} onClick={()=>toggleModel(model.id)}><Trash2 size={12}/></button></span>)}</div>}
+          <small>{form.id?t("Pilih satu model untuk memperbarui profil."):t("Pilih satu atau beberapa model. Setiap model akan menjadi baris profil sendiri dengan key provider yang sama.")} {t("Kunci baru hanya dipakai sementara untuk mengambil daftar model.")} {t("Status gratis mengikuti label atau harga yang disediakan provider; model tanpa data harga ditandai tidak diketahui.")}</small>
         </div>
         <label className="ai-checkbox"><input type="checkbox" checked={form.isActive} onChange={event=>setForm({...form,isActive:event.target.checked})}/>{t("Sertakan dalam fallback")}</label>
-        <div className="ai-form-actions"><button className="primary-button" disabled={busy||loading}><Save size={16}/>{busy?t("Menyimpan…"):t("Simpan")}</button>{form.id&&<button type="button" className="secondary-button" onClick={clearForm}>{t("Batal")}</button>}</div>
+        <div className="ai-form-actions"><button className="primary-button" disabled={busy||loading}><Save size={16}/>{busy?t("Menyimpan…"):!form.id&&selectedModelIds.length>1?t("Simpan model {count}").replace("{count}",String(selectedModelIds.length)):t("Simpan")}</button>{form.id&&<button type="button" className="secondary-button" onClick={clearForm}>{t("Batal")}</button>}</div>
       </form>
-      <section className="panel ai-profiles"><header><h2>{t("Urutan provider fallback")}</h2><button type="button" className="secondary-button" onClick={clearForm}><Plus size={16}/>{t("Baru")}</button></header>
+      <section className="panel ai-profiles"><header><div><h2>{t("Urutan provider fallback")}</h2><p>{profiles.length} {t("profil tersimpan")}</p></div><button type="button" className="secondary-button" onClick={clearForm}><Plus size={16}/>{t("Baru")}</button></header>
         <p className="ai-fallback-hint">{t("Maksimal empat provider aktif dicoba sesuai urutan. Fallback hanya untuk kuota atau gangguan sementara sebelum jawaban dimulai.")}</p>
-        {loading?<p className="ai-empty"><LoaderCircle size={18} className="spin"/>{t("Memuat…")}</p>:profiles.length===0?<p className="ai-empty">{t("Belum ada provider. Tambahkan konfigurasi untuk mengaktifkan chat.")}</p>: [...profiles].sort((a,b)=>a.fallbackOrder-b.fallbackOrder||a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id)).map((profile,index)=><article className={`ai-profile-row${profile.isActive?" is-enabled":""}`} key={profile.id}>
-          <div className="ai-order-controls"><button type="button" className="icon-button" disabled={busy||index===0} aria-label={t("Naikkan urutan")} onClick={()=>void move(profile.id,-1)}><ArrowUp size={15}/></button><span>{index+1}</span><button type="button" className="icon-button" disabled={busy||index===profiles.length-1} aria-label={t("Turunkan urutan")} onClick={()=>void move(profile.id,1)}><ArrowDown size={15}/></button></div>
-          <div className="ai-profile-details"><strong>{profile.name}</strong><span>{providers.find(item=>item.id===profile.provider)?.label||profile.provider} · {profile.modelId}</span><small>{profile.hasApiKey?t("API key tersimpan"):t("API key belum diatur")} · {profile.isActive?t("Termasuk fallback"):t("Dinonaktifkan")}</small></div>
-          <div className="ai-profile-actions"><button type="button" className="secondary-button" disabled={busy||!profile.hasApiKey} onClick={()=>void test(profile.id)}>{t("Uji")}</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>edit(profile)}>{t("Ubah")}</button><button type="button" className="secondary-button" disabled={busy||!profile.hasApiKey} onClick={()=>void toggle(profile)}>{t(profile.isActive?"Nonaktifkan":"Aktifkan")}</button><button type="button" className="icon-button" disabled={busy} aria-label={t("Hapus provider")} onClick={()=>void remove(profile.id)}><Trash2 size={16}/></button></div>
-        </article>)}
+        {loading?<p className="ai-empty"><LoaderCircle size={18} className="spin"/>{t("Memuat…")}</p>:profiles.length===0?<p className="ai-empty">{t("Belum ada provider. Tambahkan konfigurasi untuk mengaktifkan chat.")}</p>:<div className="ai-provider-table-scroll"><table className="ai-provider-table"><thead><tr><th>{t("Nama profil")}</th><th>{t("Provider / Model")}</th><th>{t("Status")}</th><th>{t("Urutan")}</th><th><span className="sr-only">{t("Aksi")}</span></th></tr></thead><tbody>{sortedProfiles.map((profile,index)=><tr key={profile.id}>
+          <td className="ai-table-name"><strong>{profile.name}</strong></td>
+          <td className="ai-table-model"><span>{providers.find(item=>item.id===profile.provider)?.label||profile.provider}</span><code title={profile.modelId}>{profile.modelId}</code></td>
+          <td><span className={`ai-status-pill${profile.isActive?" is-active":""}`}>{profile.isActive?t("Aktif"):t("Tidak aktif")}</span><small className="ai-key-state">{profile.hasApiKey?t("API key tersimpan"):t("API key belum diatur")}</small></td>
+          <td><div className="ai-order-controls"><button type="button" className="icon-button" disabled={busy||index===0} aria-label={t("Naikkan urutan")} onClick={()=>void move(profile.id,-1)}><ArrowUp size={15}/></button><span>{index+1}</span><button type="button" className="icon-button" disabled={busy||index===profiles.length-1} aria-label={t("Turunkan urutan")} onClick={()=>void move(profile.id,1)}><ArrowDown size={15}/></button></div></td>
+          <td><div className="ai-profile-actions"><button type="button" className="secondary-button" disabled={busy||!profile.hasApiKey} onClick={()=>void test(profile.id)}>{t("Uji")}</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>edit(profile)}>{t("Ubah")}</button><button type="button" className="secondary-button" disabled={busy||!profile.hasApiKey} onClick={()=>void toggle(profile)}>{t(profile.isActive?"Nonaktifkan":"Aktifkan")}</button><button type="button" className="icon-button" disabled={busy} aria-label={t("Hapus provider")} onClick={()=>void remove(profile.id)}><Trash2 size={15}/></button></div></td>
+        </tr>)}</tbody></table></div>}
       </section>
     </div>
   </section>;
