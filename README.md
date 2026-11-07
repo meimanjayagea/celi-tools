@@ -10,8 +10,8 @@ apps/
     app/                Source aplikasi
     public/             Aset antarmuka
     db/
-      migrate.mjs       Runner migrasi PostgreSQL
-      migrations/       SQL berurutan; jangan edit setelah diterapkan
+      flyway.toml       Konfigurasi Flyway PostgreSQL
+      migrations/       Migrasi SQL Flyway berversi
   api/                  HTTP API Node.js yang menjalankan worker Python
     src/                CORS, upload, pemrosesan, health check
     server/             Worker Python, dependency lock, pengujian engine
@@ -92,13 +92,14 @@ Semua migrasi PostgreSQL berada di `apps/web/db/migrations/` dan dijalankan beru
 
 ```sh
 npm run db:list      # Daftar file migrasi tanpa koneksi database
-npm run db:status    # Bandingkan file dengan ledger pada database
-npm run db:migrate   # Terapkan migrasi pending dalam transaksi
+npm run db:status    # Tampilkan status migrasi Flyway
+npm run db:migrate   # Terapkan migrasi pending
+npm run db:validate  # Validasi history Flyway dan checksum
 npm run db:status:local   # Gunakan apps/web/.env.local secara eksplisit
 npm run db:migrate:local  # Terapkan ke DATABASE_URL dari apps/web/.env.local
 ```
 
-Perintah tanpa suffix `:local` memakai `DATABASE_URL` dari environment shell. Suffix `:local` membaca `apps/web/.env.local`; pastikan file itu menunjuk ke database yang dimaksud sebelum menerapkan migrasi. Runner memverifikasi urutan dan checksum, mencatat versi dalam schema metadata terpisah `celi_meta.schema_migrations`, memakai advisory lock, dan tidak menghapus tabel atau baris. Jangan mengedit migrasi yang pernah diterapkan; tambahkan file berikutnya dengan nomor urut. Backup database sebelum menjalankan migrasi production. Migrasi tidak berjalan otomatis saat deploy. Skema tidak menyisipkan akun, catatan, atau data dummy: data tersebut milik pengguna dan seed bersama dapat mencemari production. Auth.js memerlukan database, secret, origin, serta Google OAuth yang valid. Jangan menaruh `AUTH_SECRET`, `DATABASE_URL`, atau OAuth Client Secret pada variabel `NEXT_PUBLIC_*` atau file yang di-commit.
+Perintah tanpa suffix `:local` memakai `DATABASE_URL` dari environment shell. Suffix `:local` membaca `apps/web/.env.local`; pastikan file itu menunjuk ke database yang dimaksud sebelum menerapkan migrasi. Flyway mencatat versi dan checksum di `celi_meta.flyway_schema_history`, dan `clean` dinonaktifkan. Untuk database lama, verifikasi ledger migrasi lama lalu jalankan `npm run db:baseline:legacy` satu kali; database kosong harus menjalankan semua migrasi dengan `npm run db:migrate`. Jangan mengedit migrasi yang sudah diterapkan; tambahkan versi Flyway berikutnya. Backup database sebelum migrasi production. Migrasi tidak berjalan otomatis saat deploy dan tidak menanamkan data dummy. Auth.js memerlukan database, secret, origin, serta Google OAuth yang valid. Jangan menaruh `AUTH_SECRET`, `DATABASE_URL`, atau OAuth Client Secret pada variabel `NEXT_PUBLIC_*` atau file yang di-commit. Panduan lengkap ada di [apps/web/db/README.md](apps/web/db/README.md).
 
 Untuk menjalankan web lokal tanpa database, set `DATABASE_PROVIDER=none` dan kosongkan `DATABASE_URL`/`POSTGRES_URL`. Untuk Supabase pilih `supabase` dan gunakan connection string PostgreSQL server-side (bukan publishable/anon key); untuk resource Prisma Postgres pilih `prisma-postgres`. Engine database selain PostgreSQL memerlukan adapter Auth.js yang sesuai dan skema khusus; driver itu belum termasuk dalam build ini.
 
@@ -153,7 +154,7 @@ Jalankan web di terminal lain melalui `npm run dev:web`. Jangan menjalankan dua 
 | `npm run test:auth` | Memeriksa route auth web pada port 3000 tanpa mengirim email |
 | `npm run check:css` | Diagnostik class CSS web |
 | `npm run check:layout` | Pastikan root service, entrypoint, shared install, dan file migrasi sesuai repo |
-| `npm run db:list` / `npm run db:status` / `npm run db:migrate` | Lihat, periksa, atau terapkan migrasi PostgreSQL menggunakan `DATABASE_URL` dari environment shell |
+| `npm run db:list` / `npm run db:status` / `npm run db:migrate` / `npm run db:validate` | Lihat, periksa, atau terapkan migrasi Flyway PostgreSQL menggunakan `DATABASE_URL` dari environment shell |
 | `npm run db:status:local` / `npm run db:migrate:local` | Periksa atau terapkan migrasi menggunakan `apps/web/.env.local` |
 | `npm run check:deployment -- --web https://web-anda.example.com` | Memeriksa web, status Google OAuth, engine, CORS, dan perlindungan endpoint tanpa sesi |
 

@@ -35,9 +35,14 @@ const requiredPaths = [
   "Dockerfile.api",
   "apps/web/package.json",
   "apps/api/package.json",
-  "apps/web/db/migrate.mjs",
-  "apps/web/db/migrations/001_auth.sql",
-  "apps/web/db/migrations/002_sticky_notes.sql",
+  "apps/web/db/flyway.toml",
+  "apps/web/db/flyway-connection.mjs",
+  "apps/web/db/run-flyway.mjs",
+  "apps/web/db/migrations/V001__auth.sql",
+  "apps/web/db/migrations/V002__sticky_notes.sql",
+  "apps/web/db/migrations/V003__ai_agent.sql",
+  "apps/web/db/migrations/V004__ai_provider_fallback.sql",
+  "apps/web/db/README.md",
 ];
 for (const file of requiredPaths) await requireFile(file);
 

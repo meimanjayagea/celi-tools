@@ -32,8 +32,11 @@
     "db:list": "npm run db:list --workspace=@celi/web",
     "db:status": "npm run db:status --workspace=@celi/web",
     "db:migrate": "npm run db:migrate --workspace=@celi/web",
+    "db:baseline:legacy": "npm run db:baseline:legacy --workspace=@celi/web",
+    "db:validate": "npm run db:validate --workspace=@celi/web",
     "db:status:local": "npm run db:status:local --workspace=@celi/web",
     "db:migrate:local": "npm run db:migrate:local --workspace=@celi/web",
+    "db:baseline:legacy:local": "npm run db:baseline:legacy:local --workspace=@celi/web",
     "check:layout": "node scripts/check-layout.mjs",
     "check:deployment": "node scripts/check-deployment.mjs"
   }

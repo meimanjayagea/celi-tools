@@ -1,0 +1,15 @@
+[flyway]
+environment = "default"
+locations = ["filesystem:apps/web/db/migrations"]
+defaultSchema = "celi_meta"
+schemas = ["celi_meta", "celi_auth", "celi_app"]
+createSchemas = true
+cleanDisabled = true
+baselineVersion = "4"
+validateMigrationNaming = true
+connectRetries = 3
+
+[environments.default]
+url = "${env.FLYWAY_URL}"
+user = "${env.FLYWAY_USER}"
+password = "${env.FLYWAY_PASSWORD}"

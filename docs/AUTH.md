@@ -14,7 +14,7 @@ npm run db:migrate
 npm run db:status
 ```
 
-Perintah memakai `DATABASE_URL` dari environment shell. Untuk database lokal di `apps/web/.env.local`, gunakan `npm run db:status:local` dan `npm run db:migrate:local`; pastikan URL menunjuk ke target yang benar. Runner menerapkan `apps/web/db/migrations/*.sql` berurutan, dalam transaksi, dan mencatat checksum serta versi pada schema terpisah `celi_meta.schema_migrations`. Migrasi lama yang sudah membuat tabel `celi_auth` bisa diadopsi tanpa menghapus tabel atau baris.
+Perintah memakai `DATABASE_URL` dari environment shell. Untuk database lokal di `apps/web/.env.local`, gunakan `npm run db:status:local` dan `npm run db:migrate:local`; pastikan URL menunjuk ke target yang benar. Flyway menerapkan `apps/web/db/migrations/V*__*.sql` berurutan dan mencatat versi serta checksum dalam `celi_meta.flyway_schema_history`. Untuk database lama dengan ledger `celi_meta.schema_migrations`, ikuti langkah baseline satu kali di [panduan migrasi](../apps/web/db/README.md); proses itu tidak menghapus tabel atau baris.
 
 Login Google memerlukan tabel `users`, `accounts`, dan `sessions`. Tabel `verification_token` serta limiter email/IP dari versi terdahulu tetap berada di database, tetapi tidak digunakan atau dihapus oleh versi ini. Gunakan role migrasi yang dapat membuat schema metadata. Jangan jalankan aplikasi dengan kredensial superuser; role runtime hanya perlu akses pada schema dan tabel Auth.js serta `celi_app` yang diperlukan aplikasi.
 

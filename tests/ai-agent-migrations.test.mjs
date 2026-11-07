@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const migrationPath = new URL("../apps/web/db/migrations/004_ai_provider_fallback.sql", import.meta.url);
+const migrationPath = new URL("../apps/web/db/migrations/V004__ai_provider_fallback.sql", import.meta.url);
 
 test("provider fallback migration preserves credentials and allows ordered enabled profiles", async () => {
   const sql = await readFile(migrationPath, "utf8");

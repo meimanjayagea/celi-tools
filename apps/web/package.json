@@ -9,11 +9,14 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check:css": "node ../../scripts/check-css.mjs",
-    "db:list": "node db/migrate.mjs --list",
-    "db:status": "node db/migrate.mjs --status",
-    "db:migrate": "node db/migrate.mjs --apply",
-    "db:status:local": "node --env-file-if-exists=.env.local db/migrate.mjs --status",
-    "db:migrate:local": "node --env-file-if-exists=.env.local db/migrate.mjs --apply"
+    "db:list": "node db/run-flyway.mjs info",
+    "db:status": "node db/run-flyway.mjs info",
+    "db:migrate": "node db/run-flyway.mjs migrate",
+    "db:baseline:legacy": "node db/run-flyway.mjs baseline",
+    "db:validate": "node db/run-flyway.mjs validate",
+    "db:status:local": "node --env-file-if-exists=.env.local db/run-flyway.mjs info",
+    "db:migrate:local": "node --env-file-if-exists=.env.local db/run-flyway.mjs migrate",
+    "db:baseline:legacy:local": "node --env-file-if-exists=.env.local db/run-flyway.mjs baseline"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.97",

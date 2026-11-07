@@ -13,7 +13,7 @@ Sticky Note adalah ruang kerja privat yang disimpan dalam PostgreSQL yang sama d
 
 ## Data dan migrasi
 
-Jalankan `npm run db:status` lalu `npm run db:migrate` dari root repo pada database PostgreSQL yang sama. Migrasi berurutan di `apps/web/db/migrations/` membuat tabel catatan privat, batas panjang dan posisi, daftar warna, serta indeks reminder. Runner mencatat checksum pada schema metadata `celi_meta.schema_migrations` yang terpisah dari schema runtime, dan tidak menanamkan contoh catatan; data dummy dapat mencemari catatan pengguna production. `DATABASE_URL` adalah satu-satunya URL aplikasi. `DATABASE_PROVIDER` memilih driver PostgreSQL kompatibel (Postgres, Prisma Postgres, Neon, atau Supabase PostgreSQL); database non-PostgreSQL memerlukan adapter dan migrasi khusus.
+Jalankan `npm run db:status` lalu `npm run db:migrate` dari root repo pada database PostgreSQL yang sama. Migrasi Flyway berurutan di `apps/web/db/migrations/` membuat tabel catatan privat, batas panjang dan posisi, daftar warna, serta indeks reminder. Flyway menyimpan versi dan checksum di `celi_meta.flyway_schema_history`. Migrasi tidak menanamkan contoh catatan; data dummy dapat mencemari catatan pengguna production. `DATABASE_URL` adalah satu-satunya URL aplikasi. `DATABASE_PROVIDER` memilih driver PostgreSQL kompatibel (Postgres, Prisma Postgres, Neon, atau Supabase PostgreSQL); database non-PostgreSQL memerlukan adapter dan konfigurasi migrasi khusus.
 
 ## Pengingat
 
