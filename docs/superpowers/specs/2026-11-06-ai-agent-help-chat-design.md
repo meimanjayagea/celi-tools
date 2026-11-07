@@ -20,7 +20,7 @@ Add a help chat for signed-in celimanapp users and an admin menu for configuring
 ## Non-goals
 
 - No anonymous/public chat, file uploads, arbitrary web browsing, tool execution, or access to user workspaces.
-- No permanent conversation history in the database.
+- No access to private workspace content. After the user's follow-up request on 2026-11-07, store only a bounded encrypted help-chat context per account and provide a clear-chat action.
 - No promise to support every proprietary provider protocol in the first release. Providers that implement the OpenAI API can use the configurable compatible endpoint; providers with a different protocol need an adapter.
 
 ## Approaches
@@ -36,7 +36,7 @@ The AI SDK offers provider-specific adapters and a configurable OpenAI-compatibl
 ### Navigation and chat UI
 
 - Add `/ai-agent` under the portal's **Pengaturan** sidebar group. The route and link are visible only to administrators.
-- Add one floating help-chat button to the signed-in portal shell. Opening it shows a compact chat panel with message history for the current browser session, a text composer, send/stop controls, streamed answers, loading/error states, and a clear-chat action.
+- Add one floating help-chat button to the signed-in portal shell. Opening it shows a compact chat panel with encrypted account-bound context, a text composer, send/stop controls, streamed answers, loading/error states, and a clear-chat action.
 - On narrow screens, show the panel as a full-height dialog with the app theme and existing Indonesian/English language switch.
 - Show a clear unavailable state if no active provider is configured.
 
@@ -65,10 +65,10 @@ The AI SDK offers provider-specific adapters and a configurable OpenAI-compatibl
 
 1. An authenticated portal user submits a bounded message history to `/api/ai-agent/chat`.
 2. The route verifies the session and same-origin request, validates message roles and sizes, applies per-user rate limits, and loads the active provider profile server-side.
-3. The route decrypts the key only in server memory, appends fixed celimanapp help instructions, and streams a response through the selected provider adapter.
-4. The browser renders the response in the current chat session. The server does not persist chat messages.
+3. The route decrypts the key only in server memory, appends fixed celimanapp help instructions and a matching built-in skill, and streams a response through the selected provider adapter.
+4. The route reads the user's encrypted bounded help-chat context and writes a completed turn to that same account's memory. It does not read application files, notes, API collections, or settings.
 
-Initial limits: 10 requests per user per minute, at most 12 recent messages, 4,000 characters per user message, 12,000 characters total input, and 800 output tokens per response. Provider URLs must use HTTPS and must reject loopback, link-local, and private-network addresses to prevent SSRF. The chat has no tools or access to files, requests, notes, database rows, or browser state beyond messages deliberately sent to it.
+Initial limits: 10 requests per user per minute, at most 25 browser messages per request, 4,000 characters per user message, 12,000 characters total model context, and 600 output tokens per response. Persist at most 24 recent chat messages / 12,000 characters, encrypted with AES-256-GCM using the server-side credentials key. Provide authenticated retrieval and same-origin clearing. Provider URLs must use HTTPS and must reject loopback, link-local, and private-network addresses to prevent SSRF. The chat has no tools or access to files, requests, notes, or other database rows beyond messages deliberately sent to it.
 
 ### API surface
 
@@ -76,6 +76,7 @@ Initial limits: 10 requests per user per minute, at most 12 recent messages, 4,0
 - `POST /api/ai-agent/config`: administrator-only, validates and saves profiles; secret replacement is write-only.
 - `POST /api/ai-agent/test`: administrator-only, tests the selected profile with a short fixed prompt and returns a sanitized status.
 - `POST /api/ai-agent/chat`: authenticated-user chat endpoint with same-origin validation, bounded payloads, rate limits, and streamed output.
+- `GET|DELETE /api/ai-agent/memory`: authenticated per-account context retrieval and clearing.
 
 ### Environment and deployment
 
@@ -98,6 +99,6 @@ Initial limits: 10 requests per user per minute, at most 12 recent messages, 4,0
 ## Implementation calls
 
 - Use the existing PostgreSQL provider and migration runner; do not add a second database.
-- Keep conversations transient and avoid collecting private workspace content.
+- Keep only the bounded help-chat memory requested by the user; encrypt it at rest and avoid collecting private workspace content.
 - Use an allowlist for admin authorization rather than adding a general role-management system for this single feature.
 - The user-selected approach is app-managed provider configuration with server-side encryption and a login-only, help-only chat.

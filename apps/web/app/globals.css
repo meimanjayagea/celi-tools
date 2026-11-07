@@ -132,6 +132,10 @@
 .ai-chat-welcome svg { color:var(--accent); }
 .ai-chat-welcome strong { color:var(--text-primary); font-size:14px; }
 .ai-chat-welcome p { margin:0; max-width:230px; font-size:12px; line-height:1.5; }
+.ai-chat-skills { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:5px; max-width:320px; }
+.ai-chat-skills button { min-height:30px; padding:5px 9px; border:1px solid var(--border); border-radius:999px; background:var(--surface); color:var(--text-secondary); font:inherit; font-size:10px; cursor:pointer; transition:border-color .15s ease,color .15s ease,background .15s ease; }
+.ai-chat-skills button:hover { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
+.ai-chat-skills button:disabled { opacity:.5; cursor:not-allowed; }
 .ai-chat-message { max-width:88%; padding:9px 11px; border-radius:12px; background:var(--surface-secondary); color:var(--text-primary); font-size:12px; line-height:1.6; overflow-wrap:anywhere; white-space:pre-wrap; }
 .ai-chat-message.user { align-self:flex-end; background:var(--accent); color:var(--on-accent); }
 .ai-chat-message.assistant { align-self:flex-start; }
@@ -148,7 +152,7 @@
 @media(max-width:760px) { .ai-settings-page { padding:20px 14px 40px; } .ai-profile-row { align-items:flex-start; flex-wrap:wrap; } .ai-profile-details { flex:1; } .ai-profile-actions { width:100%; flex-wrap:wrap; padding-left:32px; } .ai-profile-actions .secondary-button { min-height:34px; } }
 @media(max-width:560px) { .ai-chat-root { right:12px; bottom:12px; } .ai-chat-panel { width:calc(100vw - 24px); height:calc(100dvh - 84px); max-height:none; border-radius:16px; } .ai-chat-launcher { min-height:44px; } .ai-profile-row { align-items:flex-start; flex-direction:column; } }
 @media(max-width:480px) { .ai-provider-dialog { width:calc(100% - 18px); max-height:calc(100dvh - 18px); border-radius:14px; } .ai-provider-dialog>.ai-profile-form { padding:17px; } }
-@media(prefers-reduced-motion:reduce) { .ai-chat-panel,.ai-chat-launcher { animation:none; transition:none; } }
+@media(prefers-reduced-motion:reduce) { .ai-chat-panel,.ai-chat-launcher,.ai-chat-skills button { animation:none; transition:none; } }
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--text-primary);

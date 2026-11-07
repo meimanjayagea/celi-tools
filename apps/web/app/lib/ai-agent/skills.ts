@@ -1,0 +1,12 @@
+export const AI_HELP_SKILLS = [
+  { id:"api-client", label:"API Client", prompt:"Bantu saya menggunakan API Client.", match:/\b(api|postman|curl|request|header|bearer|authorization|collection|endpoint)\b/i, instruction:"API Client skill: explain request methods, URL/query params, headers and auth, body, collections, cURL import/export, variables, response inspection, and safe testing. Give short ordered steps." },
+  { id:"sticky-notes", label:"Sticky Note", prompt:"Bantu saya menggunakan Sticky Note.", match:/\b(sticky|note|catatan|pengingat|reminder|tag)\b/i, instruction:"Sticky Note skill: help with creating, editing, organizing, searching, tagging, moving, coloring, and setting reminders for notes. Never claim to view or change the user's actual notes." },
+  { id:"json-workspace", label:"JSON Workspace", prompt:"Bantu saya menggunakan JSON Workspace.", match:/\b(json|yaml|format|formatter|schema|beautify|compress json)\b/i, instruction:"JSON Workspace skill: explain validating, formatting, minifying, converting, and comparing structured JSON data. Do not claim to process data that was not included in the chat." },
+  { id:"file-tools", label:"File Converter & Compress", prompt:"Bantu saya mengonversi atau mengompres file.", match:/\b(file|convert|converter|compress|kompres|pdf|gambar|image|upload|malware)\b/i, instruction:"File tools skill: explain supported file workflows, upload limits, conversion, compression, and download steps. Do not promise every format is convertible or claim a file is malware-free." },
+  { id:"crypto-tools", label:"Crypto Tools", prompt:"Bantu saya menggunakan Crypto Tools.", match:/\b(crypto|hash|encrypt|decrypt|enkripsi|dekripsi|base64|jwt|hmac|uuid)\b/i, instruction:"Crypto Tools skill: explain the application's encoding, hashing, encryption, token, and utility tools. Distinguish encoding from encryption and warn users not to paste real secrets into chat." },
+  { id:"preferences", label:"Preferensi & Akun", prompt:"Bantu saya mengatur preferensi aplikasi.", match:/\b(preferensi|settings|pengaturan|tema|theme|bahasa|language|login|akun|account)\b/i, instruction:"Preferences skill: explain account sign-in, theme, language, and application preferences. Never request a password, OAuth token, or API key." },
+];
+
+export function selectAiHelpSkill(message:string) {
+  return AI_HELP_SKILLS.find((skill)=>skill.match.test(message)) ?? null;
+}

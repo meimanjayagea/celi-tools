@@ -1,9 +1,10 @@
 import "server-only";
 import { pool } from "../database";
-import { decryptProviderKey, encryptProviderKey } from "./credentials";
+import { decryptAiHelpMemory, decryptProviderKey, encryptAiHelpMemory, encryptProviderKey } from "./credentials";
 import type { AiProvider, EncryptedSecret, ProviderProfile, SaveProfileInput, StoredProfile } from "./types";
 
 type Row = { id:string; name:string; provider:AiProvider; model_id:string; base_url:string|null; api_key_ciphertext:Buffer|null; api_key_nonce:Buffer|null; api_key_tag:Buffer|null; encryption_version:1|null; is_active:boolean; fallback_order:number; created_at:Date; updated_at:Date };
+export type AiHelpMessage = { id:string; role:"user"|"assistant"; content:string; createdAt:string };
 const safe = (row: Row): StoredProfile => ({ id:row.id, name:row.name, provider:row.provider, modelId:row.model_id, baseUrl:row.base_url, isActive:row.is_active, fallbackOrder:row.fallback_order, hasApiKey:Boolean(row.api_key_ciphertext), createdAt:row.created_at.toISOString(), updatedAt:row.updated_at.toISOString(), secret:row.api_key_ciphertext ? { ciphertext:row.api_key_ciphertext, nonce:row.api_key_nonce!, tag:row.api_key_tag!, version:row.encryption_version! } : null });
 const visible = (stored: StoredProfile): ProviderProfile => ({ id:stored.id, name:stored.name, provider:stored.provider, modelId:stored.modelId, baseUrl:stored.baseUrl, isActive:stored.isActive, fallbackOrder:stored.fallbackOrder, hasApiKey:stored.hasApiKey, createdAt:stored.createdAt, updatedAt:stored.updatedAt });
 
@@ -28,6 +29,48 @@ export async function listEnabledProviderProfiles(): Promise<Array<ProviderProfi
     const { secret, ...metadata } = profile;
     return [{ ...metadata, apiKey:decryptProviderKey(secret) }];
   });
+}
+
+/** Return the signed-in user's bounded, private help-chat context. */
+export async function getAiHelpMemory(userId:string):Promise<AiHelpMessage[]> {
+  if (!pool) throw new Error("AI help memory storage is unavailable.");
+  let rows:{memory_ciphertext:Buffer;memory_nonce:Buffer;memory_tag:Buffer;encryption_version:1}[];
+  try { ({rows}=await pool.query<{memory_ciphertext:Buffer;memory_nonce:Buffer;memory_tag:Buffer;encryption_version:1}>(`SELECT memory_ciphertext,memory_nonce,memory_tag,encryption_version FROM celi_app.ai_help_memories WHERE user_id=$1`,[userId])); }
+  catch(error) { if ((error as {code?:string}).code==="42P01") return []; throw error; }
+  if (!rows[0]) return [];
+  let messages:unknown;
+  try { messages=JSON.parse(decryptAiHelpMemory({ciphertext:rows[0].memory_ciphertext,nonce:rows[0].memory_nonce,tag:rows[0].memory_tag,version:rows[0].encryption_version})); } catch { throw new Error("AI help memory cannot be decrypted."); }
+  if (!Array.isArray(messages)) return [];
+  return messages.filter((item):item is AiHelpMessage => Boolean(item && typeof item === "object" && typeof item.id === "string" && (item.role === "user" || item.role === "assistant") && typeof item.content === "string" && typeof item.createdAt === "string"));
+}
+
+/** Append successful turns atomically and retain only the latest 24 short messages. */
+export async function appendAiHelpMemory(userId:string, additions:AiHelpMessage[]):Promise<void> {
+  if (!pool) throw new Error("AI help memory storage is unavailable.");
+  const client=await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const emptyMemory=encryptAiHelpMemory("[]");
+    await client.query(`INSERT INTO celi_app.ai_help_memories (user_id,memory_ciphertext,memory_nonce,memory_tag,encryption_version) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (user_id) DO NOTHING`,[userId,emptyMemory.ciphertext,emptyMemory.nonce,emptyMemory.tag,emptyMemory.version]);
+    const { rows }=await client.query<{memory_ciphertext:Buffer;memory_nonce:Buffer;memory_tag:Buffer;encryption_version:1}>(`SELECT memory_ciphertext,memory_nonce,memory_tag,encryption_version FROM celi_app.ai_help_memories WHERE user_id=$1 FOR UPDATE`,[userId]);
+    let current:unknown;
+    try { current=JSON.parse(decryptAiHelpMemory({ciphertext:rows[0].memory_ciphertext,nonce:rows[0].memory_nonce,tag:rows[0].memory_tag,version:rows[0].encryption_version})); } catch { throw new Error("AI help memory cannot be decrypted."); }
+    const previous=Array.isArray(current) ? current.filter((item):item is AiHelpMessage => Boolean(item && typeof item === "object" && typeof item.id === "string" && (item.role === "user" || item.role === "assistant") && typeof item.content === "string" && typeof item.createdAt === "string")) : [];
+    const byId=new Map(previous.map((item)=>[item.id,item]));
+    for (const item of additions) byId.set(item.id,item);
+    const bounded=[...byId.values()].sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).slice(-24);
+    let chars=0;
+    const trimmed=bounded.reverse().filter((item)=>{if (chars+item.content.length>12_000) return false;chars+=item.content.length;return true;}).reverse();
+    const encrypted=encryptAiHelpMemory(JSON.stringify(trimmed));
+    await client.query(`UPDATE celi_app.ai_help_memories SET memory_ciphertext=$2,memory_nonce=$3,memory_tag=$4,encryption_version=$5,updated_at=now() WHERE user_id=$1`,[userId,encrypted.ciphertext,encrypted.nonce,encrypted.tag,encrypted.version]);
+    await client.query("COMMIT");
+  } catch(error) { await client.query("ROLLBACK").catch(()=>{});throw error; }
+  finally { client.release(); }
+}
+
+export async function clearAiHelpMemory(userId:string):Promise<void> {
+  if (!pool) throw new Error("AI help memory storage is unavailable.");
+  await pool.query(`DELETE FROM celi_app.ai_help_memories WHERE user_id=$1`,[userId]);
 }
 
 export async function saveProviderProfile(input: SaveProfileInput): Promise<ProviderProfile> {

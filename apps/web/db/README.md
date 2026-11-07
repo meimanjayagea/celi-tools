@@ -8,6 +8,7 @@ Flyway is the migration source of truth for the web app. Configuration is in `ap
 | `V002__sticky_notes.sql` | Per-user notes and reminder indexes in `celi_app`. |
 | `V003__ai_agent.sql` | Encrypted AI provider profiles in `celi_app`. |
 | `V004__ai_provider_fallback.sql` | Additional AI providers and ordered fallback profiles. |
+| `V005__ai_help_memory.sql` | Per-account bounded AI help conversation context encrypted with the server-side credentials key, cleared with the account or from the chat. |
 
 ## Configuration
 

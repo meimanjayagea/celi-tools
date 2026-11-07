@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { streamWithFallback } from "./failover-policy.mjs";
 
-export async function uiStreamWithFallback({writer,profiles,signal,createStream,createId=randomUUID,safeErrorText="Bantuan AI sementara tidak tersedia. Coba lagi nanti."}) {
+export async function uiStreamWithFallback({writer,profiles,signal,createStream,createId=randomUUID,onComplete,safeErrorText="Bantuan AI sementara tidak tersedia. Coba lagi nanti."}) {
   let started=false;
   const messageId=createId();
   const textId=createId();
+  let responseText="";
   const start=()=>{
     if(started)return;
     started=true;
@@ -15,6 +16,7 @@ export async function uiStreamWithFallback({writer,profiles,signal,createStream,
   try {
     for await(const delta of streamWithFallback({profiles,signal,createStream})) {
       start();
+      responseText+=delta;
       writer.write({type:"text-delta",id:textId,delta});
     }
   } catch {
@@ -29,6 +31,7 @@ export async function uiStreamWithFallback({writer,profiles,signal,createStream,
     writer.write({type:"finish",finishReason:"error"});
     return;
   }
+  if(responseText.trim()) await onComplete?.({id:messageId,text:responseText});
   start();
   writer.write({type:"text-end",id:textId});
   writer.write({type:"finish-step"});

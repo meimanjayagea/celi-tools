@@ -1,6 +1,7 @@
 const retryableStatuses = new Set([408, 425, 429]);
 const quotaCodes = /(?:insufficient[_ -]?quota|quota[_ -]?(?:exceeded|exhausted)|resource[_ -]?exhausted|billing[_ -]?(?:hard[_ -]?limit|limit)|rate[_ -]?limit|too[_ -]?many[_ -]?requests)/i;
 const networkCodes = new Set(["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EAI_AGAIN", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_SOCKET"]);
+let lastSuccessfulProfileId = null;
 
 function collectFailureDetails(error) {
   const details = [];
@@ -43,7 +44,8 @@ export function classifyProviderFailure(error) {
 }
 
 export async function* streamWithFallback({ profiles, signal, maxAttempts=profiles.length, createStream, classify=classifyProviderFailure }) {
-  const candidates=profiles.slice(0,Math.max(0,Math.min(maxAttempts,profiles.length)));
+  const ordered=lastSuccessfulProfileId ? [...profiles].sort((a,b)=>Number(b.id===lastSuccessfulProfileId)-Number(a.id===lastSuccessfulProfileId)) : profiles;
+  const candidates=ordered.slice(0,Math.max(0,Math.min(maxAttempts,ordered.length)));
   let lastError;
   for (const profile of candidates) {
     if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
@@ -55,6 +57,7 @@ export async function* streamWithFallback({ profiles, signal, maxAttempts=profil
         emittedText=true;
         yield text;
       }
+      lastSuccessfulProfileId=profile.id;
       return;
     } catch (error) {
       lastError=error;
