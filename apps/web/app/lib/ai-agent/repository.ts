@@ -21,7 +21,7 @@ export async function getProviderProfile(id: string): Promise<StoredProfile | nu
 
 export async function listEnabledProviderProfiles(): Promise<Array<ProviderProfile & { apiKey:string }>> {
   if (!pool) return [];
-  const { rows } = await pool.query<Row>(`SELECT * FROM celi_app.ai_provider_profiles WHERE is_active ORDER BY fallback_order ASC, created_at ASC, id ASC LIMIT 4`);
+  const { rows } = await pool.query<Row>(`SELECT * FROM celi_app.ai_provider_profiles WHERE is_active ORDER BY fallback_order ASC, created_at ASC, id ASC`);
   return rows.flatMap((row) => {
     const profile = safe(row);
     if (!profile.secret) return [];
@@ -40,11 +40,6 @@ export async function saveProviderProfile(input: SaveProfileInput): Promise<Prov
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    if (input.isActive && !current?.isActive) {
-      await client.query("LOCK TABLE celi_app.ai_provider_profiles IN SHARE ROW EXCLUSIVE MODE");
-      const { rows:[{active_count}] }=await client.query<{active_count:number}>(`SELECT COUNT(*)::integer AS active_count FROM celi_app.ai_provider_profiles WHERE is_active`);
-      if (active_count>=4) throw new Error("Maksimal 4 provider dapat diaktifkan untuk fallback.");
-    }
     let fallbackOrder=input.fallbackOrder ?? current?.fallbackOrder;
     if (fallbackOrder===undefined) {
       const { rows:[ordering] }=await client.query<{next_order:number}>(`SELECT COALESCE(MAX(fallback_order),-1)+1 AS next_order FROM celi_app.ai_provider_profiles`);
@@ -67,15 +62,9 @@ export async function saveProviderProfile(input: SaveProfileInput): Promise<Prov
 export async function saveProviderProfiles(inputs: SaveProfileInput[]): Promise<ProviderProfile[]> {
   if (!pool) throw new Error("AI provider storage is unavailable.");
   if (!inputs.length || inputs.length > 20 || inputs.some((input) => input.id || !input.apiKey) || new Set(inputs.map((input) => input.modelId)).size !== inputs.length) throw new Error("Daftar model tidak valid.");
-  const active = inputs.filter((input) => input.isActive).length;
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    if (active) {
-      await client.query("LOCK TABLE celi_app.ai_provider_profiles IN SHARE ROW EXCLUSIVE MODE");
-      const { rows:[{active_count}] } = await client.query<{active_count:number}>(`SELECT COUNT(*)::integer AS active_count FROM celi_app.ai_provider_profiles WHERE is_active`);
-      if (active_count + active > 4) throw new Error("Maksimal 4 provider aktif dapat disertakan dalam fallback.");
-    }
     const { rows:[ordering] } = await client.query<{next_order:number}>(`SELECT COALESCE(MAX(fallback_order),-1)+1 AS next_order FROM celi_app.ai_provider_profiles`);
     const saved: ProviderProfile[] = [];
     for (const [index,input] of inputs.entries()) {

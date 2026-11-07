@@ -42,8 +42,8 @@ export function classifyProviderFailure(error) {
   return { retryable:false, category:status === 401 || status === 403 ? "credentials_or_access" : "non_retryable" };
 }
 
-export async function* streamWithFallback({ profiles, signal, maxAttempts=4, createStream, classify=classifyProviderFailure }) {
-  const candidates=profiles.slice(0,Math.max(0,Math.min(maxAttempts,4)));
+export async function* streamWithFallback({ profiles, signal, maxAttempts=profiles.length, createStream, classify=classifyProviderFailure }) {
+  const candidates=profiles.slice(0,Math.max(0,Math.min(maxAttempts,profiles.length)));
   let lastError;
   for (const profile of candidates) {
     if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");

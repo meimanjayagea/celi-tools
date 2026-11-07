@@ -172,7 +172,7 @@ export default function AiAgentSettings() {
       </form>
       </dialog>
       <section className="panel ai-profiles"><header><div><h2>{t("Urutan provider fallback")}</h2><p>{profiles.length} {t("profil tersimpan")}</p></div><button type="button" className="primary-button" aria-haspopup="dialog" aria-expanded={formOpen} onClick={addProvider}><Plus size={16}/>{t("Tambah provider")}</button></header>
-        <p className="ai-fallback-hint">{t("Maksimal empat provider aktif dicoba sesuai urutan. Fallback hanya untuk kuota atau gangguan sementara sebelum jawaban dimulai.")}</p>
+        <p className="ai-fallback-hint">{t("Semua provider aktif tersedia untuk fallback sesuai urutan selama batas waktu permintaan. Fallback berjalan untuk kuota atau gangguan sementara sebelum jawaban dimulai.")}</p>
         {loading?<p className="ai-empty"><LoaderCircle size={18} className="spin"/>{t("Memuat…")}</p>:profiles.length===0?<p className="ai-empty">{t("Belum ada provider. Tambahkan konfigurasi untuk mengaktifkan chat.")}</p>:<div className="ai-provider-table-scroll"><table className="ai-provider-table"><thead><tr><th>{t("Nama profil")}</th><th>{t("Provider / Model")}</th><th>{t("Status")}</th><th>{t("Urutan")}</th><th><span className="sr-only">{t("Aksi")}</span></th></tr></thead><tbody>{sortedProfiles.map((profile,index)=><tr key={profile.id}>
           <td className="ai-table-name"><strong>{profile.name}</strong></td>
           <td className="ai-table-model"><span>{providers.find(item=>item.id===profile.provider)?.label||profile.provider}</span><code title={profile.modelId}>{profile.modelId}</code></td>
