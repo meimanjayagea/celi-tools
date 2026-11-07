@@ -1,12 +1,9 @@
 import { assertNoRedirect } from "./endpoint-safety.mjs";
 import { readBoundedJson, safeModelCatalogError } from "./catalog-normalize.mjs";
 
-export function providerCatalogUrl(provider, baseUrl, pageToken, apiKey) {
+export function providerCatalogUrl(provider, baseUrl, pageToken) {
   const url=new URL(`${baseUrl.replace(/\/$/,"")}/${provider==="xai"?"language-models":"models"}`);
-  if(provider==="google") {
-    if(apiKey)url.searchParams.set("key",apiKey);
-    if(pageToken)url.searchParams.set("pageToken",pageToken);
-  }
+  if(provider==="google"&&pageToken)url.searchParams.set("pageToken",pageToken);
   if(provider==="openai")url.searchParams.set("limit","200");
   if(provider==="anthropic") {
     url.searchParams.set("limit","100");
@@ -22,13 +19,15 @@ export function providerCatalogHeaders(provider,apiKey) {
   if(provider==="anthropic") {
     headers.set("x-api-key",apiKey);
     headers.set("anthropic-version","2023-06-01");
-  } else if(provider!=="google")headers.set("Authorization",`Bearer ${apiKey}`);
+  } else if(provider==="google") {
+    headers.set("x-goog-api-key",apiKey);
+  } else headers.set("Authorization",`Bearer ${apiKey}`);
   return headers;
 }
 
 export async function fetchCatalogPage({provider,baseUrl,apiKey,pageToken,fetchImpl=fetch,signal}) {
   try {
-    const response=await fetchImpl(providerCatalogUrl(provider,baseUrl,pageToken,apiKey),{
+    const response=await fetchImpl(providerCatalogUrl(provider,baseUrl,pageToken),{
       method:"GET",
       headers:providerCatalogHeaders(provider,apiKey),
       redirect:"error",

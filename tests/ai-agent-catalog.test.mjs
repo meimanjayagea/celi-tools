@@ -78,20 +78,20 @@ test("builds provider-specific model endpoints and authentication without leakin
   assert.equal(calls[0].headers.get("x-api-key"),"secret-value");
   assert.equal(calls[0].headers.get("anthropic-version"),"2023-06-01");
   assert.equal(calls[0].headers.has("authorization"),false);
-  assert.equal(providerCatalogUrl("google","https://generativelanguage.googleapis.com/v1beta",undefined,"google-secret").searchParams.get("key"),"google-secret");
+  assert.equal(providerCatalogUrl("google","https://generativelanguage.googleapis.com/v1beta").searchParams.has("key"),false);
   assert.equal(providerCatalogUrl("openrouter","https://openrouter.ai/api/v1").searchParams.get("output_modalities"),"text");
   for(const provider of ["openai","groq","xai","openrouter","opencode-zen","hermes","openai-compatible"]){
     assert.equal(providerCatalogHeaders(provider,"provider-key").get("authorization"),"Bearer provider-key");
   }
   assert.equal(providerCatalogUrl("anthropic","https://api.anthropic.com/v1","last-model").searchParams.get("after_id"),"last-model");
-  assert.equal(providerCatalogUrl("google","https://generativelanguage.googleapis.com/v1beta","next-page","google-secret").searchParams.get("pageToken"),"next-page");
+  assert.equal(providerCatalogUrl("google","https://generativelanguage.googleapis.com/v1beta","next-page").searchParams.get("pageToken"),"next-page");
 });
 
 test("mock model-list requests work for all nine provider choices", async () => {
   const cases=[
     {provider:"openai",baseUrl:"https://api.openai.com/v1",path:"/v1/models",auth:"Bearer test-key"},
     {provider:"anthropic",baseUrl:"https://api.anthropic.com/v1",path:"/v1/models",auth:"x-api-key:test-key"},
-    {provider:"google",baseUrl:"https://generativelanguage.googleapis.com/v1beta",path:"/v1beta/models",auth:"query:test-key"},
+    {provider:"google",baseUrl:"https://generativelanguage.googleapis.com/v1beta",path:"/v1beta/models",auth:"x-goog-api-key:test-key"},
     {provider:"groq",baseUrl:"https://api.groq.com/openai/v1",path:"/openai/v1/models",auth:"Bearer test-key"},
     {provider:"xai",baseUrl:"https://api.x.ai/v1",path:"/v1/language-models",auth:"Bearer test-key"},
     {provider:"openrouter",baseUrl:"https://openrouter.ai/api/v1",path:"/api/v1/models",auth:"Bearer test-key"},
@@ -107,7 +107,7 @@ test("mock model-list requests work for all nine provider choices", async () => 
     }});
     assert.deepEqual(result,{data:[{id:"chat-model",name:"Chat model"}]},entry.provider);
     assert.equal(call.url.pathname,entry.path,entry.provider);
-    const actualAuth=entry.auth.startsWith("query:")?`query:${call.url.searchParams.get("key")}`:entry.auth.startsWith("x-api-key:")?`x-api-key:${call.headers.get("x-api-key")}`:call.headers.get("authorization");
+    const actualAuth=entry.auth.startsWith("x-goog-api-key:")?`x-goog-api-key:${call.headers.get("x-goog-api-key")}`:entry.auth.startsWith("x-api-key:")?`x-api-key:${call.headers.get("x-api-key")}`:call.headers.get("authorization");
     assert.equal(actualAuth,entry.auth,entry.provider);
     if(entry.provider==="anthropic")assert.equal(call.headers.get("anthropic-version"),"2023-06-01");
   }
